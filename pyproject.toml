@@ -1,0 +1,27 @@
+[project]
+name = "lojas-ipe"
+version = "0.1.0"
+description = "Lojas Ipê — Análise Comercial e Financeira (projeto de portfólio de dados)"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [".venv", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+# tabelas de cadastro ficam em linhas largas por legibilidade
+"src/gerador/catalogo.py" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# Execução padrão deixa de fora os testes que precisam do PostgreSQL.
+# Para rodar também os de banco: pytest -m "banco or not banco"  (ou só eles: pytest -m banco)
+addopts = "-m 'not banco'"
+markers = [
+    "banco: testes que precisam de um servidor PostgreSQL (criam e apagam um banco de teste próprio)",
+]

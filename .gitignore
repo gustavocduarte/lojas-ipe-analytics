@@ -1,0 +1,35 @@
+# Segredos
+.env
+*.env
+!.env.example
+
+# Ambientes e caches Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Dados gerados (reprodutíveis pelo gerador)
+data/raw/*
+!data/raw/.gitkeep
+
+# Temporários do Excel
+~$*.xls*
+*.tmp
+.~lock.*
+
+# Temporários e cache do Power BI
+*.pbi/
+.pbi/
+localSettings.json
+cache.abf
+*.pbix.tmp
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

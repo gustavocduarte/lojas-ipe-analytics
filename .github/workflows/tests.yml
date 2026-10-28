@@ -1,0 +1,54 @@
+name: Testes
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
+
+    # PostgreSQL descartável, existe só durante este job (a senha abaixo não protege nada real).
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: senha_apenas_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      BD_TESTE_SERVIDOR: localhost
+      BD_TESTE_PORTA: "5432"
+      BD_TESTE_USUARIO: postgres
+      BD_TESTE_SENHA: senha_apenas_ci
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Ruff (lint)
+        run: ruff check .
+
+      - name: Ruff (formatação)
+        run: ruff format --check .
+
+      # No CI rodam os dois grupos: testes comuns e testes de banco.
+      - name: Pytest
+        run: pytest -m "banco or not banco"
