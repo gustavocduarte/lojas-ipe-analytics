@@ -44,3 +44,11 @@ Por padrão a carga é **incremental**: arquivos com o mesmo conteúdo (hash) de
 concluída não são relidos. Códigos de saída: 0 ok · 1 validação estrutural reprovou (o dw não
 muda) · 2 erro de uso · 3 erro de execução (banco, arquivo, memória, outra carga em andamento).
 O contrato de entrada está em `docs/contrato_de_entrada.md`.
+
+### Fonte de "outra empresa" (prova de generalidade)
+O gerador também cria `data/raw/outra_empresa/vendas_2024-03.xlsx`: uma planilha com colunas de
+nomes diferentes ("Nº Cupom", "Dt. Emissão", "Vlr. Líquido"...), cabeçalho na linha 3, linha de
+total no fim e uma aba extra ("Resumo") que deve ser ignorada. O mapeamento
+`config/fontes/outra_empresa.yaml` a leva ao mesmo contrato de entrada; por isso o resultado no dw
+é igual ao do CSV do ERP para o mesmo mês (há um teste para isso). Essa fonte só é carregada
+quando pedida (`python -m src.etl carregar --fonte outra_empresa`), para não misturar empresas.

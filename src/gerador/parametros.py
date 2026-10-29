@@ -20,6 +20,7 @@ class ParametrosGeracao:
         default_factory=lambda: dict(config.QUANTIDADE_ANOMALIAS)
     )
     verificar_memoria: bool = True
+    gerar_exemplo_outra_empresa: bool = True  # planilha Excel de outra empresa (um mês)
 
 
 def rng_para(semente: int, *chaves: int) -> np.random.Generator:

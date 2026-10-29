@@ -1,0 +1,43 @@
+# Fonte de exemplo: planilha Excel de "outra empresa" (gerada por src/gerador/outra_empresa.py).
+# Serve de prova de generalidade do ETL: nomes de coluna diferentes, cabeçalho na linha 3, linha de
+# total no fim e uma aba extra que deve ser ignorada. Só traz vendas de um mês.
+#
+# carga_padrao: false -> não entra em `python -m src.etl carregar` sem --fonte, para não misturar
+# os dados desta empresa com os do ERP da Lojas Ipê no mesmo dw.
+fonte: outra_empresa
+descricao: Planilha Excel de vendas de outra empresa (exemplo de mapeamento diferente).
+pasta: data/raw/outra_empresa
+carga_padrao: false
+
+entidades:
+  vendas:
+    arquivo: "vendas_*.xlsx"
+    formato: xlsx
+    aba: Vendas               # a aba "Resumo" vem antes e não deve ser lida
+    linha_cabecalho: 3        # as duas primeiras linhas são título e linha em branco
+    ignorar_linhas:           # linha de total no fim da planilha
+      - coluna: "Nº Cupom"
+        igual_a: TOTAL
+    separador_decimal: "."    # os números vêm como células numéricas do Excel
+    colunas:
+      "Nº Cupom": numero_cupom
+      "Item": numero_item
+      "Cód. Lançamento": id_venda_erp
+      "Dt. Emissão": data_venda
+      "Hora": hora_venda
+      "Filial": cod_loja
+      "PDV": caixa
+      "Vendedor": cod_vendedor
+      "Cliente": cod_cliente
+      "Forma Pgto": cod_forma_pagamento
+      "Parcelas": numero_parcelas
+      "Campanha": cod_campanha
+      "Produto (SKU)": sku
+      "Qtde": quantidade
+      "Preço Unit.": preco_unitario
+      "Desc. R$": desconto
+      "Vlr. Líquido": receita_liquida
+      "Custo Total": custo_total
+      "Total do Cupom": total_cupom
+      "Situação": status
+      "Motivo": motivo_cancelamento_devolucao

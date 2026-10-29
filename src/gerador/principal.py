@@ -10,7 +10,7 @@ import pandas as pd
 
 from src import calendario, config
 from src.gerador import despesas as mod_despesas
-from src.gerador import qualidade, vendas
+from src.gerador import outra_empresa, qualidade, vendas
 from src.gerador.catalogo import Catalogo, horario_funcionamento, montar_catalogo
 from src.gerador.escrita import EscritorCsv, RegistroCsv, formatar_dinheiro
 from src.gerador.parametros import ParametrosGeracao, rng_para
@@ -257,6 +257,15 @@ def gerar_dados(
                 cupons_vendedor[cod][0] += len(grupo)
                 cupons_vendedor[cod][1] += int((grupo["status"] == config.STATUS_CANCELADA).sum())
 
+            if (
+                params.gerar_exemplo_outra_empresa
+                and (ano, mes) == config.MES_EXEMPLO_OUTRA_EMPRESA
+            ):
+                exemplo = config.MODELO_ARQ_OUTRA_EMPRESA.format(ano=ano, mes=mes)
+                chave = f"{config.PASTA_OUTRA_EMPRESA}/{exemplo}"
+                resumo.linhas_por_arquivo[chave] = outra_empresa.gravar_vendas(
+                    df, saida / config.PASTA_OUTRA_EMPRESA / exemplo, ano, mes
+                )
             nome = config.MODELO_ARQ_VENDAS.format(ano=ano, mes=mes)
             texto = qualidade.converter_para_texto(
                 df,

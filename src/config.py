@@ -70,6 +70,10 @@ ARQ_ORCAMENTO = "orcamento_despesas.csv"
 ARQ_ANOMALIAS = "_anomalias_injetadas.csv"
 ARQ_PROBLEMAS = "_problemas_qualidade.csv"
 MODELO_ARQ_VENDAS = "vendas_{ano}-{mes:02d}.csv"
+# Exemplo de fonte de "outra empresa": planilha Excel com as vendas de um mês
+PASTA_OUTRA_EMPRESA = "outra_empresa"
+MODELO_ARQ_OUTRA_EMPRESA = "vendas_{ano}-{mes:02d}.xlsx"
+MES_EXEMPLO_OUTRA_EMPRESA = (2024, 3)
 
 # --- Calendário e sazonalidade brasileira -----------------------------------------------------
 FERIADOS_FIXOS = (
