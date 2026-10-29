@@ -8,6 +8,7 @@ RAIZ_PROJETO = Path(__file__).resolve().parent.parent
 DIR_DADOS_BRUTOS = RAIZ_PROJETO / "data" / "raw"
 DIR_DDL = RAIZ_PROJETO / "sql" / "ddl"
 DIR_PROCEDURES = RAIZ_PROJETO / "sql" / "procedures"
+DIR_VIEWS = RAIZ_PROJETO / "sql" / "views"
 
 # --- Banco de dados ---------------------------------------------------------------------------
 NOME_BANCO_DW = "lojas_ipe_dw"

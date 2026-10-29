@@ -105,6 +105,7 @@ def modelo_do_banco():
         with psycopg.connect(dbname=nome, **acesso) as con:
             banco.aplicar_ddl(con)
             banco.aplicar_procedures(con)
+            banco.aplicar_views(con)
         yield nome
     finally:
         _apagar_banco(acesso, nome)

@@ -77,6 +77,16 @@ def aplicar_procedures(
     return aplicados
 
 
+def aplicar_views(conexao: psycopg.Connection, diretorio: Path = config.DIR_VIEWS) -> list[str]:
+    """Cria ou substitui as views de sql/views (podem ser reaplicadas; rodam depois do DDL)."""
+    aplicados = []
+    for script in sorted(diretorio.glob("*.sql")):
+        conexao.execute(script.read_text(encoding="utf-8"))
+        aplicados.append(script.name)
+    conexao.commit()
+    return aplicados
+
+
 def aplicar_scripts(
     conexao: psycopg.Connection, nomes: list[str], diretorio: Path = config.DIR_DDL
 ) -> list[str]:
@@ -100,15 +110,18 @@ def conectar() -> psycopg.Connection:
 
 
 def _principal(argumentos: list[str]) -> None:
-    """Sem argumentos: DDL completo (banco novo) e procedures. `--procedures`: só as procedures.
-    Com nomes de scripts de DDL: aplica só esses (banco que já tem os anteriores)."""
+    """Sem argumentos: DDL completo (banco novo), procedures e views. `--procedures` ou `--views`:
+    só esse grupo (reaplicável). Com nomes de scripts de DDL: aplica só esses (banco que já tem
+    os anteriores)."""
     with conectar() as conexao:
         if argumentos == ["--procedures"]:
             aplicados = aplicar_procedures(conexao)
+        elif argumentos == ["--views"]:
+            aplicados = aplicar_views(conexao)
         elif argumentos:
             aplicados = aplicar_scripts(conexao, argumentos)
         else:
-            aplicados = aplicar_ddl(conexao) + aplicar_procedures(conexao)
+            aplicados = aplicar_ddl(conexao) + aplicar_procedures(conexao) + aplicar_views(conexao)
         for nome in aplicados:
             print(f"aplicado: {nome}")
 
