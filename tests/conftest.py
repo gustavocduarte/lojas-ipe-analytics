@@ -92,19 +92,57 @@ def banco_de_teste():
         yield con
 
 
+@pytest.fixture(scope="session")
+def modelo_do_banco():
+    """Banco-modelo (todo o DDL e as procedures), criado uma vez por sessão de testes. Os testes
+    não o usam direto: clonam-no (CREATE DATABASE ... TEMPLATE), o que é muito mais rápido que
+    reaplicar o DDL a cada teste."""
+    acesso = parametros_banco_de_teste()
+    nome = f"teste_lojas_ipe_modelo_{uuid.uuid4().hex[:12]}"
+    with psycopg.connect(dbname="postgres", autocommit=True, **acesso) as con:
+        con.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(nome)))
+    try:
+        with psycopg.connect(dbname=nome, **acesso) as con:
+            banco.aplicar_ddl(con)
+            banco.aplicar_procedures(con)
+        yield nome
+    finally:
+        _apagar_banco(acesso, nome)
+
+
+@contextmanager
+def banco_clonado(modelo: str):
+    """Cópia descartável do banco-modelo, apagada ao final."""
+    acesso = parametros_banco_de_teste()
+    nome = f"teste_lojas_ipe_{uuid.uuid4().hex[:12]}"
+    comando = sql.SQL("CREATE DATABASE {} TEMPLATE {}").format(
+        sql.Identifier(nome), sql.Identifier(modelo)
+    )
+    for tentativa in range(TENTATIVAS_APAGAR_BANCO):
+        try:  # o autovacuum pode estar conectado ao modelo naquele instante: espera e repete
+            with psycopg.connect(dbname="postgres", autocommit=True, **acesso) as con:
+                con.execute(comando)
+            break
+        except psycopg.errors.ObjectInUse:
+            if tentativa == TENTATIVAS_APAGAR_BANCO - 1:
+                raise
+            time.sleep(ESPERA_APAGAR_BANCO_S)
+    try:
+        with psycopg.connect(dbname=nome, **acesso) as con:
+            yield con
+    finally:
+        _apagar_banco(acesso, nome)
+
+
 @pytest.fixture
-def banco_com_ddl():
+def banco_com_ddl(modelo_do_banco):
     """Banco com todo o DDL (01 em diante) e as procedures aplicados, um por teste."""
-    with banco_temporario() as con:
-        banco.aplicar_ddl(con)
-        banco.aplicar_procedures(con)
+    with banco_clonado(modelo_do_banco) as con:
         yield con
 
 
 @pytest.fixture(scope="module")
-def banco_compartilhado():
+def banco_compartilhado(modelo_do_banco):
     """Banco com DDL e procedures, um por módulo de testes (só para testes que não gravam nada)."""
-    with banco_temporario() as con:
-        banco.aplicar_ddl(con)
-        banco.aplicar_procedures(con)
+    with banco_clonado(modelo_do_banco) as con:
         yield con
