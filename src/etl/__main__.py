@@ -4,6 +4,7 @@
     python -m src.etl carregar --fonte lojas_ipe_erp
     python -m src.etl carregar --fonte lojas_ipe_erp --entidade lojas --entidade vendas
     python -m src.etl carregar --completo           # relê todos os arquivos, mesmo os inalterados
+    python -m src.etl alertas                       # reavalia as regras de alerta (sem recarregar)
     python -m src.etl fontes                        # lista as fontes mapeadas
 
 Códigos de saída: 0 = carga concluída; 1 = validação estrutural reprovou (dw intacto);
@@ -39,6 +40,8 @@ def _criar_parser() -> argparse.ArgumentParser:
     carregar.add_argument("--mapeamentos", type=Path, default=config.DIR_MAPEAMENTOS)
     carregar.add_argument("--relatorios", type=Path, default=config.DIR_PROCESSADOS)
     carregar.add_argument("-v", "--detalhado", action="store_true")
+    avulso = sub.add_parser("alertas", help="reavalia as regras de alerta sobre o dw atual")
+    avulso.add_argument("-v", "--detalhado", action="store_true")
     fontes = sub.add_parser("fontes", help="lista as fontes mapeadas")
     fontes.add_argument("--mapeamentos", type=Path, default=config.DIR_MAPEAMENTOS)
     return parser
@@ -68,8 +71,12 @@ def principal(
     except SystemExit as saida:  # argparse sai com 2 em erro de uso (ou 0 em --help)
         return int(saida.code or 0)
 
-    if args.comando == "carregar":
+    if args.comando in ("carregar", "alertas"):
         configurar_logging(args.detalhado)
+    if args.comando == "alertas":
+        return _alertas(
+            conexao, verificar_memoria, leitor_memoria, vigia_intervalo_s, vigia_tolerancia_s
+        )
 
     try:
         todas = carregar_fontes(args.mapeamentos)
@@ -125,6 +132,39 @@ def principal(
         RuntimeError,
         OSError,
     ) as erro:
+        log.error("erro de execução: %s", erro)
+        return config.CODIGO_SAIDA_ERRO_DE_EXECUCAO
+    finally:
+        if proprio and conexao is not None:
+            conexao.close()
+
+
+def _alertas(conexao, verificar_memoria, leitor_memoria, intervalo_s, tolerancia_s) -> int:
+    proprio = conexao is None
+    try:
+        conexao = conexao or banco.conectar()
+        id_carga, resumo = pipeline.gerar_alertas_avulso(
+            conexao,
+            verificar_memoria=verificar_memoria,
+            leitor_memoria=leitor_memoria,
+            vigia_intervalo_s=intervalo_s,
+            vigia_tolerancia_s=tolerancia_s,
+        )
+        for tipo in resumo["por_tipo"]:
+            print(
+                f"{tipo['tipo_alerta']:<32} detectados {tipo['detectados']:>5} | novos "
+                f"{tipo['novos']:>4} | atualizados {tipo['atualizados']:>4} | inalterados "
+                f"{tipo['inalterados']:>5} | reativados {tipo['reativados']:>3} | deixaram de "
+                f"vigorar {tipo['deixaram_de_vigorar']:>4}"
+            )
+        desempenho = resumo["desempenho"]
+        print(
+            f"carga {id_carga}: {resumo['vigentes_independentes']} alertas independentes, "
+            f"{resumo['vigentes_derivados']} derivados, {resumo['nao_vigentes']} não vigentes; "
+            f"{desempenho['duracao_s']} s, pico {desempenho['pico_memoria_processo_gb']} GB"
+        )
+        return config.CODIGO_SAIDA_OK
+    except (MemoriaInsuficiente, pipeline.CargaEmAndamento, psycopg.Error, RuntimeError) as erro:
         log.error("erro de execução: %s", erro)
         return config.CODIGO_SAIDA_ERRO_DE_EXECUCAO
     finally:

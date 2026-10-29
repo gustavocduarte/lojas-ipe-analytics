@@ -96,6 +96,7 @@ def montar(
     validacoes: list[ResultadoValidacao],
     sinais: list[SinalNegocio],
     desempenho: dict | None = None,
+    alertas: dict | None = None,
 ) -> dict:
     """Junta o que foi coletado com o resultado das validações e o estado final do dw."""
     carga = _linhas(
@@ -152,6 +153,7 @@ def montar(
         ],
         "linhas_no_dw": contar_linhas_do_dw(conexao),
         "desempenho": desempenho or {},
+        "alertas": alertas or {},
     }
 
 

@@ -6,7 +6,9 @@ Fluxo de cada fonte:
   3. se alguma validação estrutural falhar, desfaz tudo: o dw fica como estava e a carga é marcada
      como reprovada (os arquivos não contam como processados e serão relidos na próxima vez);
   4. senão, confirma o dw e marca os arquivos como processados;
-  5. grava validações, sinais de negócio e o relatório de qualidade.
+  5. grava validações, sinais de negócio e o relatório de qualidade;
+  6. se entrou dado novo, gera os alertas (Fase 3) a partir do dw. Um erro aqui não desfaz a carga
+     (o dw já foi confirmado): vai para o relatório e a exceção sobe depois de gravá-lo.
 """
 
 import logging
@@ -18,7 +20,7 @@ from pathlib import Path
 import psycopg
 
 from src import config
-from src.etl import controle, relatorio, validacao
+from src.etl import alertas, controle, relatorio, validacao
 from src.etl.leitura import carregar_para_staging
 from src.etl.mapeamento import Fonte
 from src.memoria import (
@@ -45,6 +47,7 @@ class ResultadoCarga:
     relatorio: dict
     caminho_relatorio: Path
     reprovadas: list[validacao.ResultadoValidacao] = field(default_factory=list)
+    alertas: dict = field(default_factory=dict)  # resumo da geração de alertas ({} se não rodou)
 
     @property
     def aprovada(self) -> bool:
@@ -70,6 +73,7 @@ def carregar(
     leitor_memoria: Callable[[], float] | None = None,
     vigia_intervalo_s: float = config.INTERVALO_VIGIA_MEMORIA_S,
     vigia_tolerancia_s: float = config.TOLERANCIA_PISO_MEMORIA_S,
+    gerar_alertas: bool = True,
 ) -> ResultadoCarga:
     """Executa a carga completa de uma fonte. Levanta exceção só para erros de execução; uma
     validação reprovada é um resultado normal (status 'reprovada').
@@ -78,7 +82,8 @@ def carregar(
     livre em paralelo durante toda a carga: se ela ficar abaixo do piso por mais de
     `vigia_tolerancia_s` segundos seguidos, a consulta em andamento é cancelada, a transação é
     desfeita (o dw fica como estava), a carga é marcada como erro e sobe MemoriaRompida.
-    `leitor_memoria` troca a leitura real por uma simulada (testes).
+    `leitor_memoria` troca a leitura real por uma simulada (testes). Com `gerar_alertas`, a carga
+    aprovada que trouxe dados novos termina gerando os alertas (também sob a vigia de memória).
     """
     if verificar_memoria:
         _checar_piso(leitor_memoria)
@@ -96,7 +101,21 @@ def carregar(
             ao_romper=conexao.cancel,  # interrompe a consulta SQL em andamento
         ).iniciar()
     try:
-        return _carregar_com_trava(conexao, fonte, entidades, modo, pasta_relatorios, vigia)
+        opcoes_alertas = {
+            "verificar_memoria": verificar_memoria,
+            "leitor_memoria": leitor_memoria,
+            "vigia_intervalo_s": vigia_intervalo_s,
+            "vigia_tolerancia_s": vigia_tolerancia_s,
+        }
+        return _carregar_com_trava(
+            conexao,
+            fonte,
+            entidades,
+            modo,
+            pasta_relatorios,
+            vigia,
+            opcoes_alertas if gerar_alertas else None,
+        )
     finally:
         if vigia is not None:
             vigia.parar()
@@ -117,7 +136,7 @@ def _finalizar_com_erro(conexao, id_carga: int, erro: Exception) -> None:
                 raise
 
 
-def _carregar_com_trava(conexao, fonte, entidades, modo, pasta_relatorios, vigia):
+def _carregar_com_trava(conexao, fonte, entidades, modo, pasta_relatorios, vigia, opcoes_alertas):
     inicio = time.perf_counter()
     livre_inicio = memoria_livre_gb()
     log.info("carga da fonte '%s' (modo %s)", fonte.nome, modo)
@@ -167,7 +186,21 @@ def _carregar_com_trava(conexao, fonte, entidades, modo, pasta_relatorios, vigia
     }
     if vigia is not None and vigia.minimo_gb is not None:
         desempenho["memoria_livre_minima_durante_a_carga_gb"] = round(vigia.minimo_gb, 2)
-    documento = relatorio.montar(conexao, id_carga, coletado, validacoes, sinais, desempenho)
+
+    resumo_alertas: dict = {}
+    erro_alertas: Exception | None = None
+    if aprovada and opcoes_alertas is not None and staging.linhas_lidas > 0:
+        try:
+            resumo_alertas = alertas.gerar(conexao, id_carga, **opcoes_alertas)
+        except Exception as erro:  # o dw já foi confirmado: registra e sobe depois do relatório
+            conexao.rollback()
+            erro_alertas = erro
+            resumo_alertas = {"erro": str(erro)}
+            log.error("carga %d: a geração de alertas falhou: %s", id_carga, erro)
+
+    documento = relatorio.montar(
+        conexao, id_carga, coletado, validacoes, sinais, desempenho, resumo_alertas
+    )
     caminho = relatorio.gravar(conexao, documento, pasta_relatorios)
     log.info(
         "carga %d %s: %d linhas lidas, %d rejeitadas, %d células corrigidas (relatório: %s)",
@@ -178,4 +211,50 @@ def _carregar_com_trava(conexao, fonte, entidades, modo, pasta_relatorios, vigia
         documento["resumo"]["celulas_corrigidas"],
         caminho,
     )
-    return ResultadoCarga(fonte.nome, id_carga, status, documento, caminho, falhas)
+    if erro_alertas is not None:
+        raise erro_alertas
+    return ResultadoCarga(
+        fonte.nome, id_carga, status, documento, caminho, falhas, alertas=resumo_alertas
+    )
+
+
+def gerar_alertas_avulso(
+    conexao: psycopg.Connection,
+    *,
+    verificar_memoria: bool = True,
+    leitor_memoria: Callable[[], float] | None = None,
+    vigia_intervalo_s: float = config.INTERVALO_VIGIA_MEMORIA_S,
+    vigia_tolerancia_s: float = config.TOLERANCIA_PISO_MEMORIA_S,
+) -> tuple[int, dict]:
+    """Reavalia as regras de alerta sem recarregar dados (ex.: depois de mudar um parâmetro).
+
+    Abre uma carga própria (fonte 'alertas'), respeita a trava e a vigia de memória.
+    Devolve (id_carga, resumo).
+    """
+    if verificar_memoria:
+        _checar_piso(leitor_memoria)
+    if not conexao.execute("SELECT pg_try_advisory_lock(%s)", (config.CHAVE_TRAVA_ETL,)).fetchone()[
+        0
+    ]:
+        raise CargaEmAndamento("já existe uma carga em andamento neste banco")
+    conexao.commit()
+    id_carga = controle.iniciar_carga(conexao, "alertas", "completo")
+    try:
+        resumo = alertas.gerar(
+            conexao,
+            id_carga,
+            verificar_memoria=verificar_memoria,
+            leitor_memoria=leitor_memoria,
+            vigia_intervalo_s=vigia_intervalo_s,
+            vigia_tolerancia_s=vigia_tolerancia_s,
+        )
+    except Exception as erro:
+        conexao.rollback()
+        _finalizar_com_erro(conexao, id_carga, erro)
+        raise
+    finally:
+        conexao.rollback()
+        conexao.execute("SELECT pg_advisory_unlock(%s)", (config.CHAVE_TRAVA_ETL,))
+        conexao.commit()
+    controle.finalizar_carga(conexao, id_carga, controle.STATUS_CONCLUIDA)
+    return id_carga, resumo
