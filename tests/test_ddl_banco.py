@@ -49,6 +49,10 @@ TABELAS_ETL = {
     "arquivos_processados",
     "carga_tabelas",
     "carga_correcoes",
+    "parametros_negocio",
+    "carga_validacoes",
+    "carga_sinais",
+    "relatorios_qualidade",
 }
 
 

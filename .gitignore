@@ -16,6 +16,10 @@ __pycache__/
 data/raw/*
 !data/raw/.gitkeep
 
+# Relatórios de qualidade das cargas (gerados pelo ETL)
+data/processed/*
+!data/processed/.gitkeep
+
 # Temporários do Excel
 ~$*.xls*
 *.tmp
