@@ -13,7 +13,7 @@ se comparam ao orçado e à previsão por centro de custo, e quais lançamentos 
 |---|---|---|
 | 0 | Setup do repositório | feita |
 | 1 | Modelo dimensional + gerador de dados sintéticos | feita |
-| 2 | ETL com validações de qualidade e carga via procedures | em andamento |
+| 2 | ETL com validações de qualidade e carga via procedures | feita (aguarda revisão) |
 | 3 | Regras de anomalia em SQL e tabela de alertas | a fazer |
 | 4 | Previsão de vendas, relatório Excel e macro VBA | a fazer |
 | 5 | Dashboard Power BI (4 páginas) | a fazer |
