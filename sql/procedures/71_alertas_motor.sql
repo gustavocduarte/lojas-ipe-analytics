@@ -68,6 +68,8 @@ BEGIN
         VALUES (p_id_carga, r.tipo_alerta, v_det, v_novos, v_mudou - v_reativ,
                 v_det - v_novos - v_mudou, v_reativ, v_sumiu);
     END LOOP;
+
+    CALL etl.vincular_derivados();  -- liga os alertas derivados às origens (ver 74_alertas_orcado.sql)
 END $$;
 
 -- Molde do que toda regra devolve (usado só para criar a tabela vazia de regras desligadas).
