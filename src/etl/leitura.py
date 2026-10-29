@@ -20,6 +20,7 @@ from src import config
 from src.etl import controle
 from src.etl.contrato import CONTRATO, DATA, DECIMAL, HORA
 from src.etl.mapeamento import Fonte, MapeamentoEntidade
+from src.memoria import MemoriaRompida, VigiaMemoria
 
 log = logging.getLogger(__name__)
 
@@ -228,6 +229,7 @@ def carregar_para_staging(
     entidades: list[str] | None = None,
     modo: str = "incremental",
     tamanho_lote: int = config.TAMANHO_LOTE_CARGA,
+    vigia: VigiaMemoria | None = None,
 ) -> ResultadoStaging:
     """Lê os arquivos da fonte para o staging dentro de uma nova carga.
 
@@ -253,6 +255,8 @@ def carregar_para_staging(
                     "fonte %s, %s: nenhum arquivo casa com '%s'", fonte.nome, entidade, mapa.arquivo
                 )
             for caminho in arquivos:
+                if vigia is not None:
+                    vigia.verificar()
                 resumo = hash_do_arquivo(caminho)
                 if modo == "incremental" and controle.arquivo_ja_processado(
                     conexao, fonte.nome, entidade, caminho.name, resumo
@@ -269,9 +273,13 @@ def carregar_para_staging(
                     log.info("%s: %s -> %d linhas no staging", entidade, caminho.name, lidas)
                 controle.registrar_arquivo(conexao, id_carga, resultado)
                 resultados.append(resultado)
+        if vigia is not None:
+            vigia.verificar()
         conexao.commit()
     except Exception as erro:
         conexao.rollback()
+        if vigia is not None and vigia.rompido and not isinstance(erro, MemoriaRompida):
+            erro = MemoriaRompida(vigia.motivo)  # a consulta foi cancelada pela vigia de memória
         controle.finalizar_carga(conexao, id_carga, "erro", str(erro))
-        raise
+        raise erro
     return ResultadoStaging(id_carga, resultados)

@@ -43,6 +43,9 @@ Cada execução é uma *carga* (tabela `etl.cargas`) e gera um relatório de qua
 Por padrão a carga é **incremental**: arquivos com o mesmo conteúdo (hash) de uma carga já
 concluída não são relidos. Códigos de saída: 0 ok · 1 validação estrutural reprovou (o dw não
 muda) · 2 erro de uso · 3 erro de execução (banco, arquivo, memória, outra carga em andamento).
+Durante a carga uma vigia confere a memória livre; se ela ficar abaixo de 0,4 GB por mais de
+alguns segundos seguidos (`src/config.py`), a consulta é cancelada, o dw volta ao que era e o
+comando sai com 3.
 O contrato de entrada está em `docs/contrato_de_entrada.md`.
 
 ### Fonte de "outra empresa" (prova de generalidade)

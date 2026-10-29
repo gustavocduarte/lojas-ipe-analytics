@@ -32,6 +32,8 @@ VAR_BD_TESTE_SENHA = "BD_TESTE_SENHA"
 
 # --- Memória (computador com ~3,9 GB de RAM) --------------------------------------------------
 MEMORIA_LIVRE_MINIMA_GB = 0.4
+INTERVALO_VIGIA_MEMORIA_S = 2.0  # de quanto em quanto tempo a carga confere a memória livre
+TOLERANCIA_PISO_MEMORIA_S = 6.0  # abaixo do piso por mais que isso, seguido: aborta a carga
 BYTES_POR_GB = 1024**3
 
 # --- Gerador: parâmetros gerais ---------------------------------------------------------------

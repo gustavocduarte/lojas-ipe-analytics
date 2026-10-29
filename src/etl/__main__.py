@@ -14,7 +14,7 @@ Códigos de saída: 0 = carga concluída; 1 = validação estrutural reprovou (d
 import argparse
 import logging
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import psycopg
@@ -58,6 +58,9 @@ def principal(
     *,
     conexao: psycopg.Connection | None = None,
     verificar_memoria: bool = True,
+    leitor_memoria: Callable[[], float] | None = None,
+    vigia_intervalo_s: float = config.INTERVALO_VIGIA_MEMORIA_S,
+    vigia_tolerancia_s: float = config.TOLERANCIA_PISO_MEMORIA_S,
 ) -> int:
     """Executa o comando e devolve o código de saída (`conexao`: banco injetado nos testes)."""
     try:
@@ -103,6 +106,9 @@ def principal(
                 modo=modo,
                 pasta_relatorios=args.relatorios,
                 verificar_memoria=verificar_memoria,
+                leitor_memoria=leitor_memoria,
+                vigia_intervalo_s=vigia_intervalo_s,
+                vigia_tolerancia_s=vigia_tolerancia_s,
             )
             if not resultado.aprovada:
                 log.error(

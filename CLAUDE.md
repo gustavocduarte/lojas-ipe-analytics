@@ -22,7 +22,7 @@ PostgreSQL 18 (local) + Python 3.12+ (pandas, sqlalchemy, psycopg 3, python-dote
 
 ## Restrição de memória
 O computador tem 3,9 GB de RAM e costuma ter ~0,5 GB livres.
-- Antes de qualquer etapa pesada (gerar dados, carga no banco), conferir a memória livre. **Abaixo de 0,4 GB não rodar**: avisar o usuário e esperar. O gerador já faz essa checagem (`src/memoria.py`).
+- Antes de qualquer etapa pesada (gerar dados, carga no banco), conferir a memória livre. **Abaixo de 0,4 GB não rodar**: avisar o usuário e esperar. O gerador já faz essa checagem (`src/memoria.py`). O ETL também: confere antes de começar e, durante a carga, uma vigia (`VigiaMemoria`) lê a memória a cada `INTERVALO_VIGIA_MEMORIA_S`; abaixo do piso por mais de `TOLERANCIA_PISO_MEMORIA_S` segundos seguidos, cancela a consulta SQL, desfaz a transação (o dw fica como estava), marca a carga como erro com o motivo e sai com o código 3.
 - Volumes moderados; processar em partes (o gerador escreve um mês por vez), nunca carregar tudo na memória.
 
 ## Plano de fases
