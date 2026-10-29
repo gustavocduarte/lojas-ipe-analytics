@@ -91,7 +91,8 @@ class TestIdempotencia:
         segunda = b.gerar(base)
         linhas = base.execute(
             "SELECT id_carga, detectados, novos, atualizados, inalterados, reativados,"
-            " deixaram_de_vigorar FROM etl.carga_alertas ORDER BY id_carga"
+            " deixaram_de_vigorar FROM etl.carga_alertas"
+            " WHERE tipo_alerta = 'desconto_acima_limite' ORDER BY id_carga"
         ).fetchall()
         assert linhas == [(primeira, 1, 1, 0, 0, 0, 0), (segunda, 2, 1, 0, 1, 0, 0)]
 
