@@ -1,6 +1,7 @@
 """Conexão com o PostgreSQL (credenciais sempre vindas do .env) e aplicação do DDL."""
 
 import os
+import sys
 from pathlib import Path
 
 import psycopg
@@ -64,18 +65,38 @@ def aplicar_ddl(conexao: psycopg.Connection, diretorio: Path = config.DIR_DDL) -
     return aplicados
 
 
-def _principal() -> None:
+def aplicar_scripts(
+    conexao: psycopg.Connection, nomes: list[str], diretorio: Path = config.DIR_DDL
+) -> list[str]:
+    """Executa só os scripts indicados (para bancos que já têm os anteriores aplicados)."""
+    for nome in nomes:
+        conexao.execute((diretorio / nome).read_text(encoding="utf-8"))
+    conexao.commit()
+    return list(nomes)
+
+
+def conectar() -> psycopg.Connection:
+    """Conexão psycopg com o banco do .env (usuário lojas_ipe)."""
     url = url_do_ambiente()
-    with psycopg.connect(
+    return psycopg.connect(
         host=url.host,
         port=url.port,
         dbname=url.database,
         user=url.username,
         password=url.password,
-    ) as conexao:
-        for nome in aplicar_ddl(conexao):
+    )
+
+
+def _principal(argumentos: list[str]) -> None:
+    """Sem argumentos aplica todo o DDL (banco novo); com nomes, aplica só esses scripts."""
+    with conectar() as conexao:
+        if argumentos:
+            aplicados = aplicar_scripts(conexao, argumentos)
+        else:
+            aplicados = aplicar_ddl(conexao)
+        for nome in aplicados:
             print(f"DDL aplicado: {nome}")
 
 
 if __name__ == "__main__":
-    _principal()
+    _principal(sys.argv[1:])

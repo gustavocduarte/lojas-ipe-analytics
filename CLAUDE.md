@@ -57,7 +57,7 @@ Não começar uma fase sem a revisão do usuário da anterior.
 ## Estrutura
 ```
 data/raw/          CSVs gerados (ignorados pelo git)
-sql/ddl/           DDL do PostgreSQL (00 = administrativo; 01..05 = schemas, dimensões, fatos, staging, índices)
+sql/ddl/           DDL do PostgreSQL (00 = administrativo; 01..05 = schemas, dimensões, fatos, staging, índices; 06.. = ETL)
 sql/procedures/    cargas em PL/pgSQL (Fase 2)
 sql/views/         views (Fases 3 e 5)
 src/gerador/       gerador de dados sintéticos
@@ -72,7 +72,8 @@ docs/contrato_de_entrada.md   gerado por `python -m src.etl.contrato`; não edit
 ```
 .venv\Scripts\activate
 python -m src.gerador                # gera data/raw/ (confere a memória antes)
-python -m src.banco                  # aplica o DDL 01..05 no banco do .env (usuário lojas_ipe)
+python -m src.banco                  # aplica todo o DDL 01.. num banco novo (usuário lojas_ipe do .env)
+python -m src.banco 06_controle_etl.sql   # aplica só scripts novos num banco que já tem os anteriores
 pytest                               # testes sem banco
 pytest -m banco                      # só os testes de banco (BD_TESTE_* no .env, usuário lojas_ipe_teste)
 ruff check . ; ruff format .

@@ -1,16 +1,11 @@
 """Testes que precisam de um PostgreSQL. Marcados com @pytest.mark.banco: ficam de fora da
-execução padrão (use `pytest -m banco`). Cada teste cria e apaga um banco próprio; nunca usa o
-lojas_ipe_dw. Usam o usuário de testes (BD_TESTE_USUARIO/BD_TESTE_SENHA, ver .env.example),
-que tem CREATEDB mas não é superusuário."""
-
-import os
-import uuid
+execução padrão (use `pytest -m banco`). Cada teste cria e apaga um banco próprio (fixture
+banco_de_teste em conftest.py); nunca usa o lojas_ipe_dw."""
 
 import psycopg
 import pytest
-from psycopg import sql
 
-from src import banco, config
+from src import banco
 
 pytestmark = pytest.mark.banco
 
@@ -46,38 +41,9 @@ TABELAS_STG = {
     "metas_vendedor",
     "despesas",
     "orcamento_despesas",
+    "rejeitados",
 }
-
-
-def _parametros_teste() -> dict:
-    banco.load_dotenv()
-    usuario = os.getenv(config.VAR_BD_TESTE_USUARIO)
-    senha = os.getenv(config.VAR_BD_TESTE_SENHA)
-    if not usuario or not senha:
-        pytest.skip("BD_TESTE_USUARIO/BD_TESTE_SENHA não configurados")
-    return {
-        "host": os.getenv(config.VAR_BD_TESTE_SERVIDOR) or config.SERVIDOR_PADRAO_BANCO,
-        "port": int(os.getenv(config.VAR_BD_TESTE_PORTA) or config.PORTA_PADRAO_BANCO),
-        "user": usuario,
-        "password": senha,
-    }
-
-
-@pytest.fixture
-def banco_de_teste():
-    """Cria um banco descartável com nome único e o apaga ao final (só o dono consegue apagar)."""
-    acesso = _parametros_teste()
-    nome = f"teste_lojas_ipe_{uuid.uuid4().hex[:12]}"
-    with psycopg.connect(dbname="postgres", autocommit=True, **acesso) as con:
-        con.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(nome)))
-    try:
-        with psycopg.connect(dbname=nome, **acesso) as con:
-            yield con
-    finally:
-        with psycopg.connect(dbname="postgres", autocommit=True, **acesso) as con:
-            con.execute(
-                sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(sql.Identifier(nome))
-            )
+TABELAS_ETL = {"cargas", "carga_arquivos", "arquivos_processados"}
 
 
 def _tabelas(con, schema: str) -> set[str]:
@@ -133,6 +99,7 @@ def test_ddl_cria_todas_as_tabelas(banco_de_teste):
     assert aplicados[0] == "01_schemas.sql"
     assert _tabelas(banco_de_teste, "dw") == TABELAS_DW
     assert _tabelas(banco_de_teste, "stg") == TABELAS_STG
+    assert _tabelas(banco_de_teste, "etl") == TABELAS_ETL
 
 
 def test_ddl_falha_ao_ser_reaplicado_em_banco_ja_criado(banco_de_teste):
