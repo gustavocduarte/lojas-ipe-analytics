@@ -38,9 +38,26 @@ O computador tem 3,9 GB de RAM e costuma ter ~0,5 GB livres.
   - gráfico de barras com a venda por dia;
   - rankings de lojas, setores, produtos e vendedores contra o ano anterior;
   - medidas DAX com `TOTALMTD`, `SAMEPERIODLASTYEAR`/`DATEADD` e uma projeção ponderada pelos pesos dos dias (usa `dw.vw_meta_vendas_diaria`).
+  - *Metas em Excel:* as metas de venda também podem vir de uma planilha Excel mantida pela gerência, lida pelo Power Query e combinada com as vendas do banco. O gerador produzirá essa planilha de exemplo nessa fase.
+  - *Segurança em nível de linha (RLS):* o gerente de uma loja vê só a sua loja no mesmo relatório; a diretoria vê tudo.
 - **Fase 6:** documentação (README, dicionário de dados, diagrama de linhagem). O README explica as fórmulas de cobertura, projeção e evolução.
 
-Fases 3 a 6 acima são plano: nada disso está implementado ainda.
+- **Fase 7: app de registro de vendas (decisão tomada; só plano, nada implementado).**
+  - *Tecnologia:* PWA instalável no celular e no PC. Não usar Streamlit, Flutter nem React Native (emuladores não cabem nos 3,9 GB de RAM).
+  - *Arquitetura:* dois front-ends PWA e uma única API em FastAPI -> PostgreSQL (schema operacional próprio, ex.: `app`, separado do dw) -> ETL (o app é mais uma fonte, com carga incremental) -> dw -> Power BI. O app nunca acessa o banco nem guarda credenciais dele.
+  - *App do vendedor (celular):* login; registrar venda escolhendo o produto (busca ou código de barras pela câmera) e a quantidade, com o preço vindo do cadastro (o vendedor nunca digita valor); desconto até o limite (acima dele, pedido de aprovação ao gerente); forma de pagamento e parcelas; cliente de fidelidade opcional (sem CPF); comprovante do cupom em PDF; cancelamento logo após a venda, com motivo; funcionamento offline com fila de envio.
+  - *App do gerente (PC, também no celular), com dois perfis:* **gerente da loja** (cadastra e desliga vendedores da própria loja; aprova descontos acima do limite e devoluções; vê o resumo do dia e a meta da loja) e **administrador da rede/matriz** (cadastra produtos, preços, campanhas, lojas, gerentes e aparelhos).
+  - *Controle de acesso por perfil na API:* cada endpoint exige o perfil certo e, para gerente, a própria loja; o front-end só esconde telas. Testes de autorização: tentativas de ações de outro perfil ou de outra loja recebem 403.
+  - *Identificação da venda:* a loja vem do cadastro do vendedor logado (não é escolhida no app); cada aparelho/caixa é cadastrado numa loja e a API recusa venda feita em aparelho de outra loja; o número do cupom carrega a origem (ex.: `L02-C03-000123`); cada venda grava vendedor, loja, caixa e data/hora no momento da venda.
+  - *Histórico de lotação do vendedor (ele pode mudar de loja):* no banco operacional, lotação com início e fim; no dw, `dim_vendedor` passa a ser uma dimensão de mudança lenta tipo 2 (uma versão por período de lotação), e as vendas antigas continuam na loja onde aconteceram.
+  - *Integridade dos valores:* a API recalcula preço, total e desconto antes de gravar e nunca confia nos valores enviados pelo app. Histórico de preços com vigência (início e fim); o item da venda grava o preço da época.
+  - *Auditoria:* log com usuário, ação, data/hora e valores antes e depois, para cadastros, mudanças de preço, aprovações e cancelamentos.
+  - *Segurança:* senhas com hash, autenticação por token, credenciais do banco só no `.env` do servidor da API, CORS restrito.
+  - *Demonstração:* API no PC e celular acessando pela mesma rede Wi-Fi; hospedagem online decidida depois.
+  - *Fora do escopo por enquanto:* estoque (possível evolução).
+  - *README:* explicar a diferença entre banco operacional (OLTP) e analítico (OLAP) e o caminho da venda até o Power BI.
+
+Fases 3 a 7 acima são plano: nada disso está implementado ainda.
 
 Não começar uma fase sem a revisão do usuário da anterior.
 
