@@ -65,6 +65,18 @@ def aplicar_ddl(conexao: psycopg.Connection, diretorio: Path = config.DIR_DDL) -
     return aplicados
 
 
+def aplicar_procedures(
+    conexao: psycopg.Connection, diretorio: Path = config.DIR_PROCEDURES
+) -> list[str]:
+    """Cria ou substitui as procedures/funções de sql/procedures (podem ser reaplicadas)."""
+    aplicados = []
+    for script in sorted(diretorio.glob("*.sql")):
+        conexao.execute(script.read_text(encoding="utf-8"))
+        aplicados.append(script.name)
+    conexao.commit()
+    return aplicados
+
+
 def aplicar_scripts(
     conexao: psycopg.Connection, nomes: list[str], diretorio: Path = config.DIR_DDL
 ) -> list[str]:
@@ -88,14 +100,17 @@ def conectar() -> psycopg.Connection:
 
 
 def _principal(argumentos: list[str]) -> None:
-    """Sem argumentos aplica todo o DDL (banco novo); com nomes, aplica só esses scripts."""
+    """Sem argumentos: DDL completo (banco novo) e procedures. `--procedures`: só as procedures.
+    Com nomes de scripts de DDL: aplica só esses (banco que já tem os anteriores)."""
     with conectar() as conexao:
-        if argumentos:
+        if argumentos == ["--procedures"]:
+            aplicados = aplicar_procedures(conexao)
+        elif argumentos:
             aplicados = aplicar_scripts(conexao, argumentos)
         else:
-            aplicados = aplicar_ddl(conexao)
+            aplicados = aplicar_ddl(conexao) + aplicar_procedures(conexao)
         for nome in aplicados:
-            print(f"DDL aplicado: {nome}")
+            print(f"aplicado: {nome}")
 
 
 if __name__ == "__main__":

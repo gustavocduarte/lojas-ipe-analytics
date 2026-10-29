@@ -43,7 +43,13 @@ TABELAS_STG = {
     "orcamento_despesas",
     "rejeitados",
 }
-TABELAS_ETL = {"cargas", "carga_arquivos", "arquivos_processados"}
+TABELAS_ETL = {
+    "cargas",
+    "carga_arquivos",
+    "arquivos_processados",
+    "carga_tabelas",
+    "carga_correcoes",
+}
 
 
 def _tabelas(con, schema: str) -> set[str]:

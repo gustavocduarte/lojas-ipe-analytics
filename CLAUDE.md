@@ -51,6 +51,7 @@ Não começar uma fase sem a revisão do usuário da anterior.
 - **Testes** nunca acessam a rede, o banco real (`lojas_ipe_dw`) nem gravam em `data/`: usar `tmp_path` e fixtures. Testes que precisam de PostgreSQL levam `@pytest.mark.banco`, criam e apagam um banco de teste próprio e usam as variáveis `BD_TESTE_*`. Localmente ficam fora da execução padrão (`pytest -m banco` para rodá-los); no CI rodam os dois grupos (`pytest -m "banco or not banco"`).
 - **Antes de cada commit:** rodar `pytest` e `ruff check .` (e `ruff format .`) e informar a contagem de testes pela diferença real.
 - **Git:** mostrar o diff e esperar a aprovação do usuário antes de cada commit. Um commit por assunto, mensagens em português. Nunca `--amend`, nunca `git stash`, **sem trailer de atribuição** (nada de `Co-Authored-By`).
+- **O código de produção (ETL, procedures, validações, relatório) nunca consulta os gabaritos** (`_anomalias_injetadas.csv`, `_problemas_qualidade.csv`): eles existem só para os testes. O ETL corrige problemas de formato, rejeita com motivo o que não tem correção e deixa passar ao dw o que é conteúdo de negócio (anomalias), contando-o como sinal para a Fase 3.
 - Confirmar no código antes de corrigir qualquer coisa; nunca mudar o valor esperado de um teste existente sem perguntar.
 - Arquivos temporários em `%TEMP%`, fora do repositório.
 
@@ -58,7 +59,7 @@ Não começar uma fase sem a revisão do usuário da anterior.
 ```
 data/raw/          CSVs gerados (ignorados pelo git)
 sql/ddl/           DDL do PostgreSQL (00 = administrativo; 01..05 = schemas, dimensões, fatos, staging, índices; 06.. = ETL)
-sql/procedures/    cargas em PL/pgSQL (Fase 2)
+sql/procedures/    cargas stg -> dw em PL/pgSQL (Fase 2); `python -m src.banco --procedures` aplica/atualiza
 sql/views/         views (Fases 3 e 5)
 src/gerador/       gerador de dados sintéticos
 src/etl/           ETL (Fase 2): contrato de entrada, mapeamentos, leitura, limpeza, cargas
