@@ -188,10 +188,11 @@ BEGIN
     RETURN QUERY SELECT 'venda_fora_do_horario', 'cupons', v,
                         'cupom registrado fora do horário de funcionamento da loja';
 
-    SELECT count(*) INTO v FROM (
+    SELECT count(DISTINCT numero_cupom) INTO v FROM (
         SELECT numero_cupom FROM dw.fato_vendas GROUP BY numero_cupom, numero_item
         HAVING count(*) > 1) x;
-    RETURN QUERY SELECT 'cupom_duplicado', 'itens', v, 'mesmo cupom e item lançados mais de uma vez';
+    RETURN QUERY SELECT 'cupom_duplicado', 'cupons', v,
+                        'cupom com o mesmo item lançado mais de uma vez';
 
     SELECT sum((status = 'Cancelada')::INT)::NUMERIC / NULLIF(count(*), 0) INTO v_taxa_rede
     FROM (SELECT DISTINCT numero_cupom, status FROM dw.fato_vendas) c;

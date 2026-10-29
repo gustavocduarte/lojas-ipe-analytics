@@ -85,9 +85,9 @@ BEGIN
     CALL etl.rejeitar_duplicadas('horarios_loja', 'sk_loja, dia_semana', 'dia_semana',
                                  't.dia_semana::TEXT', 'ultima');
     CALL etl.contar_correcao(p_id_carga, 'horarios_loja', 'hora_abertura', 'hora_formato_misto',
-                             $q$s.hora_abertura !~ '^\d{2}:\d{2}:\d{2}$'$q$);
+                             $q$s.hora_abertura !~ '^\d{2}:\d{2}$'$q$);
     CALL etl.contar_correcao(p_id_carga, 'horarios_loja', 'hora_fechamento', 'hora_formato_misto',
-                             $q$s.hora_fechamento !~ '^\d{2}:\d{2}:\d{2}$'$q$);
+                             $q$s.hora_fechamento !~ '^\d{2}:\d{2}$'$q$);
 
     SELECT count(*) INTO v_validas FROM _lim_horarios_loja WHERE rej_motivo IS NULL;
     WITH up AS (

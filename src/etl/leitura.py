@@ -68,8 +68,12 @@ def arquivos_da_entidade(fonte: Fonte, mapa: MapeamentoEntidade) -> list[Path]:
 
 
 # ---- conversão de células ----------------------------------------------------------------------
-def celula_para_texto(valor, tipo: str) -> str | None:
-    """Texto cru de uma célula; vazio vira None e data/hora/número do Excel viram texto."""
+def celula_para_texto(valor, tipo: str, bruto: bool = False) -> str | None:
+    """Texto de uma célula; vazio vira None e data/hora/número do Excel viram texto.
+
+    `bruto=True` preserva os espaços das pontas (o staging é cru: quem limpa é o dw); sem ele o
+    texto é aparado.
+    """
     if valor is None:
         return None
     if isinstance(valor, datetime):
@@ -88,8 +92,10 @@ def celula_para_texto(valor, tipo: str) -> str | None:
         return str(valor)
     if isinstance(valor, float):
         return str(int(valor)) if valor.is_integer() else repr(valor)
-    texto = str(valor).strip()
-    return texto or None
+    texto = str(valor)
+    if not texto.strip():
+        return None
+    return texto if bruto else texto.strip()
 
 
 def _ajustar_formatos(texto: str | None, tipo: str, mapa: MapeamentoEntidade) -> str | None:
@@ -172,7 +178,9 @@ def ler_registros(
         contagem["lidas"] += 1
         yield tuple(
             _ajustar_formatos(
-                celula_para_texto(celulas[i] if i < len(celulas) else None, tipo), tipo, mapa
+                celula_para_texto(celulas[i] if i < len(celulas) else None, tipo, bruto=True),
+                tipo,
+                mapa,
             )
             for i, tipo in zip(indices, tipos, strict=True)
         )

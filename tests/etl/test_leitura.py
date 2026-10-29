@@ -210,3 +210,17 @@ def test_hash_muda_com_o_conteudo(tmp_path):
     assert hash_do_arquivo(a) == hash_do_arquivo(b)
     b.write_text("y", encoding="utf-8")
     assert hash_do_arquivo(a) != hash_do_arquivo(b)
+
+
+class TestTextoBruto:
+    """O staging é cru: o leitor não pode apagar a sujeira que a limpeza precisa ver."""
+
+    def test_modo_bruto_preserva_espacos_das_pontas(self):
+        assert celula_para_texto("  ALI-0001 ", "texto", bruto=True) == "  ALI-0001 "
+        assert celula_para_texto("   ", "texto", bruto=True) is None
+
+    def test_csv_chega_ao_staging_sem_aparar(self, tmp_path):
+        arquivo = tmp_path / "f.csv"
+        arquivo.write_text("Código;Nome\n PIX ;  Pix  \n", encoding="utf-8")
+        linhas, _ = _ler(_mapa(), arquivo)
+        assert linhas == [(" PIX ", "  Pix  ")]
