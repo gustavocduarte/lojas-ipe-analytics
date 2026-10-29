@@ -233,3 +233,21 @@ class TestCancelamentoAlto:
         b.gerar(base)
         (a,) = b.alertas(base, "vendedor_cancelamento_alto")
         assert a["severidade"] == severidade
+
+
+class TestRotuloDaJanela:
+    def test_janela_parcial_nao_cita_meses_antes_dos_dados(self, banco_com_ddl):
+        base = banco_com_ddl
+        b.montar_base(base)
+        _param(base, "cancelamento_min_cupons", 10)
+        for mes in (1, 2):
+            _cupons(base, "V1", "L01", 2024, mes, 12, 6, "A")
+            _cupons(base, "V2", "L02", 2024, mes, 200, 6, "B")
+        base.commit()
+        b.gerar(base)
+        textos = {
+            a["chave_alerta"]: a["explicacao"]
+            for a in b.alertas(base, "vendedor_cancelamento_alto")
+        }
+        assert "de 01/2024 a 01/2024" in textos["vendedor_cancelamento_alto|V1|2024-01"]
+        assert "de 01/2024 a 02/2024" in textos["vendedor_cancelamento_alto|V1|2024-02"]

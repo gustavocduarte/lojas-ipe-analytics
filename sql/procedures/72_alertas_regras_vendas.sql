@@ -184,8 +184,8 @@ BEGIN
         FROM base GROUP BY sk_vendedor, mi),
     rede AS (SELECT mi, sum(cupons) AS cupons, sum(cancelados) AS cancelados FROM mensal GROUP BY mi),
     janela_v AS (
-        SELECT r.mi AS mf, m.sk_vendedor, sum(m.cupons) AS cupons, sum(m.cancelados) AS cancelados,
-               sum(m.valor) AS valor
+        SELECT r.mi AS mf, min(m.mi) AS mi_ini, m.sk_vendedor, sum(m.cupons) AS cupons,
+               sum(m.cancelados) AS cancelados, sum(m.valor) AS valor
         FROM rede r JOIN mensal m ON m.mi BETWEEN r.mi - (v_janela - 1) AND r.mi
         GROUP BY r.mi, m.sk_vendedor),
     janela_r AS (
@@ -198,8 +198,7 @@ BEGIN
                r.cancelados::NUMERIC / r.cupons AS taxa_rede,
                (v.cancelados::NUMERIC / v.cupons) / (r.cancelados::NUMERIC / r.cupons) AS razao,
                to_char(make_date(v.mf / 12, v.mf % 12 + 1, 1), 'YYYY-MM') AS mes_final,
-               to_char(make_date((v.mf - v_janela + 1) / 12, (v.mf - v_janela + 1) % 12 + 1, 1),
-                       'MM/YYYY') AS mes_inicial,
+               to_char(make_date(v.mi_ini / 12, v.mi_ini % 12 + 1, 1), 'MM/YYYY') AS mes_inicial,
                to_char(make_date(v.mf / 12, v.mf % 12 + 1, 1), 'MM/YYYY') AS mes_final_br,
                to_char((make_date(v.mf / 12, v.mf % 12 + 1, 1) + interval '1 month - 1 day'),
                        'YYYYMMDD')::INT AS sk_fim
