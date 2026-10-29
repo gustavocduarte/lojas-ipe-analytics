@@ -397,3 +397,7 @@ TAMANHO_LOTE_CARGA = 20_000  # linhas por lote no COPY
 CODIGO_SAIDA_OK = 0
 CODIGO_SAIDA_VALIDACAO_REPROVADA = 1
 CODIGO_SAIDA_ERRO_DE_USO = 2
+CODIGO_SAIDA_ERRO_DE_EXECUCAO = 3  # banco fora do ar, arquivo ilegível, memória insuficiente...
+CHAVE_TRAVA_ETL = 20240601  # advisory lock do PostgreSQL: uma carga por vez
+FORMATO_LOG = "%(asctime)s %(levelname)-7s %(name)s: %(message)s"
+FORMATO_DATA_LOG = "%Y-%m-%d %H:%M:%S"

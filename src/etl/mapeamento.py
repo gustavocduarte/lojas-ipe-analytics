@@ -75,6 +75,7 @@ class Fonte:
     descricao: str
     pasta: Path  # onde ficam os arquivos (relativa à raiz do projeto, se não for absoluta)
     entidades: dict[str, MapeamentoEntidade] = field(default_factory=dict)
+    carga_padrao: bool = True  # False: só carrega quando pedida com --fonte
 
 
 def carregar_fonte(caminho: Path, raiz: Path = config.RAIZ_PROJETO) -> Fonte:
@@ -102,6 +103,7 @@ def carregar_fonte(caminho: Path, raiz: Path = config.RAIZ_PROJETO) -> Fonte:
         descricao=str(bruto.get("descricao", "")),
         pasta=pasta if pasta.is_absolute() else raiz / pasta,
         entidades=entidades,
+        carga_padrao=bool(bruto.get("carga_padrao", True)),
     )
 
 

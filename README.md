@@ -13,7 +13,7 @@ se comparam ao orçado e à previsão por centro de custo, e quais lançamentos 
 |---|---|---|
 | 0 | Setup do repositório | feita |
 | 1 | Modelo dimensional + gerador de dados sintéticos | feita |
-| 2 | ETL com validações de qualidade e carga via procedures | a fazer |
+| 2 | ETL com validações de qualidade e carga via procedures | em andamento |
 | 3 | Regras de anomalia em SQL e tabela de alertas | a fazer |
 | 4 | Previsão de vendas, relatório Excel e macro VBA | a fazer |
 | 5 | Dashboard Power BI (4 páginas) | a fazer |
@@ -29,3 +29,18 @@ python -m src.gerador         # gera os CSVs em data/raw/
 python -m src.banco           # cria as tabelas no banco do .env
 pytest                        # testes (sem banco)
 ```
+
+## ETL (Fase 2)
+```
+python -m src.banco --procedures                  # cria/atualiza as procedures de carga
+python -m src.etl fontes                          # lista as fontes mapeadas (config/fontes/)
+python -m src.etl carregar                        # lê, limpa, valida e carrega as fontes padrão
+python -m src.etl carregar --fonte lojas_ipe_erp --entidade lojas   # só uma entidade
+python -m src.etl carregar --completo             # relê também os arquivos que não mudaram
+```
+Cada execução é uma *carga* (tabela `etl.cargas`) e gera um relatório de qualidade em
+`data/processed/relatorio_carga_NNNN.json` (e na tabela `etl.relatorios_qualidade`).
+Por padrão a carga é **incremental**: arquivos com o mesmo conteúdo (hash) de uma carga já
+concluída não são relidos. Códigos de saída: 0 ok · 1 validação estrutural reprovou (o dw não
+muda) · 2 erro de uso · 3 erro de execução (banco, arquivo, memória, outra carga em andamento).
+O contrato de entrada está em `docs/contrato_de_entrada.md`.

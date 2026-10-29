@@ -75,6 +75,9 @@ docs/contrato_de_entrada.md   gerado por `python -m src.etl.contrato`; não edit
 python -m src.gerador                # gera data/raw/ (confere a memória antes)
 python -m src.banco                  # aplica todo o DDL 01.. num banco novo (usuário lojas_ipe do .env)
 python -m src.banco 06_controle_etl.sql   # aplica só scripts novos num banco que já tem os anteriores
+python -m src.banco --procedures      # cria/atualiza as procedures de carga (sql/procedures)
+python -m src.etl carregar           # ETL: fontes padrão (--fonte X, --entidade Y, --completo)
+python -m src.etl fontes             # lista as fontes mapeadas
 pytest                               # testes sem banco
 pytest -m banco                      # só os testes de banco (BD_TESTE_* no .env, usuário lojas_ipe_teste)
 ruff check . ; ruff format .
