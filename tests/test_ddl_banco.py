@@ -25,6 +25,10 @@ TABELAS_DW = {
     "fato_meta_vendedor",
     "fato_despesas",
     "fato_orcamento_despesas",
+    "dim_tipo_alerta",
+    "alertas",
+    "alerta_vinculos",
+    "alerta_historico",
 }
 TABELAS_STG = {
     "lojas",
@@ -53,6 +57,9 @@ TABELAS_ETL = {
     "carga_validacoes",
     "carga_sinais",
     "relatorios_qualidade",
+    "regras_alerta",
+    "carga_alertas",
+    "excecoes_centro_descricao",
 }
 
 
