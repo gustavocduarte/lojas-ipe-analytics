@@ -111,3 +111,19 @@ class TestEstrutura:
         con.execute(comando)
         with pytest.raises(psycopg.errors.UniqueViolation):
             con.execute(comando)
+
+
+class TestCalibracao:
+    def test_faixas_de_valor_calibradas_com_os_dados_reais(self, banco_compartilhado):
+        valores = dict(
+            banco_compartilhado.execute(
+                "SELECT chave, valor FROM etl.parametros_negocio WHERE chave IN"
+                " ('fora_horario_valor_alto', 'cupom_duplicado_valor_alto',"
+                "  'documento_repetido_valor_alto')"
+            ).fetchall()
+        )
+        assert valores == {
+            "fora_horario_valor_alto": 250,
+            "cupom_duplicado_valor_alto": 250,
+            "documento_repetido_valor_alto": 1600,
+        }
