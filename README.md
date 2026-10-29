@@ -14,7 +14,7 @@ se comparam ao orçado e à previsão por centro de custo, e quais lançamentos 
 | 0 | Setup do repositório | feita |
 | 1 | Modelo dimensional + gerador de dados sintéticos | feita |
 | 2 | ETL com validações de qualidade e carga via procedures | feita (aguarda revisão) |
-| 3 | Regras de anomalia em SQL e tabela de alertas | a fazer |
+| 3 | Regras de anomalia em SQL e tabela de alertas | feita (aguarda revisão) |
 | 4 | Previsão de vendas, relatório Excel e macro VBA | a fazer |
 | 5 | Dashboard Power BI (4 páginas) | a fazer |
 | 6 | Documentação final | a fazer |
@@ -55,3 +55,19 @@ total no fim e uma aba extra ("Resumo") que deve ser ignorada. O mapeamento
 `config/fontes/outra_empresa.yaml` a leva ao mesmo contrato de entrada; por isso o resultado no dw
 é igual ao do CSV do ERP para o mesmo mês (há um teste para isso). Essa fonte só é carregada
 quando pedida (`python -m src.etl carregar --fonte outra_empresa`), para não misturar empresas.
+
+## Alertas (Fase 3)
+```
+python -m src.etl alertas                # reavalia as regras (ex.: depois de mudar um parâmetro)
+python -m src.banco --views              # cria/atualiza as views para o Power BI
+```
+Os sinais da carga viram **alertas** persistentes em `dw.alertas`: tipo, severidade (baixa, média,
+alta, crítica), data, loja, vendedor ou centro de custo, valor envolvido, regra que disparou,
+explicação legível ("desconto de 32,0% acima do limite de 18%"), carga que o gerou e status
+(`novo`, `em_analise`, `resolvido`, `falso_positivo`). As regras são SQL e todos os limites ficam em
+`etl.parametros_negocio`. Rodar de novo não duplica nada e um alerta já tratado não volta como novo;
+quem trata usa `CALL dw.tratar_alerta(sk_alerta, 'resolvido', 'usuario', 'observação')`, que guarda o
+histórico. Um estouro de orçamento causado por outro alerta (valor atípico, documento repetido,
+centro errado) é um alerta *derivado*, ligado à origem, e não entra na contagem do painel.
+Views: `dw.vw_alertas_detalhe`, `vw_alertas_por_tipo`, `vw_alertas_por_loja`,
+`vw_alertas_tendencia_mensal` e `vw_alertas_resumo`.

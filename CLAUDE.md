@@ -30,7 +30,8 @@ O computador tem 3,9 GB de RAM e costuma ter ~0,5 GB livres.
 - **Fase 1:** modelo do data warehouse (esquema estrela) + gerador de dados sintéticos.
 - **Fase 2:** ETL em Python com validações de qualidade; carga no DW via stored procedures.
   - *Como a Fase 2 funciona:* `config/fontes/*.yaml` mapeia cada fonte para o contrato (`docs/contrato_de_entrada.md`); `src/etl/leitura.py` lê CSV/Excel para `stg` (texto cru, `COPY`, com `arquivo_origem`/`linha_origem`/`id_carga`); as procedures de `sql/procedures/` limpam (funções `etl.limpar_*` em `sql/ddl/07`), rejeitam com motivo em `stg.rejeitados` e carregam o dw por upsert (idempotente); `etl.validar_estrutura` (bloqueia e desfaz) e `etl.sinais_negocio` (só conta, são os sinais para a Fase 3); o relatório de qualidade sai em `data/processed/` e em `etl.relatorios_qualidade`. Carga incremental por arquivo (hash) e por fonte.
-- **Fase 3:** regras de anomalia em SQL + tabela de alertas. Entra aqui (ou na Fase 5) a view `dw.vw_meta_vendas_diaria`: reparte a meta mensal (por loja e setor, e também por vendedor) pelos dias do mês, usando o peso de cada dia da semana e dos feriados que o gerador já usa (`FATOR_DIA_SEMANA`, `FATOR_FERIADO_NACIONAL`, em `src/config.py`), de forma que a soma dos dias bata exatamente com a meta do mês (o último dia absorve o resto do arredondamento). Com teste.
+- **Fase 3 (implementada, aguarda revisão):** regras de anomalia em SQL + tabela de alertas. A view `dw.vw_meta_vendas_diaria`: reparte a meta mensal (por loja e setor, e também por vendedor) pelos dias do mês, usando o peso de cada dia da semana e dos feriados que o gerador já usa (`FATOR_DIA_SEMANA`, `FATOR_FERIADO_NACIONAL`, em `src/config.py`), de forma que a soma dos dias bata exatamente com a meta do mês (o último dia absorve o resto do arredondamento). Com teste. (A `vw_meta_vendas_diaria` continua sendo plano: não faz parte da Fase 3 implementada.)
+  - *Como a Fase 3 funciona:* cada regra é uma função `etl.regra_<tipo>()` (`sql/procedures/71..74`) e todos os limites ficam em `etl.parametros_negocio`; `etl.gerar_alertas(id_carga)` grava em `dw.alertas` por `chave_alerta` estável (não duplica) e **nunca** sobrescreve `status`, `observacao` nem histórico (resolvido/falso positivo não volta como novo); alerta que a regra deixa de ver vira `vigente = false`, e se reaparece volta com o mesmo status. O status só muda por `CALL dw.tratar_alerta(...)`, que grava `dw.alerta_historico`. Estouro de orçamento causado por valor atípico, documento repetido ou centro errado é **derivado** (`independente = false`, severidade baixa, ligado às origens em `dw.alerta_vinculos`); origem marcada como falso positivo não explica nada. Cancelamento alto é avaliado em janela móvel (chave `tipo|cod_vendedor|aaaa-mm`). Centro incompatível usa o tipo dominante aprendido de cada descrição (mínimo de ocorrências e participação em parâmetros) mais a tabela opcional `etl.excecoes_centro_descricao`. O painel conta alertas vigentes e independentes (`sql/views/10_alertas.sql`, views `dw.vw_alertas_*`). `python -m src.etl alertas` reavalia as regras sem recarregar; o pipeline as roda após cada carga que trouxe dado novo.
 - **Fase 4:** previsão simples de vendas + relatório Excel automático (openpyxl) + macro VBA simples.
 - **Fase 5:** dashboard Power BI (4 páginas: Resumo Executivo, Vendas vs Meta, Orçado vs Realizado vs Previsão, Alertas), com parte das transformações em Power Query/M. Acrescenta-se a página **Acompanhamento Diário**, inspirada em painéis de sell-out:
   - tabela por loja e por UF com venda do dia, meta do dia, cobertura do dia %, acumulado do mês, meta do mês e cobertura do mês % (formatação condicional verde/vermelho);
@@ -57,7 +58,7 @@ O computador tem 3,9 GB de RAM e costuma ter ~0,5 GB livres.
   - *Fora do escopo por enquanto:* estoque (possível evolução).
   - *README:* explicar a diferença entre banco operacional (OLTP) e analítico (OLAP) e o caminho da venda até o Power BI.
 
-Fases 3 a 7 acima são plano: nada disso está implementado ainda.
+Fases 4 a 7 acima são plano: nada disso está implementado ainda.
 
 Não começar uma fase sem a revisão do usuário da anterior.
 
@@ -78,7 +79,7 @@ Não começar uma fase sem a revisão do usuário da anterior.
 data/raw/          CSVs gerados (ignorados pelo git)
 sql/ddl/           DDL do PostgreSQL (00 = administrativo; 01..05 = schemas, dimensões, fatos, staging, índices; 06.. = ETL)
 sql/procedures/    cargas stg -> dw em PL/pgSQL (Fase 2); `python -m src.banco --procedures` aplica/atualiza
-sql/views/         views (Fases 3 e 5)
+sql/views/         views dos alertas para o Power BI (Fase 3); `python -m src.banco --views` aplica/atualiza
 src/gerador/       gerador de dados sintéticos
 src/etl/           ETL (Fase 2): contrato de entrada, mapeamentos, leitura, limpeza, cargas
 config/fontes/     um YAML por fonte de dados (coluna da fonte -> coluna do sistema); `outra_empresa.yaml` é um
@@ -96,6 +97,8 @@ python -m src.banco                  # aplica todo o DDL 01.. num banco novo (us
 python -m src.banco 06_controle_etl.sql   # aplica só scripts novos num banco que já tem os anteriores
 python -m src.banco --procedures      # cria/atualiza as procedures de carga (sql/procedures)
 python -m src.etl carregar           # ETL: fontes padrão (--fonte X, --entidade Y, --completo)
+python -m src.etl alertas            # reavalia as regras de alerta (sem recarregar; nova carga 'alertas')
+python -m src.banco --views          # cria/atualiza as views dos alertas (sql/views)
 python -m src.etl fontes             # lista as fontes mapeadas
 pytest                               # testes sem banco
 pytest -m banco                      # só os testes de banco (BD_TESTE_* no .env, usuário lojas_ipe_teste)
