@@ -1,0 +1,154 @@
+# Fonte: exportações do ERP fictício da Lojas Ipê (CSVs gerados em data/raw/).
+# Mapeamento "coluna da fonte: coluna do sistema". Aqui os nomes coincidem; em outra empresa
+# (ver outra_empresa.yaml) são diferentes. O contrato está em docs/contrato_de_entrada.md.
+fonte: lojas_ipe_erp
+descricao: ERP da rede Lojas Ipê, exportação em CSV (separador ponto e vírgula, UTF-8).
+pasta: data/raw
+
+# Valores usados quando a entidade não diz o contrário.
+padroes:
+  formato: csv
+  separador: ";"
+  codificacao: utf-8
+  linha_cabecalho: 1
+
+# Datas chegam em dd/mm/aaaa, com parte delas em aaaa-mm-dd, e números com ponto decimal, com
+# parte em texto brasileiro (1.234,56). A mistura é tratada na limpeza (sql/ddl/07), por isso
+# não declaramos formato_data aqui: o texto vai cru para o staging.
+entidades:
+  lojas:
+    arquivo: lojas.csv
+    colunas:
+      cod_loja: cod_loja
+      nome_loja: nome_loja
+      uf: uf
+      regiao: regiao
+      cidade: cidade
+      formato: formato
+      data_abertura: data_abertura
+
+  horarios_loja:
+    arquivo: horarios_loja.csv
+    colunas:
+      cod_loja: cod_loja
+      dia_semana: dia_semana
+      hora_abertura: hora_abertura
+      hora_fechamento: hora_fechamento
+
+  produtos:
+    arquivo: produtos.csv
+    colunas:
+      sku: sku
+      nome_produto: nome_produto
+      marca: marca
+      setor: setor
+      categoria: categoria
+      custo_unitario: custo_unitario
+      preco_lista: preco_lista
+
+  centros_custo:
+    arquivo: centros_custo.csv
+    colunas:
+      cod_centro_custo: cod_centro_custo
+      nome_centro_custo: nome_centro_custo
+      tipo_despesa: tipo_despesa
+      cod_loja: cod_loja
+
+  feriados:
+    arquivo: feriados.csv
+    colunas:
+      data: data
+      nome_feriado: nome_feriado
+
+  formas_pagamento:
+    arquivo: formas_pagamento.csv
+    colunas:
+      cod_forma_pagamento: cod_forma_pagamento
+      nome_forma_pagamento: nome_forma_pagamento
+
+  campanhas:
+    arquivo: campanhas.csv
+    colunas:
+      cod_campanha: cod_campanha
+      nome_campanha: nome_campanha
+      data_inicio: data_inicio
+      data_fim: data_fim
+      desconto_medio_pct: desconto_medio_pct
+
+  vendedores:
+    arquivo: vendedores.csv
+    colunas:
+      cod_vendedor: cod_vendedor
+      nome_vendedor: nome_vendedor
+      cod_loja: cod_loja
+      cargo: cargo
+      turno: turno
+      data_admissao: data_admissao
+      data_desligamento: data_desligamento
+      percentual_comissao: percentual_comissao
+
+  clientes:
+    arquivo: clientes.csv
+    colunas:
+      cod_cliente: cod_cliente
+      cidade: cidade
+      uf: uf
+      faixa_etaria: faixa_etaria
+      data_cadastro_fidelidade: data_cadastro_fidelidade
+
+  vendas:
+    arquivo: "vendas_*.csv"
+    colunas:
+      id_venda_erp: id_venda_erp
+      numero_cupom: numero_cupom
+      numero_item: numero_item
+      data_venda: data_venda
+      hora_venda: hora_venda
+      cod_loja: cod_loja
+      caixa: caixa
+      cod_vendedor: cod_vendedor
+      cod_cliente: cod_cliente
+      cod_forma_pagamento: cod_forma_pagamento
+      numero_parcelas: numero_parcelas
+      cod_campanha: cod_campanha
+      sku: sku
+      quantidade: quantidade
+      preco_unitario: preco_unitario
+      desconto: desconto
+      receita_liquida: receita_liquida
+      custo_total: custo_total
+      total_cupom: total_cupom
+      status: status
+      motivo_cancelamento_devolucao: motivo_cancelamento_devolucao
+
+  metas_vendas:
+    arquivo: metas_vendas.csv
+    colunas:
+      competencia: competencia
+      cod_loja: cod_loja
+      setor: setor
+      valor_meta: valor_meta
+
+  metas_vendedor:
+    arquivo: metas_vendedor.csv
+    colunas:
+      competencia: competencia
+      cod_vendedor: cod_vendedor
+      valor_meta: valor_meta
+
+  despesas:
+    arquivo: despesas.csv
+    colunas:
+      numero_documento: numero_documento
+      data_lancamento: data_lancamento
+      cod_centro_custo: cod_centro_custo
+      valor: valor
+      descricao: descricao
+      fornecedor: fornecedor
+
+  orcamento_despesas:
+    arquivo: orcamento_despesas.csv
+    colunas:
+      competencia: competencia
+      cod_centro_custo: cod_centro_custo
+      valor_orcado: valor_orcado

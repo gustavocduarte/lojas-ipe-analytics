@@ -61,9 +61,11 @@ sql/ddl/           DDL do PostgreSQL (00 = administrativo; 01..05 = schemas, dim
 sql/procedures/    cargas em PL/pgSQL (Fase 2)
 sql/views/         views (Fases 3 e 5)
 src/gerador/       gerador de dados sintéticos
-src/etl/           ETL (Fase 2)
+src/etl/           ETL (Fase 2): contrato de entrada, mapeamentos, leitura, limpeza, cargas
+config/fontes/     um YAML por fonte de dados (coluna da fonte -> coluna do sistema)
 src/relatorios/    relatório Excel (Fase 4)
 tests/ docs/ powerbi/
+docs/contrato_de_entrada.md   gerado por `python -m src.etl.contrato`; não editar à mão
 ```
 
 ## Comandos

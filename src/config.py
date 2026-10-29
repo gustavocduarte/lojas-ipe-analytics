@@ -387,3 +387,12 @@ PROBLEMA_HORA_FORMATO_MISTO = "hora_formato_misto"
 PROBLEMA_NOME_SUJO = "nome_espacos_caixa"
 FORMATOS_HORA_ALTERNATIVOS = ("%H:%M", "%Hh%M", "%I:%M %p")
 FORMATO_HORA = "%H:%M:%S"
+
+# --- ETL (Fase 2) -------------------------------------------------------------------------------
+DIR_MAPEAMENTOS = RAIZ_PROJETO / "config" / "fontes"
+DIR_PROCESSADOS = RAIZ_PROJETO / "data" / "processed"
+FORMATOS_ARQUIVO_FONTE = ("csv", "xlsx")
+TAMANHO_LOTE_CARGA = 20_000  # linhas por lote no COPY
+CODIGO_SAIDA_OK = 0
+CODIGO_SAIDA_VALIDACAO_REPROVADA = 1
+CODIGO_SAIDA_ERRO_DE_USO = 2
