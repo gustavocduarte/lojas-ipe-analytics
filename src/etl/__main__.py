@@ -9,7 +9,8 @@
 
 Códigos de saída: 0 = carga concluída; 1 = validação estrutural reprovou (dw intacto);
 2 = erro de uso (argumentos, fonte inexistente, mapeamento inválido);
-3 = erro de execução (banco, arquivo ilegível, memória insuficiente, outra carga em andamento).
+3 = erro de execução (banco, arquivo ilegível, memória insuficiente, outra carga em andamento);
+4 = dados carregados (carga concluída), mas a geração dos alertas falhou (reavalie com `alertas`).
 """
 
 import argparse
@@ -124,6 +125,9 @@ def principal(
                 )
                 return config.CODIGO_SAIDA_VALIDACAO_REPROVADA
         return config.CODIGO_SAIDA_OK
+    except pipeline.AlertasFalharam as erro:  # a carga já foi confirmada no dw
+        log.error("dados carregados, mas a geração de alertas falhou: %s", erro)
+        return config.CODIGO_SAIDA_ALERTAS_FALHARAM
     except (
         MemoriaInsuficiente,
         pipeline.CargaEmAndamento,

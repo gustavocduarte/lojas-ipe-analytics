@@ -39,6 +39,10 @@ class CargaEmAndamento(RuntimeError):
     """Outra carga está rodando (trava de sessão do PostgreSQL)."""
 
 
+class AlertasFalharam(RuntimeError):
+    """A carga foi concluída (o dw está carregado), mas a geração dos alertas falhou."""
+
+
 @dataclass
 class ResultadoCarga:
     fonte: str
@@ -212,7 +216,7 @@ def _carregar_com_trava(conexao, fonte, entidades, modo, pasta_relatorios, vigia
         caminho,
     )
     if erro_alertas is not None:
-        raise erro_alertas
+        raise AlertasFalharam(str(erro_alertas)) from erro_alertas
     return ResultadoCarga(
         fonte.nome, id_carga, status, documento, caminho, falhas, alertas=resumo_alertas
     )

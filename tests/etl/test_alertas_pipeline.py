@@ -134,14 +134,14 @@ class TestComandoAlertas:
         ).fetchone()
         assert carga == ("alertas", "completo", "concluida")
 
-    def test_erro_na_geracao_apos_a_carga_vai_para_o_relatorio_e_sai_com_3(
+    def test_erro_na_geracao_apos_a_carga_vai_para_o_relatorio_e_sai_com_4(
         self, banco_com_ddl, ambiente, monkeypatch
     ):
         def quebrar(*args, **kwargs):
             raise RuntimeError("regra quebrada")
 
         monkeypatch.setattr(alertas, "gerar", quebrar)
-        assert _cli(banco_com_ddl, ambiente) == 3
+        assert _cli(banco_com_ddl, ambiente) == 4
         _, _, relatorios = ambiente
         doc = json.loads((relatorios / "relatorio_carga_0001.json").read_text(encoding="utf-8"))
         assert doc["alertas"] == {"erro": "regra quebrada"}
@@ -167,7 +167,7 @@ class TestComandoAlertas:
             vigia_intervalo_s=0.01,
             vigia_tolerancia_s=0.03,
         )
-        assert codigo == 3
+        assert codigo == 4  # dw carregado; só os alertas foram desfeitos
         assert _contagem(banco_com_ddl) == 0  # nenhum alerta ficou pela metade
         assert banco_com_ddl.execute("SELECT count(*) FROM dw.fato_vendas").fetchone()[0] > 0
         _, _, relatorios = ambiente

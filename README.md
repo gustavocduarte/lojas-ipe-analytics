@@ -42,7 +42,9 @@ Cada execução é uma *carga* (tabela `etl.cargas`) e gera um relatório de qua
 `data/processed/relatorio_carga_NNNN.json` (e na tabela `etl.relatorios_qualidade`).
 Por padrão a carga é **incremental**: arquivos com o mesmo conteúdo (hash) de uma carga já
 concluída não são relidos. Códigos de saída: 0 ok · 1 validação estrutural reprovou (o dw não
-muda) · 2 erro de uso · 3 erro de execução (banco, arquivo, memória, outra carga em andamento).
+muda) · 2 erro de uso · 3 erro de execução (banco, arquivo, memória, outra carga em andamento)
+· 4 dados carregados, mas a geração dos alertas falhou (a carga fica `concluida`; reavalie com
+`python -m src.etl alertas`).
 Durante a carga uma vigia confere a memória livre; se ela ficar abaixo de 0,4 GB por mais de
 alguns segundos seguidos (`src/config.py`), a consulta é cancelada, o dw volta ao que era e o
 comando sai com 3.
