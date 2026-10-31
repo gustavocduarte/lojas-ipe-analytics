@@ -82,8 +82,11 @@ def resumo_cobertura(resultado: ResultadoBacktest) -> list[str]:
                 continue
             rede = float(sel[sel["sk_loja"].isna()]["cobertura"].iloc[0])
             lojas = sel[sel["sk_loja"].notna()]["cobertura"]
+            pontos_serie = sel[sel["sk_loja"].isna()]["pontos"].iloc[0] if "pontos" in sel else None
+            pontos_serie = f" ({int(pontos_serie)} pontos)" if pontos_serie is not None else ""
             linhas.append(
-                f"cobertura {rotulo}, {granularidade}, por loja e setor: média {pct(rede)}; "
+                f"cobertura {rotulo}, {granularidade}, por loja e setor: média {pct(rede)}"
+                f"{pontos_serie}; "
                 f"lojas {pct(lojas.min())} a {pct(lojas.max())} (mediana {pct(lojas.median())})"
             )
             total = resultado.cobertura_agregada
@@ -93,12 +96,20 @@ def resumo_cobertura(resultado: ResultadoBacktest) -> list[str]:
             if total.empty:
                 continue
             total_lojas = total[total["sk_loja"].notna()]["cobertura"]
+            linha_rede = total[total["sk_loja"].isna()].iloc[0]
+            pontos = f" ({int(linha_rede['pontos'])} pontos)" if "pontos" in total else ""
             linhas.append(
                 f"cobertura {rotulo}, {granularidade}, faixa calibrada no total: "
-                f"rede {pct(float(total[total['sk_loja'].isna()]['cobertura'].iloc[0]))}; "
+                f"rede {pct(float(linha_rede['cobertura']))}{pontos}; "
                 f"lojas {pct(total_lojas.min())} a {pct(total_lojas.max())} "
                 f"(mediana {pct(total_lojas.median())})"
             )
+    if resultado.origens_rolling:
+        linhas.insert(
+            0,
+            f"faixas calibradas em {resultado.origens_rolling} origens mensais "
+            f"(fora da amostra = sem as origens que se sobrepõem à medida)",
+        )
     return linhas
 
 

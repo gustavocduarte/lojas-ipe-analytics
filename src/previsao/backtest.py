@@ -20,6 +20,7 @@ from src import config
 from src.memoria import pico_memoria_processo_gb
 from src.previsao import faixa as faixa_mod
 from src.previsao import faixa_agregada as agregada_mod
+from src.previsao import rolling
 from src.previsao.modelos import MODELOS
 from src.previsao.painel import Painel
 
@@ -49,6 +50,7 @@ class ResultadoBacktest:
     cobertura: pd.DataFrame = field(default_factory=pd.DataFrame)
     # cobertura do total da rede (sk_loja vazio) e de cada loja na faixa calibrada no total
     cobertura_agregada: pd.DataFrame = field(default_factory=pd.DataFrame)
+    origens_rolling: int = 0  # origens do backtest de várias origens que calibraram as faixas
     chaves: list[tuple[int, str]] = field(default_factory=list)  # séries avaliadas
     ignoradas: list[tuple[int, str]] = field(
         default_factory=list
@@ -194,9 +196,23 @@ def executar(
         painel, modelos[escolhido], chaves, real, previsto, alvo, (faixas, faixas_agregadas),
         setores, treino_ate, teste_inicio, teste_fim, origem_calibracao,
     )  # fmt: skip
+    origens = rolling.coletar(
+        lambda origem, ini, fim: _real_e_previsto(painel, modelos[escolhido], origem, ini, fim),
+        chaves, painel.chaves,
+        rolling.origens_mensais(
+            config.PREVISAO_ROLLING_PRIMEIRA_ORIGEM, config.PREVISAO_ROLLING_ULTIMA_ORIGEM
+        ),
+        painel.datas[-1].date(),
+    )  # fmt: skip
+    medida = rolling.medir_cobertura(origens) if origens else None
+    if medida is not None and (medida["loja_setor"]["origem_faixa"] == "fora_da_amostra").any():
+        # origens suficientes para medir fora da amostra: as faixas vêm dos resíduos de todas elas
+        faixas_agregadas, faixas_series = rolling.calibrar(origens)
+        cobertura_agregada, cobertura = medida["agregado"], medida["loja_setor"]
+        faixas = {**faixas, **faixas_series}
     return ResultadoBacktest(
         treino_ate, teste_inicio, teste_fim, metricas, escolhido, faixas, faixas_agregadas,
-        cobertura, cobertura_agregada, chaves, ignoradas,
+        cobertura, cobertura_agregada, len(origens), chaves, ignoradas,
         time.perf_counter() - inicio_execucao, pico_memoria_processo_gb(),
     )  # fmt: skip
 
