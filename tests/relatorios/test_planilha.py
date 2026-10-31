@@ -17,6 +17,7 @@ def _dados(com_previsao: bool = True, com_projecao: bool = True) -> DadosFechame
             "venda_dia": [1500.0, 400.0], "meta_dia": [1000.0, 800.0],
             "cobertura_dia": [1.5, 0.5], "acumulado_mes": [12000.0, 6000.0],
             "meta_acumulada": [9000.0, 8000.0], "meta_mes": [20000.0, 16000.0],
+            "cobertura_ate_o_dia": [4 / 3, 0.75],
             "cobertura_mes": [0.6, 0.375], "acumulado_ano_anterior": [10000.0, 7000.0],
             "evolucao_ano_anterior": [0.2, -0.142857],
             "projecao_fechamento": [24000.0, 13000.0] if com_projecao else [None, None],
@@ -35,7 +36,8 @@ def _dados(com_previsao: bool = True, com_projecao: bool = True) -> DadosFechame
         {
             "posicao": [1, 2], "cod_vendedor": ["V1", "V2"], "nome_vendedor": ["Ana", "Bia"],
             "cod_loja": ["L01", "L02"], "nome_loja": ["Ipê 1", "Ipê 2"],
-            "acumulado_mes": [12000.0, 6000.0], "meta_mes": [10000.0, 9000.0],
+            "acumulado_mes": [12000.0, 6000.0], "meta_acumulada": [5000.0, 8000.0],
+            "cobertura_ate_o_dia": [2.4, 0.75], "meta_mes": [10000.0, 9000.0],
             "cobertura_mes": [1.2, 0.6667],
         }
     )  # fmt: skip
@@ -98,7 +100,7 @@ def test_formatos_brasileiros_na_aba_lojas(pasta):
     titulos = [c.value for c in ws[1]]
     linha = {t: ws.cell(2, i + 1) for i, t in enumerate(titulos)}
     assert linha["Venda do dia"].number_format == planilha.FORMATO_REAL
-    assert linha["Cobertura do mês"].number_format == planilha.FORMATO_PERCENTUAL
+    assert linha[planilha.TITULO_META_DO_MES_ATINGIDO].number_format == planilha.FORMATO_PERCENTUAL
     assert linha["Venda do dia"].value == 1500.0
     assert planilha.FORMATO_REAL.startswith('"R$"')
     assert planilha.FORMATO_DATA == "dd/mm/yyyy"
@@ -114,9 +116,16 @@ def test_datas_de_alertas_e_previsao_usam_formato_de_data(pasta):
 def test_formatacao_condicional_verde_e_vermelho_nas_coberturas(pasta):
     regras = pasta[planilha.ABA_LOJAS].conditional_formatting
     intervalos = {str(r.sqref): [x.operator for x in r.rules] for r in regras}
-    assert intervalos["F2:F3"] == ["greaterThanOrEqual", "lessThan"]  # cobertura do dia
-    assert "J2:J3" in intervalos and "N2:N3" in intervalos
-    assert "L2:L3" in intervalos  # evolução: verde a partir de zero
+    letra = lambda nome: planilha._coluna_de(planilha.COLUNAS_LOJAS, nome)  # noqa: E731
+    cor = ["greaterThanOrEqual", "lessThan"]
+    assert intervalos[f"{letra('cobertura_dia')}2:{letra('cobertura_dia')}3"] == cor
+    for nome in ("cobertura_ate_o_dia", "cobertura_projetada", "evolucao_ano_anterior"):
+        assert f"{letra(nome)}2:{letra(nome)}3" in intervalos, nome
+    # a razão com a meta do mês inteiro não tem cor de status (no meio do mês ficaria vermelha)
+    assert f"{letra('cobertura_mes')}2:{letra('cobertura_mes')}3" not in intervalos
+    vend = pasta[planilha.ABA_VENDEDORES].conditional_formatting
+    letra_v = planilha._coluna_de(planilha.COLUNAS_VENDEDORES, "cobertura_ate_o_dia")
+    assert [str(r.sqref) for r in vend] == [f"{letra_v}2:{letra_v}3"]
     resumo = pasta[planilha.ABA_RESUMO].conditional_formatting
     assert len(list(resumo)) >= 3
 
@@ -134,7 +143,8 @@ def test_resumo_traz_indicadores_calculados_dos_dados(pasta):
     ws = pasta[planilha.ABA_RESUMO]
     valores = {ws.cell(i, 1).value: ws.cell(i, 2).value for i in range(4, 20)}
     assert valores["Venda do dia"] == 1900.0 and valores["Meta do dia"] == 1800.0
-    assert valores["Cobertura do mês"] == pytest.approx(18000 / 36000)
+    assert valores[planilha.TITULO_COBERTURA_ATE_O_DIA] == pytest.approx(18000 / 17000)
+    assert valores[planilha.TITULO_META_DO_MES_ATINGIDO] == pytest.approx(18000 / 36000)
     assert valores["Acumulado do mês"] == 18000.0
     assert valores["Evolução vs ano anterior"] == pytest.approx(18000 / 17000 - 1)
     assert valores["Projeção de fechamento"] == 37000.0

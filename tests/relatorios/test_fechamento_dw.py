@@ -8,7 +8,15 @@ from openpyxl import load_workbook
 
 from src.relatorios import fechamento
 from src.relatorios.__main__ import principal
-from src.relatorios.planilha import ABA_ALERTAS, ABA_LOJAS, ABA_PREVISAO, ABA_RESUMO, ABA_VENDEDORES
+from src.relatorios.planilha import (
+    ABA_ALERTAS,
+    ABA_LOJAS,
+    ABA_PREVISAO,
+    ABA_RESUMO,
+    ABA_VENDEDORES,
+    TITULO_COBERTURA_ATE_O_DIA,
+    TITULO_META_DO_MES_ATINGIDO,
+)
 from tests.etl import base_alertas as b
 
 pytestmark = pytest.mark.banco
@@ -141,7 +149,13 @@ class TestLojas:
             assert linha["Acumulado do mês"] == pytest.approx(acumulado)
             assert linha["Venda do dia"] == pytest.approx(dia)
             assert linha["Meta do mês"] == pytest.approx(meta)
-            assert linha["Cobertura do mês"] == pytest.approx(acumulado / meta)
+            assert linha[TITULO_META_DO_MES_ATINGIDO] == pytest.approx(acumulado / meta)
+            meta_ate_dia = _escalar(
+                dw, "SELECT sum(m.valor_meta_dia) FROM dw.vw_meta_vendas_diaria m JOIN dw.dim_loja"
+                " l USING (sk_loja) WHERE l.cod_loja = %s AND m.data BETWEEN '2025-03-01' AND"
+                " '2025-03-15'", cod,
+            )  # fmt: skip
+            assert linha[TITULO_COBERTURA_ATE_O_DIA] == pytest.approx(acumulado / meta_ate_dia)
             assert linha["Mesmo período do ano anterior"] == (
                 pytest.approx(anterior) if anterior else None
             )
@@ -190,7 +204,12 @@ class TestResumo:
         assert valores["Cupons do mês"] == cupons
         assert valores["Ticket médio"] == pytest.approx(receita / cupons)
         assert valores["Meta do mês"] == pytest.approx(meta)
-        assert valores["Cobertura do mês"] == pytest.approx(receita / meta)
+        meta_ate_dia = _escalar(
+            dw, "SELECT sum(valor_meta_dia) FROM dw.vw_meta_vendas_diaria"
+            " WHERE data BETWEEN '2025-03-01' AND '2025-03-15'",
+        )  # fmt: skip
+        assert valores[TITULO_META_DO_MES_ATINGIDO] == pytest.approx(receita / meta)
+        assert valores[TITULO_COBERTURA_ATE_O_DIA] == pytest.approx(receita / meta_ate_dia)
 
     def test_venda_por_dia_ignora_canceladas_e_para_no_dia_de_posicao(self, pasta):
         ws = pasta[ABA_RESUMO]
@@ -216,6 +235,12 @@ class TestVendedoresAlertasPrevisao:
                 x["Vendedor"],
             )  # fmt: skip
             assert x["Acumulado do mês"] == pytest.approx(esperado)
+            meta_ate_dia = _escalar(
+                dw, "SELECT sum(m.valor_meta_dia) FROM dw.vw_meta_vendedor_diaria m JOIN"
+                " dw.dim_vendedor d USING (sk_vendedor) WHERE d.cod_vendedor = %s"
+                " AND m.data BETWEEN '2025-03-01' AND '2025-03-15'", x["Vendedor"],
+            )  # fmt: skip
+            assert x[TITULO_COBERTURA_ATE_O_DIA] == pytest.approx(esperado / meta_ate_dia)
         assert linhas[0]["Meta do mês"] == 5000
 
     def test_so_alertas_independentes_abertos_e_do_mais_grave_ao_menos(self, dw, pasta):

@@ -45,6 +45,11 @@ LARGURA_POR_FORMATO = {
 LARGURA_TEXTO_MINIMA, LARGURA_TEXTO_MAXIMA = 12, 60
 ALTURA_CABECALHO = 45  # até três linhas de título
 
+# A cobertura que manda (e tem cor de status) compara com a meta acumulada até o dia; a razão com a
+# meta do mês inteiro só informa quanto da meta mensal já foi feito.
+TITULO_COBERTURA_ATE_O_DIA = "Cobertura da meta até o dia"
+TITULO_META_DO_MES_ATINGIDO = "% da meta do mês atingido"
+
 # nome da coluna na consulta -> (título na planilha, formato)
 COLUNAS_LOJAS = {
     "cod_loja": ("Loja", None), "nome_loja": ("Nome", None), "uf": ("UF", None),
@@ -52,8 +57,9 @@ COLUNAS_LOJAS = {
     "cobertura_dia": ("Cobertura do dia", FORMATO_PERCENTUAL),
     "acumulado_mes": ("Acumulado do mês", FORMATO_REAL),
     "meta_acumulada": ("Meta acumulada até o dia", FORMATO_REAL),
+    "cobertura_ate_o_dia": (TITULO_COBERTURA_ATE_O_DIA, FORMATO_PERCENTUAL),
     "meta_mes": ("Meta do mês", FORMATO_REAL),
-    "cobertura_mes": ("Cobertura do mês", FORMATO_PERCENTUAL),
+    "cobertura_mes": (TITULO_META_DO_MES_ATINGIDO, FORMATO_PERCENTUAL),
     "acumulado_ano_anterior": ("Mesmo período do ano anterior", FORMATO_REAL),
     "evolucao_ano_anterior": ("Evolução vs ano anterior", FORMATO_PERCENTUAL),
     "projecao_fechamento": ("Projeção de fechamento", FORMATO_REAL),
@@ -63,8 +69,11 @@ COLUNAS_VENDEDORES = {
     "posicao": ("Posição", FORMATO_INTEIRO), "cod_vendedor": ("Vendedor", None),
     "nome_vendedor": ("Nome", None), "cod_loja": ("Loja", None),
     "nome_loja": ("Nome da loja", None),
-    "acumulado_mes": ("Acumulado do mês", FORMATO_REAL), "meta_mes": ("Meta do mês", FORMATO_REAL),
-    "cobertura_mes": ("Cobertura do mês", FORMATO_PERCENTUAL),
+    "acumulado_mes": ("Acumulado do mês", FORMATO_REAL),
+    "meta_acumulada": ("Meta acumulada até o dia", FORMATO_REAL),
+    "cobertura_ate_o_dia": (TITULO_COBERTURA_ATE_O_DIA, FORMATO_PERCENTUAL),
+    "meta_mes": ("Meta do mês", FORMATO_REAL),
+    "cobertura_mes": (TITULO_META_DO_MES_ATINGIDO, FORMATO_PERCENTUAL),
 }  # fmt: skip
 COLUNAS_ALERTAS = {
     "severidade": ("Severidade", None), "tipo": ("Tipo", None), "data": ("Data", FORMATO_DATA),
@@ -189,7 +198,7 @@ def _aba_lojas(wb: Workbook, dados: DadosFechamento) -> None:
     ws = wb.create_sheet(ABA_LOJAS)
     ultima = _escrever_tabela(ws, dados.lojas, COLUNAS_LOJAS, 1)
     _fixar_e_filtrar(ws, ultima, len(COLUNAS_LOJAS))
-    for nome in ("cobertura_dia", "cobertura_mes", "cobertura_projetada"):
+    for nome in ("cobertura_dia", "cobertura_ate_o_dia", "cobertura_projetada"):
         letra = _coluna_de(COLUNAS_LOJAS, nome)
         _verde_vermelho(ws, f"{letra}2:{letra}{max(ultima, 2)}")
     letra = _coluna_de(COLUNAS_LOJAS, "evolucao_ano_anterior")
@@ -200,7 +209,7 @@ def _aba_vendedores(wb: Workbook, dados: DadosFechamento) -> None:
     ws = wb.create_sheet(ABA_VENDEDORES)
     ultima = _escrever_tabela(ws, dados.vendedores, COLUNAS_VENDEDORES, 1)
     _fixar_e_filtrar(ws, ultima, len(COLUNAS_VENDEDORES))
-    letra = _coluna_de(COLUNAS_VENDEDORES, "cobertura_mes")
+    letra = _coluna_de(COLUNAS_VENDEDORES, "cobertura_ate_o_dia")
     _verde_vermelho(ws, f"{letra}2:{letra}{max(ultima, 2)}")
 
 
@@ -252,6 +261,7 @@ def _aba_resumo(ws, dados: DadosFechamento) -> None:
     venda_dia, meta_dia = soma("venda_dia"), soma("meta_dia")
     acumulado, meta_mes = soma("acumulado_mes"), soma("meta_mes")
     anterior = soma("acumulado_ano_anterior")
+    meta_acumulada = soma("meta_acumulada")
     evolucao = acumulado / anterior - 1 if anterior else None
     projecao = lojas["projecao_fechamento"].sum(min_count=1)
     projecao = None if pd.isna(projecao) else float(projecao)
@@ -261,9 +271,10 @@ def _aba_resumo(ws, dados: DadosFechamento) -> None:
         ("Meta do dia", meta_dia, FORMATO_REAL),
         ("Cobertura do dia", razao(venda_dia, meta_dia), FORMATO_PERCENTUAL),
         ("Acumulado do mês", acumulado, FORMATO_REAL),
-        ("Meta acumulada até o dia", soma("meta_acumulada"), FORMATO_REAL),
+        ("Meta acumulada até o dia", meta_acumulada, FORMATO_REAL),
         ("Meta do mês", meta_mes, FORMATO_REAL),
-        ("Cobertura do mês", razao(acumulado, meta_mes), FORMATO_PERCENTUAL),
+        (TITULO_COBERTURA_ATE_O_DIA, razao(acumulado, meta_acumulada), FORMATO_PERCENTUAL),
+        (TITULO_META_DO_MES_ATINGIDO, razao(acumulado, meta_mes), FORMATO_PERCENTUAL),
         ("Mesmo período do ano anterior", anterior, FORMATO_REAL),
         ("Evolução vs ano anterior", evolucao, FORMATO_PERCENTUAL),
         ("Margem do mês", ind["margem"], FORMATO_REAL),

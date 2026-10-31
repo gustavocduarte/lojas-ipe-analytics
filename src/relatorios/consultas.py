@@ -81,6 +81,7 @@ def lojas(conexao: psycopg.Connection, mes: date, dia: date) -> pd.DataFrame:
            COALESCE(v.venda_dia, 0) / NULLIF(md.meta_dia, 0) AS cobertura_dia,
            COALESCE(v.acumulado, 0) AS acumulado_mes,
            md.meta_acumulada,
+           COALESCE(v.acumulado, 0) / NULLIF(md.meta_acumulada, 0) AS cobertura_ate_o_dia,
            mm.meta_mes,
            COALESCE(v.acumulado, 0) / NULLIF(mm.meta_mes, 0) AS cobertura_mes,
            v.acumulado_ano_anterior,
@@ -160,16 +161,26 @@ def vendedores(conexao: psycopg.Connection, mes: date, dia: date) -> pd.DataFram
         SELECT m.sk_vendedor, m.valor_meta
         FROM dw.fato_meta_vendedor m
         JOIN par ON m.sk_tempo = to_char(par.ini, 'YYYYMMDD')::INT
+    ),
+    meta_dia AS (
+        SELECT m.sk_vendedor, SUM(m.valor_meta_dia) AS meta_acumulada
+        FROM dw.vw_meta_vendedor_diaria m
+        CROSS JOIN par
+        WHERE m.data BETWEEN par.ini AND par.dia
+        GROUP BY m.sk_vendedor
     )
     SELECT RANK() OVER (ORDER BY COALESCE(v.acumulado, 0) DESC) AS posicao,
            d.cod_vendedor, d.nome_vendedor, l.cod_loja, l.nome_loja,
            COALESCE(v.acumulado, 0) AS acumulado_mes,
+           md.meta_acumulada,
+           COALESCE(v.acumulado, 0) / NULLIF(md.meta_acumulada, 0) AS cobertura_ate_o_dia,
            m.valor_meta AS meta_mes,
            COALESCE(v.acumulado, 0) / NULLIF(m.valor_meta, 0) AS cobertura_mes
     FROM dw.dim_vendedor d
     JOIN dw.dim_loja l ON l.sk_loja = d.sk_loja
     LEFT JOIN venda v ON v.sk_vendedor = d.sk_vendedor
     LEFT JOIN meta m ON m.sk_vendedor = d.sk_vendedor
+    LEFT JOIN meta_dia md ON md.sk_vendedor = d.sk_vendedor
     WHERE v.sk_vendedor IS NOT NULL OR m.sk_vendedor IS NOT NULL
     ORDER BY posicao, d.cod_vendedor
     """
