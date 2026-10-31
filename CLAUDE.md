@@ -32,7 +32,8 @@ O computador tem 3,9 GB de RAM e costuma ter ~0,5 GB livres.
   - *Como a Fase 2 funciona:* `config/fontes/*.yaml` mapeia cada fonte para o contrato (`docs/contrato_de_entrada.md`); `src/etl/leitura.py` lê CSV/Excel para `stg` (texto cru, `COPY`, com `arquivo_origem`/`linha_origem`/`id_carga`); as procedures de `sql/procedures/` limpam (funções `etl.limpar_*` em `sql/ddl/07`), rejeitam com motivo em `stg.rejeitados` e carregam o dw por upsert (idempotente); `etl.validar_estrutura` (bloqueia e desfaz) e `etl.sinais_negocio` (só conta, são os sinais para a Fase 3); o relatório de qualidade sai em `data/processed/` e em `etl.relatorios_qualidade`. Carga incremental por arquivo (hash) e por fonte.
 - **Fase 3 (implementada, aguarda revisão):** regras de anomalia em SQL + tabela de alertas. A view `dw.vw_meta_vendas_diaria`: reparte a meta mensal (por loja e setor, e também por vendedor) pelos dias do mês, usando o peso de cada dia da semana e dos feriados que o gerador já usa (`FATOR_DIA_SEMANA`, `FATOR_FERIADO_NACIONAL`, em `src/config.py`), de forma que a soma dos dias bata exatamente com a meta do mês (o último dia absorve o resto do arredondamento). Com teste. (A `vw_meta_vendas_diaria` continua sendo plano: não faz parte da Fase 3 implementada.)
   - *Como a Fase 3 funciona:* cada regra é uma função `etl.regra_<tipo>()` (`sql/procedures/71..74`) e todos os limites ficam em `etl.parametros_negocio`; `etl.gerar_alertas(id_carga)` grava em `dw.alertas` por `chave_alerta` estável (não duplica) e **nunca** sobrescreve `status`, `observacao` nem histórico (resolvido/falso positivo não volta como novo); alerta que a regra deixa de ver vira `vigente = false`, e se reaparece volta com o mesmo status. O status só muda por `CALL dw.tratar_alerta(...)`, que grava `dw.alerta_historico`. Estouro de orçamento causado por valor atípico, documento repetido ou centro errado é **derivado** (`independente = false`, severidade baixa, ligado às origens em `dw.alerta_vinculos`); origem marcada como falso positivo não explica nada. Cancelamento alto é avaliado em janela móvel (chave `tipo|cod_vendedor|aaaa-mm`). Centro incompatível usa o tipo dominante aprendido de cada descrição (mínimo de ocorrências e participação em parâmetros) mais a tabela opcional `etl.excecoes_centro_descricao`. O painel conta alertas vigentes e independentes (`sql/views/10_alertas.sql`, views `dw.vw_alertas_*`). `python -m src.etl alertas` reavalia as regras sem recarregar; o pipeline as roda após cada carga que trouxe dado novo.
-- **Fase 4:** previsão simples de vendas + relatório Excel automático (openpyxl) + macro VBA simples.
+- **Fase 4 (implementada, aguarda revisão):** previsão simples de vendas + relatório Excel automático (openpyxl) + macro VBA simples.
+  - *Como a Fase 4 funciona:* `python -m src.previsao backtest|gerar` (`src/previsao/`): quatro abordagens só com numpy/pandas (ingênua, decomposição, Holt-Winters semanal, Holt-Winters com fator mensal) comparadas num backtest (treino até 30/06/2025, teste 07-12/2025; a decomposição venceu); a decomposição tem fator de feriado e de janela pré-Natal (15 a 24/12, `PREVISAO_NATAL_JANELA`), aprendidos no treino; faixa baixa/alta por percentis do backtest, calibrada por série e, em separado, no total da loja e da rede (`faixa_agregada.py`; não é a soma das faixas; cobertura da faixa mensal da rede abaixo do alvo, só 6 pontos); WAPE do backtest levemente otimista (modelo escolhido pelo próprio backtest, 18 meses de treino); grava em `dw.previsao_vendas` (coluna `nivel`: `loja_setor`, `loja`, `rede`; consultas das séries filtram `loja_setor`) e `dw.previsao_backtest` (procedures `dw.gravar_previsao`/`gravar_backtest`, idempotentes). `data_referencia` sempre parâmetro (padrão: último dia com venda, `dw.data_referencia()`). `dw.fn_projecao_fechamento_mes` e `dw.fn_projecao_despesas_ano` (+ views), `dw.vw_meta_vendas_diaria` e `dw.vw_meta_vendedor_diaria` (pesos em `etl.parametros_negocio`, iguais aos da `src/config.py`). `python -m src.relatorios fechamento` gera o .xlsx (ou .xlsm se existir `vba/modelo_fechamento.xlsm`, criado à mão no Excel: `docs/macro_vba.md`); os `.bas` ficam em `vba/` e o `.xlsm` é a única exceção binária versionada. Atalhos em vez de botões (o openpyxl descarta formas).
 - **Fase 5:** dashboard Power BI (4 páginas: Resumo Executivo, Vendas vs Meta, Orçado vs Realizado vs Previsão, Alertas), com parte das transformações em Power Query/M. Acrescenta-se a página **Acompanhamento Diário**, inspirada em painéis de sell-out:
   - tabela por loja e por UF com venda do dia, meta do dia, cobertura do dia %, acumulado do mês, meta do mês e cobertura do mês % (formatação condicional verde/vermelho);
   - cartões com mês anterior, mês atual, projeção de fechamento e evolução % contra o mesmo período do ano anterior;
@@ -58,7 +59,7 @@ O computador tem 3,9 GB de RAM e costuma ter ~0,5 GB livres.
   - *Fora do escopo por enquanto:* estoque (possível evolução).
   - *README:* explicar a diferença entre banco operacional (OLTP) e analítico (OLAP) e o caminho da venda até o Power BI.
 
-Fases 4 a 7 acima são plano: nada disso está implementado ainda.
+Fases 5 a 7 acima são plano: nada disso está implementado ainda.
 
 Não começar uma fase sem a revisão do usuário da anterior.
 
@@ -84,7 +85,9 @@ src/gerador/       gerador de dados sintéticos
 src/etl/           ETL (Fase 2): contrato de entrada, mapeamentos, leitura, limpeza, cargas
 config/fontes/     um YAML por fonte de dados (coluna da fonte -> coluna do sistema); `outra_empresa.yaml` é um
                    exemplo Excel de prova de generalidade (carga_padrao: false)
-src/relatorios/    relatório Excel (Fase 4)
+src/previsao/      previsão de vendas, backtest e gravação no dw (Fase 4)
+src/relatorios/    relatório Excel de fechamento (Fase 4)
+vba/               módulos .bas das macros (e o modelo .xlsm, criado à mão)
 tests/ docs/ powerbi/
 docs/contrato_de_entrada.md   gerado por `python -m src.etl.contrato`; não editar à mão
 ```
@@ -98,7 +101,10 @@ python -m src.banco 06_controle_etl.sql   # aplica só scripts novos num banco q
 python -m src.banco --procedures      # cria/atualiza as procedures de carga (sql/procedures)
 python -m src.etl carregar           # ETL: fontes padrão (--fonte X, --entidade Y, --completo)
 python -m src.etl alertas            # reavalia as regras de alerta (sem recarregar; nova carga 'alertas')
-python -m src.banco --views          # cria/atualiza as views dos alertas (sql/views)
+python -m src.banco --views          # cria/atualiza as views (alertas, meta diária, projeções)
+python -m src.previsao backtest      # compara as abordagens de previsão
+python -m src.previsao gerar --gravar  # prevê 3 meses e grava no dw (--corte/--ate para cenários)
+python -m src.relatorios fechamento  # gera data/processed/fechamento_AAAA-MM.xlsx
 python -m src.etl fontes             # lista as fontes mapeadas
 pytest                               # testes sem banco
 pytest -m banco                      # só os testes de banco (BD_TESTE_* no .env, usuário lojas_ipe_teste)

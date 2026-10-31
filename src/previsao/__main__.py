@@ -84,6 +84,10 @@ def _gerar(conexao: psycopg.Connection, args) -> int:
     print(
         relatorio.montar_previsao(previsao, resultado, geracao.comparar_com_real(conexao, previsao))
     )
+    print(
+        f"backtest: {resultado.duracao_s:.1f} s, pico de memória do processo "
+        f"{resultado.pico_memoria_gb:.2f} GB"
+    )
     if args.gravar:
         n_backtest = geracao.gravar_backtest(conexao, resultado)
         n_previsao = geracao.gravar_previsao(conexao, previsao)

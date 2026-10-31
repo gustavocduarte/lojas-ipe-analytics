@@ -15,7 +15,7 @@ se comparam ao orçado e à previsão por centro de custo, e quais lançamentos 
 | 1 | Modelo dimensional + gerador de dados sintéticos | feita |
 | 2 | ETL com validações de qualidade e carga via procedures | feita (aguarda revisão) |
 | 3 | Regras de anomalia em SQL e tabela de alertas | feita (aguarda revisão) |
-| 4 | Previsão de vendas, relatório Excel e macro VBA | a fazer |
+| 4 | Previsão de vendas, relatório Excel e macro VBA | feita (aguarda revisão) |
 | 5 | Dashboard Power BI (4 páginas) | a fazer |
 | 6 | Documentação final | a fazer |
 
@@ -73,3 +73,83 @@ histórico. Um estouro de orçamento causado por outro alerta (valor atípico, d
 centro errado) é um alerta *derivado*, ligado à origem, e não entra na contagem do painel.
 Views: `dw.vw_alertas_detalhe`, `vw_alertas_por_tipo`, `vw_alertas_por_loja`,
 `vw_alertas_tendencia_mensal` e `vw_alertas_resumo`.
+
+## Previsão de vendas (Fase 4)
+```
+python -m src.banco 15_previsao.sql 16_pesos_meta_diaria.sql 17_previsao_agregada.sql   # num banco que já tem os anteriores
+python -m src.banco --procedures ; python -m src.banco --views
+python -m src.previsao backtest                    # compara as abordagens (treino até 30/06/2025)
+python -m src.previsao gerar --gravar              # 3 meses depois do último dia com venda
+python -m src.previsao gerar --corte 2025-12-15 --ate 2025-12-31 --gravar   # corte simulado
+```
+**Modelos** (só numpy/pandas, leves): `ingenua` (mesmo dia da semana um ano antes), `decomposicao`
+(nível recente x dia da semana x feriado x **janela pré-Natal (15 a 24/12)** x mês x tendência amortecida;
+fatores aprendidos por setor nas lojas com histórico longo), `holt_winters` (semanal, aditivo, tendência amortecida, feito à mão) e
+`holt_winters_mensal` (o anterior corrigido pelo fator do mês). Séries são a receita líquida diária de
+vendas concluídas por loja e setor (90 séries).
+
+**Backtest** treinando até 30/06/2025 e prevendo 01/07 a 31/12/2025. WAPE = soma dos erros absolutos /
+soma do real; viés = soma do previsto / soma do real - 1. "L×S" junta os erros de todas as lojas e
+setores; "rede" compara o total.
+
+| Abordagem | WAPE mês L×S | WAPE dia L×S | WAPE mês rede | WAPE dia rede | Viés mês rede |
+|---|---|---|---|---|---|
+| **decomposicao** (escolhida) | **17,8%** | **71,1%** | **3,4%** | **20,0%** | -0,3% |
+| ingenua | 19,6% | 90,2% | 5,7% | 21,5% | -5,5% |
+| holt_winters_mensal | 26,8% | 71,7% | 14,8% | 21,9% | -14,8% |
+| holt_winters | 34,4% | 73,4% | 21,8% | 29,9% | -20,9% |
+
+O erro diário por loja e setor é alto porque a série é esparsa (vários dias sem venda de um setor numa
+loja); o erro mensal e o da rede são os que servem para decidir. A escolha é pelo menor WAPE mensal por
+loja e setor. **Ressalva:** como o modelo foi escolhido pelo próprio backtest e não há dados para um
+período de validação separado (são 24 meses), o WAPE informado é levemente otimista. Com 18 meses de
+treino a sazonalidade anual vem de um ano só para julho a dezembro; por isso o Holt-Winters semanal (sem
+componente anual) perde, e a sazonalidade anual fica com a ingênua e com o fator mensal da decomposição.
+
+**Faixa baixa/alta:** percentis 10 e 90 da razão real/previsto do backtest, por granularidade e setor
+(alvo: ~80% dos valores reais dentro). A cobertura é medida fora da amostra (faixa calibrada num backtest
+anterior, treino até 31/03/2025) e na amostra; está em `dw.previsao_backtest` e no relatório do comando.
+A faixa da **rede** e a de cada **loja** (soma dos setores) não são a soma das faixas das séries, que seria
+larga demais (os erros se compensam): são calibradas nos resíduos do backtest no próprio total
+(`src/previsao/faixa_agregada.py`) e gravadas em `dw.previsao_vendas` com `nivel = 'rede'` (`sk_loja` e
+`setor` nulos) e `nivel = 'loja'` (`setor` nulo); as séries são `nivel = 'loja_setor'`. Cobertura medida no
+total (backtest, fora da amostra / na amostra): rede, dia 67,4% / 79,3%; rede, mês 50,0% / 66,7%. Ou seja, a
+faixa mensal da rede ainda cobre **menos** que os 80% do alvo: ela é calibrada com só 6 pontos mensais (o
+backtest tem seis meses), o que dá uma faixa estreita e instável; a diária, com 184 pontos, chega perto do
+alvo na amostra. Leia a faixa mensal da rede como um mínimo de incerteza, não como intervalo de 80%.
+
+**Onde fica:** `dw.previsao_vendas` (dia e mês, por loja e setor, com faixa, `versao_modelo`,
+`treino_ate`, `gerado_em` e o WAPE do backtest da série) e `dw.previsao_backtest`. Gravar duas vezes não
+duplica (`CALL dw.gravar_previsao`/`gravar_backtest`). As datas previstas são `DATE` porque passam do
+fim da `dim_tempo`.
+
+**Fechamentos** (a data de referência é sempre um parâmetro; as views usam `dw.data_referencia()`, o
+último dia com venda):
+* `dw.fn_projecao_fechamento_mes(data)` / `dw.vw_projecao_fechamento_mes`: **projeção = realizado do mês
+  até a data + previsão dos dias restantes** (previsão gerada com `treino_ate` igual à data). Cobertura
+  projetada = projeção / meta do mês. No último dia do mês a projeção é o realizado.
+* `dw.fn_projecao_despesas_ano(data)` / `dw.vw_projecao_despesas_ano`: **projeção do ano = realizado até a
+  data + orçado do que falta x fator**, com fator = realizado / orçado do período já passado, limitado a
+  [0,7; 1,3] (`projecao_fator_min/max` em `etl.parametros_negocio`). O orçado do mês da data é repartido
+  pela fração dos dias.
+* `dw.vw_meta_vendas_diaria` e `dw.vw_meta_vendedor_diaria`: meta do mês repartida pelos dias com o peso
+  do dia da semana e do feriado (os mesmos de `src/config.py`); a soma dos dias bate com a meta do mês (o
+  último dia absorve o resto do arredondamento).
+* **Evolução** (relatório) = acumulado do mês / acumulado do mesmo período do ano anterior - 1.
+
+## Relatório Excel e macros (Fase 4)
+```
+python -m src.relatorios fechamento                                 # mês/dia da referência
+python -m src.relatorios fechamento --mes 2025-12 --dia 2025-12-15
+```
+Gera `data/processed/fechamento_AAAA-MM.xlsx` com cinco abas: **Resumo da rede** (indicadores, gráfico de
+venda por dia contra a meta do dia), **Lojas** (venda e meta do dia, acumulado, cobertura, evolução contra
+o ano anterior, projeção), **Vendedores** (ranking, meta, cobertura), **Alertas abertos** (só
+independentes, do mais grave ao menos) e **Previsão** (por loja, com faixa, erro do backtest e gráfico).
+Formatos brasileiros, cabeçalho fixo, filtros e verde/vermelho na cobertura e na evolução. Os números
+são conferidos contra consultas independentes ao dw nos testes.
+
+Com `vba/modelo_fechamento.xlsm` presente a saída é `.xlsm` com duas macros (`GerarAbaDaLoja`,
+`ExportarResumoPDF`, atalhos `Ctrl+Shift+L` e `Ctrl+Shift+P`). O modelo é criado uma vez, à mão, no Excel
+(passo a passo, segurança de macros e roteiro de teste em `docs/macro_vba.md`); sem ele o relatório sai
+como `.xlsx`.
