@@ -122,6 +122,23 @@ class TestDecomposicao:
         assert fatores.dia_semana == pytest.approx(SEMANA / SEMANA.mean(), rel=0.02)
         assert fatores.crescimento_mensal == pytest.approx(0.01, abs=0.003)
 
+    def test_fator_de_natal_e_recuperado_e_melhora_a_previsao_da_janela(self):
+        datas, y = _serie_conhecida("2024-01-01", "2025-12-31", 1000.0)
+        janela = modelos._janela_natal(datas)
+        y = np.where(janela, y * 1.4, y)
+        fatores = modelos.estimar_fatores(
+            datas[datas <= "2024-12-31"], y[: (datas <= "2024-12-31").sum()]
+        )
+        assert fatores.natal == pytest.approx(1.4, rel=0.03)
+        painel = _painel(datas, [y]).ate(date(2025, 12, 14))
+        alvo = pd.date_range("2025-12-15", "2025-12-24")
+        previsto = modelos.prever_decomposicao(painel, alvo)[0]
+        assert previsto.sum() == pytest.approx(y[-17:-7].sum(), rel=0.08)
+
+    def test_sem_janela_de_natal_completa_o_fator_e_neutro(self):
+        datas, y = _serie_conhecida("2024-01-01", "2024-12-20", 1000.0)
+        assert modelos.estimar_fatores(datas, y).natal == 1.0
+
     def test_fator_do_mes_sai_normalizado_e_ordenado(self):
         datas, y = _serie_conhecida("2024-01-01", "2025-06-30", 1000.0)
         fatores = modelos.estimar_fatores(datas, y)

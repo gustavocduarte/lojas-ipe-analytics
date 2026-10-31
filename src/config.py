@@ -430,6 +430,9 @@ PREVISAO_DIAS_MES_COMPLETO = (
 # peso do fator mensal = n / (n + K), com n = anos observados do mês
 PREVISAO_SUAVIZACAO_MENSAL_K = 0.1
 PREVISAO_SUAVIZACAO_FERIADO_K = 1.0  # idem para o fator de cada feriado
+# janela pré-Natal (mês, dia) inclusive; o fator é a razão dela com os dias anteriores do mesmo mês
+PREVISAO_NATAL_JANELA = ((12, 15), (12, 24))
+PREVISAO_NATAL_DIAS_BASE = 14  # dias imediatamente antes da janela que servem de referência
 PREVISAO_AMORTECIMENTO_MENSAL = 0.9  # a tendência perde 10% do ritmo a cada mês à frente
 PREVISAO_HW_PERIODO = 7
 PREVISAO_HW_ALFAS = (0.05, 0.15, 0.3)

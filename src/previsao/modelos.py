@@ -31,6 +31,32 @@ def _nomes_feriado(datas: pd.DatetimeIndex) -> np.ndarray:
     return np.array([feriados.get(d.date()) for d in datas], dtype=object)
 
 
+def _janela_natal(datas: pd.DatetimeIndex) -> np.ndarray:
+    """Dias da janela pré-Natal (config.PREVISAO_NATAL_JANELA)."""
+    (m1, d1), (m2, d2) = config.PREVISAO_NATAL_JANELA
+    chave = datas.month * 100 + datas.day
+    return np.asarray((chave >= m1 * 100 + d1) & (chave <= m2 * 100 + d2))
+
+
+def _fator_natal(datas: pd.DatetimeIndex, sem_calendario: np.ndarray) -> float:
+    """Razão média da janela pré-Natal com os dias de referência logo antes dela, em cada ano cuja
+    janela está inteira nos dados (1,0 se nenhum). `sem_calendario` já vem sem dia da semana e
+    feriado."""
+    serie = pd.Series(sem_calendario, index=datas)
+    razoes = []
+    for ano in sorted(set(datas.year)):
+        (m1, d1), (m2, d2) = config.PREVISAO_NATAL_JANELA
+        ini, fim = pd.Timestamp(ano, m1, d1), pd.Timestamp(ano, m2, d2)
+        base_ini = ini - pd.Timedelta(days=config.PREVISAO_NATAL_DIAS_BASE)
+        if base_ini < datas[0] or fim > datas[-1]:
+            continue
+        janela = serie[ini:fim].mean()
+        base = serie[base_ini : ini - pd.Timedelta(days=1)].mean()
+        if base > 0 and janela > 0:
+            razoes.append(janela / base)
+    return float(np.mean(razoes)) if razoes else 1.0
+
+
 def _series_previsiveis(painel: Painel) -> np.ndarray:
     return painel.dias_com_historico() >= config.PREVISAO_DIAS_MINIMOS_SERIE
 
@@ -61,6 +87,7 @@ class Fatores:
     feriado_por_nome: dict[str, float]
     mes: np.ndarray  # 12, janeiro = 0, média 1
     crescimento_mensal: float  # variação em log por mês
+    natal: float = 1.0  # janela pré-Natal contra os dias anteriores do mesmo mês
 
     def feriado(self, nome: str | None) -> float:
         if nome is None:
@@ -81,10 +108,11 @@ def estimar_fatores(datas: pd.DatetimeIndex, soma: np.ndarray) -> Fatores:
     nomes = _nomes_feriado(datas)
     eh_feriado = np.array([n is not None for n in nomes])
     valido = np.isfinite(razao)
+    na_janela_natal = _janela_natal(datas)
 
     f_dia = np.ones(7)
     for d in range(7):
-        usados = valido & ~eh_feriado & (dia_semana == d)
+        usados = valido & ~eh_feriado & ~na_janela_natal & (dia_semana == d)
         if usados.any():
             f_dia[d] = razao[usados].mean()
     f_dia /= f_dia.mean()
@@ -101,6 +129,8 @@ def estimar_fatores(datas: pd.DatetimeIndex, soma: np.ndarray) -> Fatores:
 
     f_feriado = np.array([por_nome.get(n, geral) if n is not None else 1.0 for n in nomes])
     sem_calendario = serie.to_numpy() / (f_dia[dia_semana] * f_feriado)
+    f_natal = _fator_natal(datas, sem_calendario)
+    sem_calendario = np.where(na_janela_natal, sem_calendario / f_natal, sem_calendario)
     agrupado = pd.DataFrame({"d": sem_calendario}).groupby([datas.year, datas.month])["d"]
     mensal = agrupado.agg(["mean", "count"])
     mensal = mensal[mensal["count"] >= config.PREVISAO_DIAS_MES_COMPLETO]
@@ -118,7 +148,7 @@ def estimar_fatores(datas: pd.DatetimeIndex, soma: np.ndarray) -> Fatores:
         n = len(sobras[mes])
         log_mes[mes] = n / (n + config.PREVISAO_SUAVIZACAO_MENSAL_K) * (media - centro)
     f_mes = np.exp(log_mes)
-    return Fatores(f_dia, geral, por_nome, f_mes / f_mes.mean(), crescimento)
+    return Fatores(f_dia, geral, por_nome, f_mes / f_mes.mean(), crescimento, f_natal)
 
 
 def _fatores_por_setor(painel: Painel) -> dict[str, Fatores]:
@@ -155,12 +185,14 @@ def prever_decomposicao(painel: Painel, alvo: pd.DatetimeIndex) -> np.ndarray:
         sazonal_janela = (
             f.dia_semana[datas_janela.day_of_week]
             * np.array([f.feriado(x) for x in nomes_janela])
+            * np.where(_janela_natal(datas_janela), f.natal, 1.0)
             * f.mes[datas_janela.month - 1]
             * np.exp(f.crescimento_mensal * meses_janela)
         )
         sazonal_alvo = (
             f.dia_semana[alvo.day_of_week]
             * np.array([f.feriado(x) for x in nomes_alvo])
+            * np.where(_janela_natal(alvo), f.natal, 1.0)
             * f.mes[alvo.month - 1]
             * np.exp(f.crescimento_mensal * _soma_amortecida(meses_alvo))
         )
