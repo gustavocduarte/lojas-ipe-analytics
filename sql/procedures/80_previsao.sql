@@ -4,7 +4,7 @@
 -- Cada procedure SUBSTITUI tudo o que já existia para o mesmo cenário, então rodar duas vezes
 -- deixa o dw igual (idempotente) e um horizonte menor não deixa linhas antigas para trás.
 
--- tmp_previsao_vendas (granularidade, data, sk_loja, setor, valor_previsto, valor_baixo,
+-- tmp_previsao_vendas (nivel, granularidade, data, sk_loja, setor, valor_previsto, valor_baixo,
 -- valor_alto, wape_backtest)
 CREATE OR REPLACE PROCEDURE dw.gravar_previsao(p_versao VARCHAR, p_treino_ate DATE)
 LANGUAGE plpgsql AS $$
@@ -13,10 +13,10 @@ BEGIN
     WHERE versao_modelo = p_versao AND treino_ate = p_treino_ate;
 
     INSERT INTO dw.previsao_vendas (
-        granularidade, data, sk_loja, setor, valor_previsto, valor_baixo, valor_alto,
+        nivel, granularidade, data, sk_loja, setor, valor_previsto, valor_baixo, valor_alto,
         versao_modelo, treino_ate, wape_backtest
     )
-    SELECT granularidade, data, sk_loja, setor, valor_previsto, valor_baixo, valor_alto,
+    SELECT nivel, granularidade, data, sk_loja, setor, valor_previsto, valor_baixo, valor_alto,
            p_versao, p_treino_ate, wape_backtest
     FROM tmp_previsao_vendas;
 END;

@@ -62,3 +62,29 @@ def test_backtest_exige_teste_depois_do_treino(base):
 def test_parametros_do_fechamento_de_despesas_existem(base):
     chaves = {c for (c,) in base.execute("SELECT chave FROM etl.parametros_negocio").fetchall()}
     assert {"projecao_fator_min", "projecao_fator_max"} <= chaves
+
+
+def test_nivel_loja_e_rede_aceitam_loja_e_setor_vazios_e_nao_se_repetem(base):
+    comando = (
+        "INSERT INTO dw.previsao_vendas (nivel, granularidade, data, sk_loja, setor,"
+        " valor_previsto,"
+        " valor_baixo, valor_alto, versao_modelo, treino_ate) VALUES (%s, 'mes', '2026-01-01', %s,"
+        " NULL, 100, 90, 110, 'decomposicao@1', '2025-12-31')"
+    )
+    base.execute(comando, ("rede", None))
+    base.execute(comando, ("loja", 1))
+    with pytest.raises(psycopg.errors.UniqueViolation):
+        base.execute(comando, ("rede", None))
+
+
+def test_nivel_exige_a_combinacao_certa_de_loja_e_setor(base):
+    comando = (
+        "INSERT INTO dw.previsao_vendas (nivel, granularidade, data, sk_loja, setor,"
+        " valor_previsto,"
+        " valor_baixo, valor_alto, versao_modelo, treino_ate) VALUES (%s, 'mes', '2026-01-01', %s,"
+        " %s, 100, 90, 110, 'decomposicao@1', '2025-12-31')"
+    )
+    for nivel, loja, setor in (("rede", 1, None), ("loja", None, None), ("loja_setor", 1, None)):
+        with pytest.raises(psycopg.errors.CheckViolation):
+            base.execute(comando, (nivel, loja, setor))
+        base.rollback()

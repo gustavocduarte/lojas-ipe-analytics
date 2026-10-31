@@ -193,7 +193,7 @@ def previsao_mensal(conexao: psycopg.Connection) -> pd.DataFrame:
     WITH ultima AS (
         SELECT versao_modelo, treino_ate
         FROM dw.previsao_vendas
-        WHERE granularidade = 'mes'
+        WHERE nivel = 'loja_setor' AND granularidade = 'mes'
         ORDER BY gerado_em DESC, treino_ate DESC LIMIT 1
     ),
     wape AS (
@@ -205,14 +205,18 @@ def previsao_mensal(conexao: psycopg.Connection) -> pd.DataFrame:
                               WHERE versao_modelo = u.versao_modelo)
     )
     SELECT f.data AS mes, l.cod_loja, l.nome_loja,
-           SUM(f.valor_previsto) AS previsto, SUM(f.valor_baixo) AS faixa_baixa,
-           SUM(f.valor_alto) AS faixa_alta, w.wape AS wape_backtest_loja,
-           f.versao_modelo, f.treino_ate
+           SUM(f.valor_previsto) AS previsto,
+           COALESCE(MAX(t.valor_baixo), SUM(f.valor_baixo)) AS faixa_baixa,
+           COALESCE(MAX(t.valor_alto), SUM(f.valor_alto)) AS faixa_alta,
+           w.wape AS wape_backtest_loja, f.versao_modelo, f.treino_ate
     FROM dw.previsao_vendas f
     JOIN ultima u ON u.versao_modelo = f.versao_modelo AND u.treino_ate = f.treino_ate
     JOIN dw.dim_loja l ON l.sk_loja = f.sk_loja
     LEFT JOIN wape w ON w.sk_loja = f.sk_loja
-    WHERE f.granularidade = 'mes'
+    LEFT JOIN dw.previsao_vendas t ON t.nivel = 'loja' AND t.granularidade = 'mes'
+         AND t.data = f.data AND t.sk_loja = f.sk_loja AND t.versao_modelo = f.versao_modelo
+         AND t.treino_ate = f.treino_ate
+    WHERE f.nivel = 'loja_setor' AND f.granularidade = 'mes'
     GROUP BY f.data, l.cod_loja, l.nome_loja, w.wape, f.versao_modelo, f.treino_ate
     ORDER BY f.data, l.cod_loja
     """
@@ -225,13 +229,13 @@ def previsao_diaria_da_rede(conexao: psycopg.Connection) -> pd.DataFrame:
     WITH ultima AS (
         SELECT versao_modelo, treino_ate
         FROM dw.previsao_vendas
-        WHERE granularidade = 'mes'
+        WHERE nivel = 'loja_setor' AND granularidade = 'mes'
         ORDER BY gerado_em DESC, treino_ate DESC LIMIT 1
     )
     SELECT f.data AS dia, SUM(f.valor_previsto) AS previsto
     FROM dw.previsao_vendas f
     JOIN ultima u ON u.versao_modelo = f.versao_modelo AND u.treino_ate = f.treino_ate
-    WHERE f.granularidade = 'dia'
+    WHERE f.nivel = 'loja_setor' AND f.granularidade = 'dia'
     GROUP BY f.data
     ORDER BY f.data
     """

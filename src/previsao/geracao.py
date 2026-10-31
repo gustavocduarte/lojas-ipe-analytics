@@ -10,6 +10,7 @@ import psycopg
 from src import config
 from src.calendario import ultimo_dia_do_mes
 from src.previsao import faixa as faixa_mod
+from src.previsao import faixa_agregada as agregada_mod
 from src.previsao.backtest import ResultadoBacktest
 from src.previsao.modelos import MODELOS, versao_do_modelo
 from src.previsao.painel import Painel
@@ -27,15 +28,25 @@ class PrevisaoGerada:
     treino_ate: date
     inicio: date
     fim: date
-    linhas: pd.DataFrame  # COLUNAS_PREVISAO, dia e mês juntos
+    linhas: pd.DataFrame  # COLUNAS_PREVISAO das séries (loja e setor), dia e mês juntos
     sem_previsao: list[tuple[int, str]] = field(
         default_factory=list
     )  # séries que o modelo não previu
+    agregadas: pd.DataFrame = field(  # loja (soma dos setores) e rede, com faixa própria
+        default_factory=lambda: pd.DataFrame(columns=["nivel", *COLUNAS_PREVISAO])
+    )
 
     def mensal_da_rede(self) -> pd.DataFrame:
-        """Previsto, faixa (soma das faixas de cada série) por mês previsto, somando a rede."""
+        """Previsto e faixa por mês previsto, no total da rede. A faixa é a calibrada no total da
+        rede; sem ela (backtest sem faixa agregada) cai na soma das faixas de cada série."""
+        colunas = ["valor_previsto", "valor_baixo", "valor_alto"]
+        rede = self.agregadas[
+            (self.agregadas["nivel"] == "rede") & (self.agregadas["granularidade"] == "mes")
+        ]
+        if len(rede):
+            return rede.set_index("data")[colunas]
         meses = self.linhas[self.linhas["granularidade"] == "mes"]
-        return meses.groupby("data")[["valor_previsto", "valor_baixo", "valor_alto"]].sum()
+        return meses.groupby("data")[colunas].sum()
 
 
 def meses_completos(inicio: date, fim: date) -> list[date]:
@@ -76,10 +87,52 @@ def gerar(
         mensal = np.stack([previsto[:, mask].sum(axis=1) for mask in por_mes.values()], axis=1)
         baixo_m, alto_m = faixa_mod.aplicar_faixa(mensal, setores, resultado.faixas, "mes")
         partes.append(_linhas("mes", primeiros, chaves, mensal, baixo_m, alto_m, resultado))
+    agregadas = _linhas_agregadas(
+        chaves, previsto, alvo, [(m, por_mes[m]) for m in primeiros] if primeiros else [], resultado
+    )
     return PrevisaoGerada(
         nome, versao_do_modelo(nome), treino_ate, inicio, fim,
-        pd.concat(partes, ignore_index=True), sem_previsao,
+        pd.concat(partes, ignore_index=True), sem_previsao, agregadas,
     )  # fmt: skip
+
+
+def _linhas_agregadas(chaves, previsto, alvo, meses, resultado) -> pd.DataFrame:
+    """Linhas de nível "loja" (soma dos setores) e "rede" (soma de tudo), com a faixa calibrada no
+    próprio total. `meses` = [(primeiro dia, máscara dos dias do mês)] dos meses completos."""
+    lojas = np.array([loja for loja, _ in chaves])
+    casas = config.CASAS_PREVISAO
+    por_granularidade = [("dia", [d.date() for d in alvo], previsto)]
+    if meses:
+        mensal = np.stack([previsto[:, mask].sum(axis=1) for _, mask in meses], axis=1)
+        por_granularidade.append(("mes", [m for m, _ in meses], mensal))
+    partes = [pd.DataFrame(columns=COLUNAS_PREVISAO)]
+    for granularidade, datas, matriz in por_granularidade:
+        for nivel in ("rede", "loja"):
+            faixa = resultado.faixas_agregadas.get((nivel, granularidade))
+            if faixa is None:
+                continue
+            rotulos, somado = agregada_mod.agregar(matriz, lojas, nivel)
+            baixo, alto = agregada_mod.aplicar(somado, faixa)
+            n_datas = len(datas)
+            wape = [resultado.wape_do_nivel(nivel, rotulo, granularidade) for rotulo in rotulos]
+            partes.append(
+                pd.DataFrame(
+                    {
+                        "nivel": nivel,
+                        "granularidade": granularidade,
+                        "data": np.tile(np.array(datas, dtype=object), len(rotulos)),
+                        "sk_loja": np.repeat(np.array(rotulos, dtype=object), n_datas),
+                        "setor": None,
+                        "valor_previsto": np.round(somado.ravel(), casas),
+                        "valor_baixo": np.round(baixo.ravel(), casas),
+                        "valor_alto": np.round(alto.ravel(), casas),
+                        "wape_backtest": np.round(
+                            np.repeat(np.array(wape, dtype=float), n_datas), 4
+                        ),
+                    }
+                )
+            )
+    return pd.concat(partes, ignore_index=True)[["nivel", *COLUNAS_PREVISAO]]
 
 
 def _linhas(granularidade, datas, chaves, previsto, baixo, alto, resultado) -> pd.DataFrame:
@@ -123,16 +176,17 @@ def gravar_previsao(conexao: psycopg.Connection, previsao: PrevisaoGerada) -> in
     """Substitui no dw a previsão deste modelo e deste corte. Devolve as linhas gravadas."""
     try:
         conexao.execute(
-            "CREATE TEMP TABLE tmp_previsao_vendas (granularidade VARCHAR(3), data DATE,"
+            "CREATE TEMP TABLE tmp_previsao_vendas (nivel VARCHAR(10), granularidade VARCHAR(3),"
+            " data DATE,"
             " sk_loja INTEGER, setor VARCHAR(30), valor_previsto NUMERIC(14, 2),"
             " valor_baixo NUMERIC(14, 2), valor_alto NUMERIC(14, 2), wape_backtest NUMERIC(8, 4))"
             " ON COMMIT DROP"
         )
-        linhas = (
-            [_python(v) for v in linha]
-            for linha in previsao.linhas.itertuples(index=False, name=None)
-        )
-        _copiar(conexao, "tmp_previsao_vendas", COLUNAS_PREVISAO, linhas)
+        todas = pd.concat(
+            [previsao.linhas.assign(nivel="loja_setor"), previsao.agregadas], ignore_index=True
+        )[["nivel", *COLUNAS_PREVISAO]]
+        linhas = (_linha_previsao(linha) for linha in todas.itertuples(index=False, name=None))
+        _copiar(conexao, "tmp_previsao_vendas", ["nivel", *COLUNAS_PREVISAO], linhas)
         conexao.execute("CALL dw.gravar_previsao(%s, %s)", (previsao.versao, previsao.treino_ate))
         conexao.commit()
     except Exception:
@@ -141,15 +195,24 @@ def gravar_previsao(conexao: psycopg.Connection, previsao: PrevisaoGerada) -> in
     return len(previsao.linhas)
 
 
+def _linha_previsao(linha: tuple) -> list:
+    """Uma linha da previsão para o COPY: vazios viram NULL e a loja volta a ser inteira."""
+    valores = [None if pd.isna(v) else _python(v) for v in linha]
+    if valores[3] is not None:  # sk_loja
+        valores[3] = int(valores[3])
+    return valores
+
+
 def linhas_do_backtest(resultado: ResultadoBacktest) -> pd.DataFrame:
     """Métricas do backtest no formato de dw.previsao_backtest (cobertura: modelo escolhido)."""
     m = resultado.metricas.copy()
-    c = resultado.cobertura
+    c = resultado.cobertura_agregada
     cobertura = {}
     if not c.empty:
         origem = (
             "fora_da_amostra" if (c["origem_faixa"] == "fora_da_amostra").any() else "na_amostra"
         )
+        # a cobertura gravada em rede/loja é a do total, na faixa calibrada naquele nível
         for linha in c[c["origem_faixa"] == origem].itertuples():
             loja = None if pd.isna(linha.sk_loja) else int(linha.sk_loja)
             cobertura[(linha.granularidade, loja)] = linha.cobertura
@@ -226,11 +289,7 @@ def comparar_com_real(conexao: psycopg.Connection, previsao: PrevisaoGerada) -> 
         linhas = [i for i, c in enumerate(painel.chaves) if c in series]
         somas = np.nansum(painel.valores[linhas], axis=0)
         real_por_dia = {d.date(): float(v) for d, v in zip(painel.datas, somas, strict=True)}
-    meses = (
-        previsao.linhas[previsao.linhas["granularidade"] == "mes"]
-        .groupby("data")[["valor_baixo", "valor_alto"]]
-        .sum()
-    )
+    meses = previsao.mensal_da_rede()[["valor_baixo", "valor_alto"]]
     saida = []
     for mes, parte in dias.groupby("mes"):
         por_dia = parte.groupby("data")["valor_previsto"].sum()

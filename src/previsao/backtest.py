@@ -19,6 +19,7 @@ import pandas as pd
 from src import config
 from src.memoria import pico_memoria_processo_gb
 from src.previsao import faixa as faixa_mod
+from src.previsao import faixa_agregada as agregada_mod
 from src.previsao.modelos import MODELOS
 from src.previsao.painel import Painel
 
@@ -44,13 +45,27 @@ class ResultadoBacktest:
     metricas: pd.DataFrame  # COLUNAS_METRICAS; sk_loja/setor vazios nas linhas agregadas
     escolhido: str
     faixas: Faixas = field(default_factory=dict)  # calibradas neste backtest (uso na produção)
+    faixas_agregadas: agregada_mod.FaixasAgregadas = field(default_factory=dict)  # loja e rede
     cobertura: pd.DataFrame = field(default_factory=pd.DataFrame)
+    # cobertura do total da rede (sk_loja vazio) e de cada loja na faixa calibrada no total
+    cobertura_agregada: pd.DataFrame = field(default_factory=pd.DataFrame)
     chaves: list[tuple[int, str]] = field(default_factory=list)  # séries avaliadas
     ignoradas: list[tuple[int, str]] = field(
         default_factory=list
     )  # séries que algum modelo não previu
     duracao_s: float = 0.0
     pico_memoria_gb: float = 0.0
+
+    def wape_do_nivel(self, nivel: str, sk_loja: int | None, granularidade: str) -> float | None:
+        """WAPE do modelo escolhido no total da loja ou da rede (None se não houver)."""
+        m = self.metricas
+        achou = m[
+            (m["modelo"] == self.escolhido)
+            & (m["nivel"] == nivel)
+            & (m["granularidade"] == granularidade)
+            & (m["agregado"] if sk_loja is None else (m["sk_loja"] == sk_loja))
+        ]
+        return float(achou["wape"].iloc[0]) if len(achou) else None
 
     def wape_da_serie(self, sk_loja: int, setor: str, granularidade: str) -> float | None:
         """WAPE do modelo escolhido para uma loja e setor (None se a série não foi avaliada)."""
@@ -172,23 +187,31 @@ def executar(
     setores = [setor for _, setor in chaves]
     previsto = previsoes[escolhido][valida]
     faixas = faixa_mod.calibrar_faixas(real, previsto, setores, alvo)
+    lojas = np.array([loja for loja, _ in chaves])
+    faixas_agregadas = agregada_mod.calibrar(real, previsto, lojas, alvo)
 
-    cobertura = _medir_cobertura(
-        painel, modelos[escolhido], chaves, real, previsto, alvo, faixas, setores,
-        treino_ate, teste_inicio, teste_fim, origem_calibracao,
+    cobertura, cobertura_agregada = _medir_cobertura(
+        painel, modelos[escolhido], chaves, real, previsto, alvo, (faixas, faixas_agregadas),
+        setores, treino_ate, teste_inicio, teste_fim, origem_calibracao,
     )  # fmt: skip
     return ResultadoBacktest(
-        treino_ate, teste_inicio, teste_fim, metricas, escolhido, faixas, cobertura, chaves,
-        ignoradas, time.perf_counter() - inicio_execucao, pico_memoria_processo_gb(),
+        treino_ate, teste_inicio, teste_fim, metricas, escolhido, faixas, faixas_agregadas,
+        cobertura, cobertura_agregada, chaves, ignoradas,
+        time.perf_counter() - inicio_execucao, pico_memoria_processo_gb(),
     )  # fmt: skip
 
 
 def _medir_cobertura(
-    painel, modelo_fn, chaves, real, previsto, alvo, faixas, setores,
+    painel, modelo_fn, chaves, real, previsto, alvo, faixas_na_amostra, setores,
     treino_ate, teste_inicio, teste_fim, origem_calibracao,
 ):  # fmt: skip
-    """Cobertura da faixa por loja e na rede, dentro e fora da amostra."""
+    """Cobertura da faixa, dentro e fora da amostra. Primeiro DataFrame: média, por loja e na rede,
+    da cobertura de cada série. Segundo: o total da loja e o total da rede dentro da faixa
+    calibrada no próprio total (sk_loja vazio = rede)."""
+    faixas, faixas_agregadas = faixas_na_amostra
+    lojas = np.array([loja for loja, _ in chaves])
     faixas_fora = None
+    agregadas_fora = None
     if origem_calibracao is not None and origem_calibracao < treino_ate:
         duracao = (teste_fim - teste_inicio).days
         inicio_antigo = origem_calibracao + timedelta(days=1)
@@ -207,9 +230,15 @@ def _medir_cobertura(
                 [s for s, b in zip(setores, boas, strict=True) if b],
                 alvo_a,
             )
-    linhas_saida = []
-    lojas = np.array([loja for loja, _ in chaves])
-    for origem, faixas_usadas in (("fora_da_amostra", faixas_fora), ("na_amostra", faixas)):
+            agregadas_fora = agregada_mod.calibrar(
+                real_a[boas], previsto_a[boas], lojas[boas], alvo_a
+            )
+    linhas_saida, saida_agregada = [], []
+    origens = (
+        ("fora_da_amostra", faixas_fora, agregadas_fora),
+        ("na_amostra", faixas, faixas_agregadas),
+    )
+    for origem, faixas_usadas, agregadas_usadas in origens:
         if faixas_usadas is None:
             continue
         for granularidade in ("dia", "mes"):
@@ -218,9 +247,14 @@ def _medir_cobertura(
             )
             linhas_saida.append((origem, granularidade, None, float(por_serie.mean())))
             for loja in sorted(set(lojas)):
-                linhas_saida.append(
-                    (origem, granularidade, int(loja), float(por_serie[lojas == loja].mean()))
-                )
-    return pd.DataFrame(
-        linhas_saida, columns=["origem_faixa", "granularidade", "sk_loja", "cobertura"]
+                media = float(por_serie[lojas == loja].mean())
+                linhas_saida.append((origem, granularidade, int(loja), media))
+            agregada = agregada_mod.cobertura(
+                real, previsto, lojas, agregadas_usadas, alvo, granularidade
+            )
+            for (_, loja), valor in agregada.items():
+                saida_agregada.append((origem, granularidade, loja, valor))
+    colunas = ["origem_faixa", "granularidade", "sk_loja", "cobertura"]
+    return pd.DataFrame(linhas_saida, columns=colunas), pd.DataFrame(
+        saida_agregada, columns=colunas
     )

@@ -36,7 +36,7 @@ LANGUAGE sql STABLE AS $$
     ),
     versao AS (
         SELECT versao_modelo FROM dw.previsao_vendas
-        WHERE treino_ate = p_ref ORDER BY gerado_em DESC, versao_modelo LIMIT 1
+        WHERE nivel = 'loja_setor' AND treino_ate = p_ref ORDER BY gerado_em DESC, versao_modelo LIMIT 1
     ),
     previsto AS (
         SELECT f.sk_loja, f.setor, sum(f.valor_previsto) AS valor, sum(f.valor_baixo) AS baixo,
@@ -44,7 +44,7 @@ LANGUAGE sql STABLE AS $$
         FROM dw.previsao_vendas f
         JOIN versao USING (versao_modelo)
         CROSS JOIN limites l
-        WHERE f.granularidade = 'dia' AND f.treino_ate = p_ref AND f.data > p_ref
+        WHERE f.nivel = 'loja_setor' AND f.granularidade = 'dia' AND f.treino_ate = p_ref AND f.data > p_ref
           AND f.data <= l.fim
         GROUP BY f.sk_loja, f.setor
     ),

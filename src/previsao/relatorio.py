@@ -71,18 +71,33 @@ def resumo_por_setor(resultado: ResultadoBacktest) -> list[str]:
 
 
 def resumo_cobertura(resultado: ResultadoBacktest) -> list[str]:
-    c = resultado.cobertura
     linhas = []
     for origem, rotulo in (("fora_da_amostra", "fora da amostra"), ("na_amostra", "na amostra")):
         for granularidade in ("dia", "mes"):
-            sel = c[(c["origem_faixa"] == origem) & (c["granularidade"] == granularidade)]
+            sel = resultado.cobertura[
+                (resultado.cobertura["origem_faixa"] == origem)
+                & (resultado.cobertura["granularidade"] == granularidade)
+            ]
             if sel.empty:
                 continue
             rede = float(sel[sel["sk_loja"].isna()]["cobertura"].iloc[0])
             lojas = sel[sel["sk_loja"].notna()]["cobertura"]
             linhas.append(
-                f"cobertura {rotulo}, {granularidade}: rede {pct(rede)}; "
+                f"cobertura {rotulo}, {granularidade}, por loja e setor: média {pct(rede)}; "
                 f"lojas {pct(lojas.min())} a {pct(lojas.max())} (mediana {pct(lojas.median())})"
+            )
+            total = resultado.cobertura_agregada
+            total = total[
+                (total["origem_faixa"] == origem) & (total["granularidade"] == granularidade)
+            ]
+            if total.empty:
+                continue
+            total_lojas = total[total["sk_loja"].notna()]["cobertura"]
+            linhas.append(
+                f"cobertura {rotulo}, {granularidade}, faixa calibrada no total: "
+                f"rede {pct(float(total[total['sk_loja'].isna()]['cobertura'].iloc[0]))}; "
+                f"lojas {pct(total_lojas.min())} a {pct(total_lojas.max())} "
+                f"(mediana {pct(total_lojas.median())})"
             )
     return linhas
 
@@ -123,7 +138,9 @@ def montar_previsao(previsao, resultado: ResultadoBacktest, comparacao: pd.DataF
             f"{linha.mes:%m/%Y}".ljust(10) + f"{linha.dias:>5}{brl(linha.previsto):>18}{baixo:>16}"
             f"{alto:>16}{real:>16}{desvio:>9}"
         )
-    linhas.append("(faixa da rede = soma das faixas de cada loja e setor; é mais larga que a real)")
+    linhas.append(
+        "(faixa da rede calibrada no total do backtest, não a soma das faixas das séries)"
+    )
     if previsao.sem_previsao:
         linhas.append(
             f"{len(previsao.sem_previsao)} séries sem histórico suficiente não foram previstas."

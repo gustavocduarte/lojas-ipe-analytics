@@ -111,6 +111,8 @@ def _vender_o_ano(con, loja="L01"):
 
 
 def _contar(con, tabela="dw.previsao_vendas", where="TRUE") -> int:
+    if tabela == "dw.previsao_vendas":  # as linhas de séries; as de loja e rede têm teste próprio
+        where = f"nivel = 'loja_setor' AND ({where})"
     return con.execute(f"SELECT count(*) FROM {tabela} WHERE {where}").fetchone()[0]
 
 
@@ -131,6 +133,43 @@ class TestGravacao:
         assert _contar(base) == 93 and _contar(base, where="granularidade = 'mes'") == 3
         geracao.gravar_previsao(base, previsao)
         assert _contar(base) == 93
+
+    def test_grava_tambem_loja_e_rede_com_faixa_propria_sem_duplicar(self, base):
+        _, _, previsao = self._previsao_e_resultado(base)
+        geracao.gravar_previsao(base, previsao)
+        geracao.gravar_previsao(base, previsao)
+        por_nivel = dict(
+            base.execute(
+                "SELECT nivel, count(*) FROM dw.previsao_vendas GROUP BY nivel ORDER BY nivel"
+            ).fetchall()
+        )
+        assert por_nivel == {"loja_setor": 93, "loja": 93, "rede": 93}  # 1 loja: 90 dias + 3 meses
+        rede = base.execute(
+            "SELECT valor_previsto, valor_baixo, valor_alto, sk_loja, setor, wape_backtest"
+            " FROM dw.previsao_vendas WHERE nivel = 'rede' AND granularidade = 'mes'"
+            " ORDER BY data LIMIT 1"
+        ).fetchone()
+        soma_series = base.execute(
+            "SELECT sum(valor_previsto), sum(valor_baixo), sum(valor_alto) FROM dw.previsao_vendas"
+            " WHERE nivel = 'loja_setor' AND granularidade = 'mes'"
+            " AND data = (SELECT min(data) FROM dw.previsao_vendas WHERE granularidade = 'mes')"
+        ).fetchone()
+        assert rede[3] is None and rede[4] is None
+        assert float(rede[0]) == pytest.approx(float(soma_series[0]), abs=0.05)
+        assert float(rede[2]) - float(rede[1]) <= float(soma_series[2]) - float(soma_series[1])
+
+    def test_projecao_do_fechamento_ignora_as_linhas_de_loja_e_rede(self, base):
+        painel, resultado, _ = self._previsao_e_resultado(base)
+        corte = date(2025, 12, 15)
+        previsao = geracao.gerar(painel.ate(corte), resultado, date(2025, 12, 31))
+        geracao.gravar_previsao(base, previsao)
+        assert _contar(base, where="TRUE") == 16 * 1
+        restante = base.execute(
+            "SELECT sum(previsto_restante), count(*) FROM dw.fn_projecao_fechamento_mes(%s)",
+            (corte,),
+        ).fetchone()
+        so_series = previsao.linhas[previsao.linhas.granularidade == "dia"].valor_previsto.sum()
+        assert float(restante[0]) == pytest.approx(so_series, abs=0.05) and restante[1] == 1
 
     def test_horizonte_menor_substitui_o_anterior_e_cortes_diferentes_convivem(self, base):
         painel, resultado, longa = self._previsao_e_resultado(base)
