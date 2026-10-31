@@ -51,6 +51,50 @@ class TestDespesasAno:
         assert p["projecao_ano"] == 1680 and p["desvio_vs_orcado"] == 480
         assert p["realizado_ano_completo"] == 900 + 720
 
+    def _normal_com_um_lancamento_estranho(self, con, valor=1500, **extra):
+        _despesas_do_ano(con, realizado_ate_jun=100, realizado_jul_dez=100)
+        b.despesa(con, "ESTRANHO-1", valor, data="2024-03-20", **extra)
+        b.gerar(con)
+
+    def test_valor_atipico_fica_fora_do_fator_mas_conta_no_realizado(self, base):
+        self._normal_com_um_lancamento_estranho(base)
+        assert b.alertas(base, "despesa_valor_atipico", vigentes=True)
+        p = _projecao(base, date(2024, 6, 30))
+        assert p["fator"] == 1  # sem o lançamento: 600/600 (com ele seria 2100/600, no teto)
+        assert p["realizado_ate_ref"] == 2100
+        assert p["projecao_ano"] == 2100 + 600
+
+    def test_falso_positivo_volta_a_entrar_no_fator(self, base):
+        self._normal_com_um_lancamento_estranho(base)
+        sk = b.alertas(base, "despesa_valor_atipico")[0]["sk_alerta"]
+        base.execute("CALL dw.tratar_alerta(%s, 'falso_positivo', 'teste', 'ok')", (sk,))
+        assert _projecao(base, date(2024, 6, 30))["fator"] == Decimal("1.3")
+
+    def test_alerta_que_deixou_de_valer_nao_exclui(self, base):
+        self._normal_com_um_lancamento_estranho(base)
+        base.execute("UPDATE dw.alertas SET vigente = FALSE")
+        assert _projecao(base, date(2024, 6, 30))["fator"] == Decimal("1.3")
+
+    def test_documento_repetido_exclui_so_a_copia(self, base):
+        _despesas_do_ano(base, realizado_ate_jun=100, realizado_jul_dez=100)
+        b.despesa(base, "L01-TER-3", 100, data="2024-03-11")  # a cópia do documento de março
+        b.gerar(base)
+        assert b.alertas(base, "despesa_documento_repetido", vigentes=True)
+        p = _projecao(base, date(2024, 6, 30))
+        assert p["fator"] == 1 and p["realizado_ate_ref"] == 700
+
+    def test_centro_incompativel_tambem_fica_fora_do_fator(self, base):
+        _despesas_do_ano(base, realizado_ate_jun=100, realizado_jul_dez=100)
+        base.execute(  # L01-TER é do tipo Terceiros; folha de pagamento deveria ser Pessoal
+            "INSERT INTO etl.excecoes_centro_descricao (descricao, tipo_esperado)"
+            " VALUES ('Folha de pagamento', 'Pessoal')"
+        )
+        b.despesa(base, "FOLHA-1", 500, descricao="Folha de pagamento", data="2024-03-20")
+        b.gerar(base)
+        assert b.alertas(base, "despesa_centro_incompativel", vigentes=True)
+        p = _projecao(base, date(2024, 6, 30))
+        assert p["fator"] == 1 and p["realizado_ate_ref"] == 1100
+
     def test_fator_dentro_dos_limites_e_usado_como_esta(self, base):
         _despesas_do_ano(base, realizado_ate_jun=110)
         p = _projecao(base, date(2024, 6, 30))

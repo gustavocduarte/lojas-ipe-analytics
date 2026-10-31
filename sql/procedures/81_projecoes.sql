@@ -84,7 +84,9 @@ LANGUAGE sql STABLE AS $$
 $$;
 
 -- Fechamento do ano de despesas do ano de p_ref, por centro de custo.
--- Realizado até p_ref + orçado do que falta x fator realizado/orçado do que já passou. O fator fica
+-- Realizado até p_ref + orçado do que falta x fator realizado/orçado do que já passou (sem os
+-- lançamentos de alertas vigentes de documento repetido, valor atípico e centro incompatível, salvo
+-- falso positivo; o realizado somado à projeção continua completo). O fator fica
 -- entre projecao_fator_min e projecao_fator_max (etl.parametros_negocio). O orçado do mês de p_ref é
 -- repartido pela fração dos dias (dia / dias do mês). realizado_ano_completo traz tudo que existe
 -- no ano (para comparar a projeção com o que de fato aconteceu).
@@ -119,9 +121,35 @@ LANGUAGE sql STABLE AS $$
         WHERE t.ano = par.ano
         GROUP BY o.sk_centro_custo, par.fracao, par.mes_ref
     ),
+    -- Lançamentos que alertas vigentes (e não marcados como falso positivo) apontam como
+    -- documento repetido (a cópia, não o primeiro lançamento), valor atípico ou centro
+    -- incompatível: contam no realizado, mas ficam de fora do fator realizado/orçado.
+    excluidos AS (
+        SELECT d.sk_despesa
+        FROM dw.fato_despesas d
+        JOIN dw.alertas a
+          ON a.vigente AND a.status <> 'falso_positivo'
+         AND a.tipo_alerta IN ('despesa_valor_atipico', 'despesa_centro_incompativel')
+         AND a.chave_alerta = a.tipo_alerta || '|'
+                              || coalesce(d.arquivo_origem || '|' || d.linha_origem,
+                                          'sk' || d.sk_despesa)
+        UNION
+        SELECT x.sk_despesa
+        FROM (SELECT sk_despesa, numero_documento,
+                     row_number() OVER (PARTITION BY numero_documento
+                                        ORDER BY arquivo_origem, linha_origem) AS ordem
+              FROM dw.fato_despesas) x
+        JOIN dw.alertas a
+          ON a.vigente AND a.status <> 'falso_positivo'
+         AND a.chave_alerta = 'despesa_documento_repetido|' || x.numero_documento
+        WHERE x.ordem > 1
+    ),
     realizado AS (
         SELECT d.sk_centro_custo,
                sum(d.valor) FILTER (WHERE t.data <= p_ref) AS ate_ref,
+               sum(d.valor) FILTER (WHERE t.data <= p_ref
+                                    AND d.sk_despesa NOT IN (SELECT sk_despesa FROM excluidos))
+                   AS ate_ref_limpo,
                sum(d.valor) AS ano_todo
         FROM dw.fato_despesas d
         JOIN dw.dim_tempo t ON t.sk_tempo = d.sk_tempo
@@ -146,7 +174,7 @@ LANGUAGE sql STABLE AS $$
     LEFT JOIN realizado r ON r.sk_centro_custo = c.sk_centro_custo
     CROSS JOIN LATERAL (
         SELECT CASE WHEN COALESCE(o.ate_ref, 0) > 0
-                    THEN GREATEST(par.fmin, LEAST(par.fmax, COALESCE(r.ate_ref, 0) / o.ate_ref))
+                    THEN GREATEST(par.fmin, LEAST(par.fmax, COALESCE(r.ate_ref_limpo, 0) / o.ate_ref))
                     ELSE 1 END AS fator
     ) f
 $$;
