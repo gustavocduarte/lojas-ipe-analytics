@@ -121,3 +121,18 @@ def test_modelo_traz_os_tres_modulos_importados():
         projeto = pacote.read("xl/vbaProject.bin")
     for modulo in MODULOS:
         assert modulo.encode("utf-16-le") in projeto  # nome do fluxo no arquivo OLE
+
+
+def test_pdf_usa_a_data_de_posicao_e_nao_a_de_hoje():
+    codigo = "\n".join(_codigo("ModuloPDF")).replace("As Date", "")
+    assert f'"{planilha.NOME_DATA_POSICAO}"' in _ler("ModuloPDF")
+    assert not re.search(r"\bDate\b|\bNow\b|\bToday\b", codigo)
+
+
+def test_loja_ajusta_larguras_e_usa_o_titulo_certo_da_explicacao():
+    texto = _ler("ModuloLoja")
+    assert "AutoFit" in texto and "WrapText = True" in texto
+    # titulo com acento montado por codigo (arquivo em ASCII puro): "Explica" + ç + ã + "o"
+    assert "ChrW(231) & ChrW(227)" in texto
+    titulo = "Explica" + chr(231) + chr(227) + "o"
+    assert titulo in {t for t, _ in planilha.COLUNAS_ALERTAS.values()}

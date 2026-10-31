@@ -6,7 +6,7 @@ ou como `.xlsm` com duas macros:
 | Macro | O que faz | Atalho |
 |---|---|---|
 | `GerarAbaDaLoja` | Pergunta o código da loja (ex.: `L01`) e cria a aba `Loja L01` com os indicadores da loja, os vendedores dela e os alertas abertos dela, tudo copiado das abas do próprio arquivo. | `Ctrl+Shift+L` |
-| `ExportarResumoPDF` | Exporta a aba `Resumo da rede` para PDF (paisagem, uma página), na mesma pasta do arquivo: `Resumo_da_rede_AAAA-MM-DD.pdf`. | `Ctrl+Shift+P` |
+| `ExportarResumoPDF` | Exporta a aba `Resumo da rede` para PDF (paisagem, uma página), na mesma pasta do arquivo: `Resumo_da_rede_AAAA-MM-DD.pdf`, com a **data de posição** do relatório (não a de hoje). O gerador grava essa data na célula `B3` da aba `Resumo da rede` e a nomeia `DataPosicao`; a macro lê esse nome. | `Ctrl+Shift+P` |
 
 As macros só leem o que já está na planilha: **não abrem conexão com o banco, não acessam a rede e
 não têm senha nem caminho fixo**. Sem os atalhos (ou se preferir), use `Alt+F8`, escolha a macro e
@@ -49,8 +49,18 @@ Precisa do Microsoft Excel para Windows.
    relatório: `python -m src.relatorios fechamento` deve criar
    `data\processed\fechamento_AAAA-MM.xlsm`.
 
-Se mudar uma macro: edite o `.bas`, abra o modelo, remova o módulo antigo (clique direito >
-*Remover*, "Não" para exportar), importe o `.bas` de novo, compile e salve.
+### Substituir um módulo que mudou
+
+Quando um `.bas` muda, só o módulo alterado precisa ser trocado no modelo:
+
+1. Abra `vba\modelo_fechamento.xlsm` (habilite o conteúdo) e `Alt+F11`.
+2. Na janela de projetos, clique com o botão direito no módulo antigo > **Remover**. Na pergunta
+   "Deseja exportar o módulo antes de removê-lo?", responda **Não** (exportar sobrescreveria o `.bas`
+   do repositório, que é o código certo).
+3. **Arquivo > Importar Arquivo...** e escolha o `.bas` atualizado de `vba\`.
+4. **Depurar > Compilar VBAProject**: não pode dar erro.
+5. Salve (`Ctrl+B`) e feche o Excel. Depois gere o relatório de novo com `python -m src.relatorios
+   fechamento`; o arquivo gerado só traz as macros novas se o modelo foi salvo.
 
 ## Usar as macros no arquivo gerado
 

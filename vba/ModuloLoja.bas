@@ -11,6 +11,9 @@ Private Const ABA_ALERTAS As String = "Alertas abertos"
 Private Const TITULO_CODIGO_LOJA As String = "Loja"
 Private Const TITULO_NOME_LOJA As String = "Nome"
 Private Const TITULO_LOJA_NOS_ALERTAS As String = "Loja ou centro de custo"
+Private Const LARGURA_MINIMA As Double = 14      ' cabe "R$ 9.999.999,99"
+Private Const LARGURA_MAXIMA As Double = 40
+Private Const LARGURA_EXPLICACAO As Double = 70
 
 Public Sub GerarAbaDaLoja()
     Dim wsLojas As Worksheet, wsVendedores As Worksheet, wsAlertas As Worksheet, wsNova As Worksheet
@@ -54,7 +57,7 @@ Public Sub GerarAbaDaLoja()
     linha = linha + qtdVendedores + 3
     qtdAlertas = CopiarLinhasDaLoja(wsAlertas, TITULO_LOJA_NOS_ALERTAS, nomeLoja, wsNova, linha, "Alertas abertos")
 
-    wsNova.Columns("A:B").ColumnWidth = 32
+    AjustarLarguras wsNova, ColunaDoTitulo(wsAlertas, TituloExplicacao()), linha + 2, qtdAlertas
     wsNova.Activate
     wsNova.Cells(1, 1).Select
     MsgBox "Aba '" & wsNova.Name & "' criada: " & qtdVendedores & " vendedor(es) e " & _
@@ -95,6 +98,32 @@ Private Function CopiarLinhasDaLoja(wsOrigem As Worksheet, tituloFiltro As Strin
         End If
     Next linhaOrigem
     CopiarLinhasDaLoja = copiadas
+End Function
+
+' AutoFit de todas as colunas, com minimo e maximo; so a coluna da Explicacao (nas linhas dos
+' alertas) tem largura fixa e quebra de texto.
+Private Sub AjustarLarguras(ws As Worksheet, colunaExplicacao As Long, primeiraLinhaAlertas As Long, _
+                            qtdAlertas As Long)
+    Dim coluna As Long
+    ws.UsedRange.Columns.AutoFit
+    For coluna = 1 To ws.UsedRange.Columns.Count
+        If ws.Columns(coluna).ColumnWidth < LARGURA_MINIMA Then ws.Columns(coluna).ColumnWidth = LARGURA_MINIMA
+        If ws.Columns(coluna).ColumnWidth > LARGURA_MAXIMA Then ws.Columns(coluna).ColumnWidth = LARGURA_MAXIMA
+    Next coluna
+    ws.Columns(colunaExplicacao).ColumnWidth = LARGURA_EXPLICACAO
+    If qtdAlertas > 0 Then
+        With ws.Range(ws.Cells(primeiraLinhaAlertas, colunaExplicacao), _
+                      ws.Cells(primeiraLinhaAlertas + qtdAlertas - 1, colunaExplicacao))
+            .WrapText = True
+            .VerticalAlignment = xlTop
+        End With
+        ws.Rows(primeiraLinhaAlertas & ":" & (primeiraLinhaAlertas + qtdAlertas - 1)).AutoFit
+    End If
+End Sub
+
+' O titulo "Explicacao" tem acentos; montado por codigo para o arquivo continuar em ASCII puro.
+Private Function TituloExplicacao() As String
+    TituloExplicacao = "Explica" & ChrW(231) & ChrW(227) & "o"
 End Function
 
 Private Function CriarAbaVazia(nome As String) As Worksheet
