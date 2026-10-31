@@ -5,8 +5,8 @@ ou como `.xlsm` com duas macros:
 
 | Macro | O que faz | Atalho |
 |---|---|---|
-| `GerarAbaDaLoja` | Pergunta o código da loja (ex.: `L01`) e cria a aba `Loja L01` com os indicadores da loja, os vendedores dela e os alertas abertos dela, tudo copiado das abas do próprio arquivo. | `Ctrl+Shift+L` |
-| `ExportarResumoPDF` | Exporta a aba `Resumo da rede` para PDF (paisagem, uma página), na mesma pasta do arquivo: `Resumo_da_rede_AAAA-MM-DD.pdf`, com a **data de posição** do relatório (não a de hoje). O gerador grava essa data na célula `B3` da aba `Resumo da rede` e a nomeia `DataPosicao`; a macro lê esse nome. | `Ctrl+Shift+P` |
+| `GerarAbaDaLoja` | Pergunta o código da loja (ex.: `L01`) e cria a aba `Loja L01` com os indicadores da loja (blocos Dia e Mês), os vendedores dela (sem as colunas repetidas de loja) e os alertas abertos dela, tudo copiado das abas do próprio arquivo. | `Ctrl+Shift+L` |
+| `ExportarResumoPDF` | Exporta a aba `Resumo da rede` para PDF (paisagem, uma página), na mesma pasta do arquivo: `Resumo_da_rede_AAAA-MM-DD.pdf`, com a **data de posição** do relatório (não a de hoje). O gerador grava essa data no rodapé da aba `Resumo da rede` (coluna L) e a nomeia `DataPosicao`; a macro lê esse nome. | `Ctrl+Shift+P` |
 
 As macros só leem o que já está na planilha: **não abrem conexão com o banco, não acessam a rede e
 não têm senha nem caminho fixo**. Sem os atalhos (ou se preferir), use `Alt+F8`, escolha a macro e

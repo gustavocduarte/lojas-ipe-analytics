@@ -10,14 +10,17 @@ from src.relatorios import fechamento
 from src.relatorios.__main__ import principal
 from src.relatorios.planilha import (
     ABA_ALERTAS,
+    ABA_DIARIO,
     ABA_LOJAS,
     ABA_PREVISAO,
     ABA_RESUMO,
     ABA_VENDEDORES,
     TITULO_COBERTURA_ATE_O_DIA,
     TITULO_META_DO_MES_ATINGIDO,
+    TITULO_VENDA_ACUMULADA,
 )
 from tests.etl import base_alertas as b
+from tests.relatorios.test_planilha import contexto_do_cartao, indicadores_do_resumo
 
 pytestmark = pytest.mark.banco
 
@@ -181,7 +184,7 @@ class TestLojas:
 class TestResumo:
     def test_totais_da_rede_batem_com_o_dw(self, dw, pasta):
         ws = pasta[ABA_RESUMO]
-        valores = {ws.cell(i, 1).value: ws.cell(i, 2).value for i in range(4, 20)}
+        valores = indicadores_do_resumo(ws)
         receita = _escalar(
             dw, "SELECT sum(receita_liquida) FROM dw.fato_vendas v JOIN dw.dim_tempo t USING"
             " (sk_tempo) WHERE status = 'Concluída'"
@@ -199,22 +202,23 @@ class TestResumo:
         meta = _escalar(
             dw, "SELECT sum(valor_meta) FROM dw.fato_meta_vendas WHERE sk_tempo = 20250301"
         )
-        assert valores["Acumulado do mês"] == pytest.approx(receita)
+        assert valores[TITULO_VENDA_ACUMULADA] == pytest.approx(receita)
         assert valores["Margem do mês"] == pytest.approx(margem)
         assert valores["Cupons do mês"] == cupons
         assert valores["Ticket médio"] == pytest.approx(receita / cupons)
-        assert valores["Meta do mês"] == pytest.approx(meta)
         meta_ate_dia = _escalar(
             dw, "SELECT sum(valor_meta_dia) FROM dw.vw_meta_vendas_diaria"
             " WHERE data BETWEEN '2025-03-01' AND '2025-03-15'",
         )  # fmt: skip
-        assert valores[TITULO_META_DO_MES_ATINGIDO] == pytest.approx(receita / meta)
+        atingido = f"{receita / meta * 100:.1f}".replace(".", ",")
+        assert contexto_do_cartao(ws, TITULO_COBERTURA_ATE_O_DIA) == (
+            f"{atingido}% da meta do mês atingido"
+        )
         assert valores[TITULO_COBERTURA_ATE_O_DIA] == pytest.approx(receita / meta_ate_dia)
 
     def test_venda_por_dia_ignora_canceladas_e_para_no_dia_de_posicao(self, pasta):
-        ws = pasta[ABA_RESUMO]
-        inicio = next(i for i in range(1, 60) if ws.cell(i, 1).value == "Dia")
-        dias = [(ws.cell(inicio + k, 2).value, ws.cell(inicio + k, 3).value) for k in range(1, 32)]
+        ws = pasta[ABA_DIARIO]
+        dias = [(ws.cell(k, 2).value, ws.cell(k, 3).value) for k in range(2, 33)]
         assert dias[0][0] == pytest.approx(150)  # 100 + 50 no dia 1
         assert dias[14][0] == pytest.approx(150 * 15)
         assert dias[4][0] == pytest.approx(150 * 5)  # a cancelada de 9.999 não entra
@@ -350,7 +354,7 @@ class TestModeloDeMacros:
         Workbook().save(caminho)  # sem VBA de verdade: só exercita o caminho de código
         return caminho
 
-    def test_com_modelo_a_saida_e_xlsm_e_traz_as_cinco_abas(self, dw, tmp_path, modelo):
+    def test_com_modelo_a_saida_e_xlsm_e_traz_as_seis_abas(self, dw, tmp_path, modelo):
         destino, desempenho = fechamento.gerar(dw, MES, DIA, tmp_path / "f.xlsm", modelo=modelo)
         assert desempenho["com_macros"] is True
         assert load_workbook(destino, keep_vba=True).sheetnames[0] == ABA_RESUMO

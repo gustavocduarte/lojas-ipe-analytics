@@ -78,16 +78,40 @@ def pasta(tmp_path):
     return load_workbook(caminho)
 
 
-def test_tem_as_cinco_abas_na_ordem(pasta):
+def indicadores_do_resumo(ws) -> dict:
+    """{rótulo: valor}: no Resumo o valor fica logo abaixo do rótulo (cartões e linha pequena)."""
+    saida = {}
+    for linha in ws.iter_rows(min_row=4, max_row=10):
+        for celula in linha:
+            if isinstance(celula.value, str):
+                saida[celula.value] = ws.cell(celula.row + 1, celula.column).value
+    return saida
+
+
+def contexto_do_cartao(ws, rotulo: str) -> str:
+    """Linha de contexto do cartão: 3 linhas abaixo do rótulo."""
+    celula = next(
+        c for linha in ws.iter_rows(min_row=4, max_row=4) for c in linha if c.value == rotulo
+    )
+    return ws.cell(celula.row + 3, celula.column).value
+
+
+def test_tem_as_seis_abas_na_ordem(pasta):
     assert pasta.sheetnames == [
-        planilha.ABA_RESUMO, planilha.ABA_LOJAS, planilha.ABA_VENDEDORES,
+        planilha.ABA_RESUMO, planilha.ABA_DIARIO, planilha.ABA_LOJAS, planilha.ABA_VENDEDORES,
         planilha.ABA_ALERTAS, planilha.ABA_PREVISAO,
     ]  # fmt: skip
 
 
 @pytest.mark.parametrize(
     "aba",
-    [planilha.ABA_LOJAS, planilha.ABA_VENDEDORES, planilha.ABA_ALERTAS, planilha.ABA_PREVISAO],
+    [
+        planilha.ABA_DIARIO,
+        planilha.ABA_LOJAS,
+        planilha.ABA_VENDEDORES,
+        planilha.ABA_ALERTAS,
+        planilha.ABA_PREVISAO,
+    ],
 )
 def test_abas_de_tabela_tem_cabecalho_fixo_e_filtro(pasta, aba):
     ws = pasta[aba]
@@ -127,7 +151,7 @@ def test_formatacao_condicional_verde_e_vermelho_nas_coberturas(pasta):
     letra_v = planilha._coluna_de(planilha.COLUNAS_VENDEDORES, "cobertura_ate_o_dia")
     assert [str(r.sqref) for r in vend] == [f"{letra_v}2:{letra_v}3"]
     resumo = pasta[planilha.ABA_RESUMO].conditional_formatting
-    assert len(list(resumo)) >= 3
+    assert len(list(resumo)) >= 1  # a cobertura das lojas da tabela do Resumo
 
 
 def test_alertas_ordenados_como_vieram_e_sem_formulas(pasta):
@@ -141,22 +165,105 @@ def test_alertas_ordenados_como_vieram_e_sem_formulas(pasta):
 
 def test_resumo_traz_indicadores_calculados_dos_dados(pasta):
     ws = pasta[planilha.ABA_RESUMO]
-    valores = {ws.cell(i, 1).value: ws.cell(i, 2).value for i in range(4, 20)}
-    assert valores["Venda do dia"] == 1900.0 and valores["Meta do dia"] == 1800.0
+    valores = indicadores_do_resumo(ws)
+    assert valores["Venda do dia"] == 1900.0
+    assert valores["Cobertura do dia"] == pytest.approx(1900 / 1800)
     assert valores[planilha.TITULO_COBERTURA_ATE_O_DIA] == pytest.approx(18000 / 17000)
-    assert valores[planilha.TITULO_META_DO_MES_ATINGIDO] == pytest.approx(18000 / 36000)
-    assert valores["Acumulado do mês"] == 18000.0
-    assert valores["Evolução vs ano anterior"] == pytest.approx(18000 / 17000 - 1)
-    assert valores["Projeção de fechamento"] == 37000.0
-    assert valores["Cobertura projetada"] == pytest.approx(37000 / 36000)
+    assert valores[planilha.TITULO_VENDA_ACUMULADA] == 18000.0
+    assert valores[planilha.TITULO_EVOLUCAO] == pytest.approx(18000 / 17000 - 1)
+    assert valores[planilha.TITULO_PROJECAO] == 37000.0
     assert valores["Ticket médio"] == 300.0 and valores["Cupons do mês"] == 60
-    assert "15/03/2025" in ws["A2"].value and "03/2025" in ws["A1"].value
+    assert valores["Margem do mês"] == 7200.0 and valores["Margem sobre a receita"] == 0.4
+    contexto = contexto_do_cartao
+    assert contexto(ws, planilha.TITULO_VENDA_ACUMULADA).endswith("R$ 17.000,00")
+    assert contexto(ws, planilha.TITULO_COBERTURA_ATE_O_DIA) == "50,0% da meta do mês atingido"
+    assert contexto(ws, planilha.TITULO_PROJECAO).endswith("102,8%")  # 37000 / 36000
+    assert contexto(ws, planilha.TITULO_EVOLUCAO).endswith("R$ 17.000,00")
+    assert "15/03/2025" in ws["A2"].value and "março/2025" in ws["A1"].value
+    assert ws["A1"].value.startswith("Lojas Ipê — Fechamento de ")
+
+
+def test_cartoes_so_o_numero_leva_cor_de_status(pasta):
+    ws = pasta[planilha.ABA_RESUMO]
+    cores = {
+        rotulo.value: ws.cell(5, rotulo.column).font.color.rgb[-6:]
+        for rotulo in ws[4]
+        if isinstance(rotulo.value, str)
+    }
+    assert cores[planilha.TITULO_VENDA_ACUMULADA] == planilha.COR_CABECALHO  # sem status
+    assert cores[planilha.TITULO_COBERTURA_ATE_O_DIA] == planilha.COR_STATUS_VERDE  # 106%
+    assert cores[planilha.TITULO_PROJECAO] == planilha.COR_STATUS_VERDE  # 102,8%
+    assert cores[planilha.TITULO_EVOLUCAO] == planilha.COR_STATUS_VERDE  # +5,9%
+
+
+def test_resumo_cabe_numa_pagina_a4_paisagem_sem_grade(pasta):
+    ws = pasta[planilha.ABA_RESUMO]
+    assert ws.sheet_view.showGridLines is False
+    assert ws.page_setup.orientation == "landscape" and ws.page_setup.paperSize == 9
+    assert ws.page_setup.fitToWidth == 1 and ws.page_setup.fitToHeight == 1
+    assert ws.sheet_properties.pageSetUpPr.fitToPage is True
+    assert ws.print_options.horizontalCentered is True
+    assert ws.page_margins.left <= 0.4 and ws.page_margins.top <= 0.4
+    area = ws.print_area
+    assert area.startswith("'Resumo da rede'!$A$1:$L$")
+    assert str(ws.max_row) in area  # o rodapé é a última linha e está dentro da área
+
+
+def test_rodape_com_fonte_e_geracao_e_a_data_de_posicao_esta_nele(pasta):
+    ws = pasta[planilha.ABA_RESUMO]
+    rodape = ws.max_row
+    assert (
+        planilha.FONTE_RODAPE in ws.cell(rodape, 1).value
+        and "gerado em" in ws.cell(rodape, 1).value
+    )
+    assert ws.cell(rodape, 12).value.date() == date(2025, 3, 15)
+
+
+def test_tabela_de_lojas_do_resumo_e_a_de_alertas_por_severidade():
+    lojas = _dados().lojas
+    maiores, menores = planilha.lojas_extremas(lojas, 1)
+    assert list(maiores["cod_loja"]) == ["L01"] and list(menores["cod_loja"]) == ["L02"]
+    maiores, menores = planilha.lojas_extremas(lojas)  # menos de 10 lojas: sem repetir
+    assert list(maiores["cod_loja"]) == ["L01", "L02"] and menores.empty
+    por = planilha.alertas_por_severidade(_dados().alertas)
+    assert list(por["severidade"]) == ["Crítica", "Alta", "Média", "Baixa"]
+    assert list(por["quantidade"]) == [1, 0, 0, 1]
+    assert list(por["valor"]) == [350.5, 0.0, 0.0, 20.0]
+
+
+def test_cinco_melhores_e_cinco_piores_sem_se_repetir():
+    lojas = pd.DataFrame(
+        {
+            "cod_loja": [f"L{i:02d}" for i in range(12)],
+            "cobertura_ate_o_dia": [i / 10 for i in range(12)],
+        }
+    )
+    maiores, menores = planilha.lojas_extremas(lojas)
+    assert list(maiores["cod_loja"]) == ["L11", "L10", "L09", "L08", "L07"]
+    assert list(menores["cod_loja"]) == ["L00", "L01", "L02", "L03", "L04"]  # a pior primeiro
+    assert set(maiores["cod_loja"]).isdisjoint(menores["cod_loja"])
+
+
+def test_aba_diario_traz_venda_meta_cobertura_e_acumulado(pasta):
+    ws = pasta[planilha.ABA_DIARIO]
+    titulos = [c.value for c in ws[1]]
+    assert titulos == [t for t, _ in planilha.COLUNAS_DIARIO.values()]
+    linha = {t: ws.cell(16, i + 1).value for i, t in enumerate(titulos)}  # dia 15
+    assert linha["Venda"] == 1500.0 and linha["Meta do dia"] == 1000.0
+    assert linha["Cobertura do dia"] == pytest.approx(1.5)
+    assert linha["Venda acumulada"] == pytest.approx(100 * sum(range(1, 16)))
+    assert linha["Meta acumulada"] == 15000.0
+    depois = {t: ws.cell(17, i + 1).value for i, t in enumerate(titulos)}  # dia 16
+    assert depois["Venda"] is None and depois["Venda acumulada"] is None
+    assert depois["Cobertura do dia"] is None
+    assert ws.cell(32, 6).value == 31000.0  # meta acumulada de todos os dias
 
 
 def test_ha_graficos_nativos_no_resumo_e_na_previsao(pasta):
     assert len(pasta[planilha.ABA_RESUMO]._charts) == 1
     assert len(pasta[planilha.ABA_PREVISAO]._charts) == 1
     assert len(pasta[planilha.ABA_LOJAS]._charts) == 0
+    assert len(pasta[planilha.ABA_DIARIO]._charts) == 0  # o gráfico do Resumo lê os dados dele
 
 
 def test_sem_projecao_nem_previsao_as_celulas_ficam_vazias(tmp_path):
@@ -164,17 +271,17 @@ def test_sem_projecao_nem_previsao_as_celulas_ficam_vazias(tmp_path):
     montar_pasta(_dados(com_previsao=False, com_projecao=False)).save(caminho)
     wb = load_workbook(caminho)
     ws = wb[planilha.ABA_RESUMO]
-    valores = {ws.cell(i, 1).value: ws.cell(i, 2).value for i in range(4, 20)}
-    assert valores["Projeção de fechamento"] is None and valores["Cobertura projetada"] is None
+    valores = indicadores_do_resumo(ws)
+    assert valores[planilha.TITULO_PROJECAO] is None
+    assert contexto_do_cartao(ws, planilha.TITULO_PROJECAO) == "Sem previsão para o mês"
     assert wb[planilha.ABA_PREVISAO].max_row == 1
     assert len(wb[planilha.ABA_PREVISAO]._charts) == 0
 
 
 def test_venda_depois_do_dia_de_posicao_fica_vazia(pasta):
-    ws = pasta[planilha.ABA_RESUMO]
-    inicio = next(i for i in range(1, 60) if ws.cell(i, 1).value == "Dia")
-    assert ws.cell(inicio + 15, 2).value == 1500.0
-    assert ws.cell(inicio + 16, 2).value is None
+    ws = pasta[planilha.ABA_DIARIO]
+    assert ws.cell(16, 2).value == 1500.0
+    assert ws.cell(17, 2).value is None
 
 
 def test_usa_pasta_existente_e_remove_as_abas_antigas(tmp_path):
@@ -186,7 +293,7 @@ def test_usa_pasta_existente_e_remove_as_abas_antigas(tmp_path):
     montar_pasta(_dados(), modelo)
     assert modelo.sheetnames[0] == planilha.ABA_RESUMO and "Lixo" not in modelo.sheetnames
     assert modelo[planilha.ABA_RESUMO]["A1"].value != "antigo"
-    assert len(modelo.sheetnames) == 5
+    assert len(modelo.sheetnames) == 6
 
 
 def test_colunas_de_valores_cabem_r_999_999_99_em_todas_as_abas(pasta):
