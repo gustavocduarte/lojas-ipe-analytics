@@ -409,3 +409,44 @@ CODIGO_SAIDA_ALERTAS_FALHARAM = 4  # dados carregados (carga concluída), mas os
 CHAVE_TRAVA_ETL = 20240601  # advisory lock do PostgreSQL: uma carga por vez
 FORMATO_LOG = "%(asctime)s %(levelname)-7s %(name)s: %(message)s"
 FORMATO_DATA_LOG = "%Y-%m-%d %H:%M:%S"
+
+# --- Previsão de vendas (Fase 4) ----------------------------------------------------------------
+DIR_RELATORIOS_EXCEL = RAIZ_PROJETO / "data" / "processed"
+STATUS_VENDA_VALIDA = "Concluída"  # só estas vendas entram na série de receita
+PREVISAO_TREINO_ATE_BACKTEST = date(2025, 6, 30)
+PREVISAO_TESTE_INICIO_BACKTEST = date(2025, 7, 1)
+PREVISAO_TESTE_FIM_BACKTEST = date(2025, 12, 31)
+PREVISAO_ORIGEM_CALIBRACAO = date(
+    2025, 3, 31
+)  # backtest anterior, só para medir a faixa fora da amostra
+PREVISAO_HORIZONTE_MESES = 3  # 01/2026 a 03/2026
+PREVISAO_DIAS_ANO_ANTERIOR = 364  # 52 semanas: mesmo dia da semana um ano antes
+PREVISAO_DIAS_MINIMOS_SERIE = 28  # série com menos dias de venda no treino não é prevista
+PREVISAO_DIAS_MINIMOS_HISTORICO_FATORES = 365  # só lojas com tanto histórico ensinam os fatores
+PREVISAO_JANELA_NIVEL_DIAS = 56  # dias finais do treino que definem o nível atual da série
+PREVISAO_DIAS_MES_COMPLETO = (
+    25  # mês do treino com menos dias de dado não entra nos fatores mensais
+)
+# peso do fator mensal = n / (n + K), com n = anos observados do mês
+PREVISAO_SUAVIZACAO_MENSAL_K = 0.1
+PREVISAO_SUAVIZACAO_FERIADO_K = 1.0  # idem para o fator de cada feriado
+PREVISAO_AMORTECIMENTO_MENSAL = 0.9  # a tendência perde 10% do ritmo a cada mês à frente
+PREVISAO_HW_PERIODO = 7
+PREVISAO_HW_ALFAS = (0.05, 0.15, 0.3)
+PREVISAO_HW_BETAS = (0.0, 0.02)
+PREVISAO_HW_GAMAS = (0.05, 0.2)
+PREVISAO_HW_AMORTECIMENTO = 0.98  # por dia
+PREVISAO_QUANTIL_BAIXO = 0.10
+PREVISAO_QUANTIL_ALTO = 0.90
+PREVISAO_COBERTURA_ALVO = 0.80
+PREVISAO_NIVEIS = ("rede", "loja", "setor", "loja_setor")
+PREVISAO_MODELO_BASE = "ingenua"
+PREVISAO_VERSAO_MODELO = 1
+CASAS_PREVISAO = 2
+
+# --- Relatório Excel (Fase 4) -------------------------------------------------------------------
+DIR_VBA = RAIZ_PROJETO / "vba"
+ARQ_MODELO_XLSM = (
+    DIR_VBA / "modelo_fechamento.xlsm"
+)  # criado à mão no Excel (veja docs/macro_vba.md)
+MODELO_ARQ_FECHAMENTO = "fechamento_{ano}-{mes:02d}"  # sem extensão: .xlsx, ou .xlsm com o modelo
