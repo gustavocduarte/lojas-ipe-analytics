@@ -66,7 +66,7 @@ COLUNAS_LOJAS = {
     "cobertura_projetada": ("Cobertura projetada", FORMATO_PERCENTUAL),
 }  # fmt: skip
 COLUNAS_VENDEDORES = {
-    "posicao": ("Posição", FORMATO_INTEIRO), "cod_vendedor": ("Vendedor", None),
+    "posicao": ("Posição na rede", FORMATO_INTEIRO), "cod_vendedor": ("Vendedor", None),
     "nome_vendedor": ("Nome", None), "cod_loja": ("Loja", None),
     "nome_loja": ("Nome da loja", None),
     "acumulado_mes": ("Acumulado do mês", FORMATO_REAL),

@@ -91,6 +91,7 @@ def test_titulos_de_coluna_citados_nas_macros_existem_nas_abas():
     assert titulos["TITULO_CODIGO_LOJA"] in de(planilha.COLUNAS_VENDEDORES)
     assert titulos["TITULO_NOME_LOJA"] in de(planilha.COLUNAS_LOJAS)
     assert titulos["TITULO_LOJA_NOS_ALERTAS"] in de(planilha.COLUNAS_ALERTAS)
+    assert titulos["TITULO_NOME_DA_LOJA"] in de(planilha.COLUNAS_VENDEDORES)
 
 
 def test_atalhos_apontam_para_macros_que_existem():
@@ -136,3 +137,24 @@ def test_loja_ajusta_larguras_e_usa_o_titulo_certo_da_explicacao():
     assert "ChrW(231) & ChrW(227)" in texto
     titulo = "Explica" + chr(231) + chr(227) + "o"
     assert titulo in {t for t, _ in planilha.COLUNAS_ALERTAS.values()}
+
+
+def test_blocos_dia_e_mes_da_aba_da_loja_seguem_a_ordem_das_colunas_de_lojas():
+    texto = _ler("ModuloLoja")
+    primeira = int(re.search(r"PRIMEIRA_COLUNA_INDICADOR As Long = (\d+)", texto).group(1))
+    do_dia = int(re.search(r"COLUNAS_DO_DIA As Long = (\d+)", texto).group(1))
+    titulos = [titulo for titulo, _ in planilha.COLUNAS_LOJAS.values()]
+    assert titulos[primeira - 3 : primeira - 1] == [
+        "Nome",
+        "UF",
+    ]  # o título da aba usa o nome e a UF
+    assert titulos[primeira - 1 : primeira - 1 + do_dia] == [
+        "Venda do dia", "Meta do dia", "Cobertura do dia",
+    ]  # fmt: skip
+    assert "dia" not in titulos[primeira - 1 + do_dia]  # o bloco do mês começa depois
+
+
+def test_explicacao_nao_alarga_coluna_de_numeros():
+    texto = _ler("ModuloLoja")
+    assert ".Merge" in texto  # texto longo em colunas mescladas, não em uma coluna só
+    assert "LARGURA_EXPLICACAO" not in texto

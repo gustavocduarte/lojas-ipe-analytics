@@ -226,7 +226,7 @@ class TestVendedoresAlertasPrevisao:
     def test_ranking_de_vendedores(self, dw, pasta):
         linhas = _tabela(pasta[ABA_VENDEDORES])
         assert [x["Vendedor"] for x in linhas] == ["V1", "V2"]
-        assert [x["Posição"] for x in linhas] == [1, 2]
+        assert [x["Posição na rede"] for x in linhas] == [1, 2]
         for x in linhas:
             esperado = _escalar(
                 dw, "SELECT sum(receita_liquida) FROM dw.fato_vendas v JOIN dw.dim_tempo t USING"
