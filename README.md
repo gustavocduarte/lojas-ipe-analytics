@@ -110,13 +110,30 @@ componente anual) perde, e a sazonalidade anual fica com a ingênua e com o fato
 (alvo: ~80% dos valores reais dentro). A cobertura é medida fora da amostra (faixa calibrada num backtest
 anterior, treino até 31/03/2025) e na amostra; está em `dw.previsao_backtest` e no relatório do comando.
 A faixa da **rede** e a de cada **loja** (soma dos setores) não são a soma das faixas das séries, que seria
-larga demais (os erros se compensam): são calibradas nos resíduos do backtest no próprio total
+larga demais (os erros se compensam): são calibradas nos resíduos no próprio total
 (`src/previsao/faixa_agregada.py`) e gravadas em `dw.previsao_vendas` com `nivel = 'rede'` (`sk_loja` e
-`setor` nulos) e `nivel = 'loja'` (`setor` nulo); as séries são `nivel = 'loja_setor'`. Cobertura medida no
-total (backtest, fora da amostra / na amostra): rede, dia 67,4% / 79,3%; rede, mês 50,0% / 66,7%. Ou seja, a
-faixa mensal da rede ainda cobre **menos** que os 80% do alvo: ela é calibrada com só 6 pontos mensais (o
-backtest tem seis meses), o que dá uma faixa estreita e instável; a diária, com 184 pontos, chega perto do
-alvo na amostra. Leia a faixa mensal da rede como um mínimo de incerteza, não como intervalo de 80%.
+`setor` nulos) e `nivel = 'loja'` (`setor` nulo); as séries são `nivel = 'loja_setor'`.
+
+**Backtest de várias origens** (`src/previsao/rolling.py`): seis meses dão só 6 pontos mensais, pouco para
+um percentil. Por isso as faixas (rede, loja e setor) são calibradas nos resíduos de **9 origens mensais**
+(31/01/2025 a 30/09/2025), cada uma treinando só até o fim do mês e prevendo os 3 meses seguintes (o horizonte
+da previsão de 2026). Cada ponto é fora da amostra do modelo. A cobertura "fora da amostra" usa, para cada
+origem, uma faixa calibrada só com origens cujo período previsto não se sobrepõe ao dela; "na amostra" usa
+todas (otimista). A escolha do modelo continua a do backtest original (treino até 30/06/2025).
+
+| Cobertura da faixa (alvo 80%) | Fora da amostra | Pontos | Na amostra |
+|---|---|---|---|
+| Rede, dia | 79,0% | 823 | 79,8% |
+| Rede, mês | 74,1% | 27 | 77,8% |
+| Loja (total), dia: mín / mediana / máx | 64,9% / 82,3% / 88,0% | 642 a 823 por loja | 64,6% / 82,0% / 87,7% |
+| Loja (total), mês: mín / mediana / máx | 48,1% / 85,2% / 96,3% | 21 a 27 por loja | 51,9% / 85,2% / 100% |
+| Loja x setor, dia (média) | 83,2% | 72.620 | 83,3% |
+| Loja x setor, mês (média) | 79,0% | 2.382 | 79,8% |
+
+Antes (um só backtest) a faixa mensal da rede cobria 50% fora da amostra; a de loja x setor cobria 84,3% (dia)
+e 88,1% (mês), larga demais, e passou a vir também das 9 origens. Os 27 pontos mensais da rede se sobrepõem
+(a mesma data cai em até 3 origens), então a incerteza sobre a cobertura mensal continua grande; as lojas
+novas têm menos pontos.
 
 **Onde fica:** `dw.previsao_vendas` (dia e mês, por loja e setor, com faixa, `versao_modelo`,
 `treino_ate`, `gerado_em` e o WAPE do backtest da série) e `dw.previsao_backtest`. Gravar duas vezes não
@@ -131,7 +148,10 @@ fim da `dim_tempo`.
 * `dw.fn_projecao_despesas_ano(data)` / `dw.vw_projecao_despesas_ano`: **projeção do ano = realizado até a
   data + orçado do que falta x fator**, com fator = realizado / orçado do período já passado, limitado a
   [0,7; 1,3] (`projecao_fator_min/max` em `etl.parametros_negocio`). O orçado do mês da data é repartido
-  pela fração dos dias.
+  pela fração dos dias. O fator **não conta** os lançamentos de alertas vigentes de documento repetido (a
+  cópia), valor atípico ou centro incompatível, salvo os marcados como falso positivo; esses lançamentos
+  continuam no realizado somado à projeção. Com o corte em 30/06/2025, nenhum centro ficou no teto (antes,
+  L02-PES e L02-TER ficavam em 1,30) e o desvio total da projeção contra o realizado de 2025 caiu de +1,9% para +0,6%.
 * `dw.vw_meta_vendas_diaria` e `dw.vw_meta_vendedor_diaria`: meta do mês repartida pelos dias com o peso
   do dia da semana e do feriado (os mesmos de `src/config.py`); a soma dos dias bate com a meta do mês (o
   último dia absorve o resto do arredondamento).
