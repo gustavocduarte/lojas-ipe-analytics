@@ -12,9 +12,11 @@ from datetime import date
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, LineChart, Reference
+from openpyxl.chart.layout import Layout, ManualLayout
 from openpyxl.formatting.rule import CellIsRule
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+from openpyxl.workbook.defined_name import DefinedName
 
 FORMATO_REAL = '"R$" #,##0.00'
 FORMATO_PERCENTUAL = "0.0%"
@@ -33,6 +35,15 @@ ABA_LOJAS = "Lojas"
 ABA_VENDEDORES = "Vendedores"
 ABA_ALERTAS = "Alertas abertos"
 ABA_PREVISAO = "Previsão"
+NOME_DATA_POSICAO = "DataPosicao"  # nome definido lido pela macro ExportarResumoPDF
+
+# largura (em caracteres) que cabe o maior valor de cada formato: "R$ 9.999.999,99" e semelhantes
+LARGURA_POR_FORMATO = {
+    FORMATO_REAL: 18, FORMATO_PERCENTUAL: 10, FORMATO_DATA: 12, FORMATO_MES: 10,
+    FORMATO_INTEIRO: 10,
+}  # fmt: skip
+LARGURA_TEXTO_MINIMA, LARGURA_TEXTO_MAXIMA = 12, 60
+ALTURA_CABECALHO = 45  # até três linhas de título
 
 # nome da coluna na consulta -> (título na planilha, formato)
 COLUNAS_LOJAS = {
@@ -105,17 +116,48 @@ def _escrever_tabela(
         celula.font, celula.fill, celula.alignment = (
             estilo["font"], estilo["fill"], estilo["alignment"],
         )  # fmt: skip
-    ws.row_dimensions[linha_cabecalho].height = 32
+    ws.row_dimensions[linha_cabecalho].height = ALTURA_CABECALHO
     for i, linha in enumerate(quadro.itertuples(index=False), start=1):
         valores = dict(zip(quadro.columns, linha, strict=True))
         for j, (nome, (_, formato)) in enumerate(colunas.items()):
             celula = ws.cell(linha_cabecalho + i, coluna + j, _valor(valores[nome]))
             if formato:
                 celula.number_format = formato
-    for j, (nome, (titulo, _)) in enumerate(colunas.items()):
-        maior = max([len(titulo) / 1.6] + [len(str(_valor(v) or "")) for v in quadro[nome]][:200])
-        ws.column_dimensions[get_column_letter(coluna + j)].width = min(max(12, maior + 2), 60)
+    for j, (nome, (titulo, formato)) in enumerate(colunas.items()):
+        dimensao = ws.column_dimensions[get_column_letter(coluna + j)]
+        nova = largura_da_coluna(titulo, formato, quadro[nome])
+        dimensao.width = max(dimensao.width or 0, nova)  # nunca estreita o que outra tabela pediu
     return linha_cabecalho + len(quadro)
+
+
+def largura_da_coluna(titulo: str, formato: str | None, valores) -> float:
+    """Única regra de largura das colunas, por tipo: números e datas têm largura fixa por formato
+    (cabem o maior valor); texto acompanha o maior conteúdo, entre um mínimo e um máximo."""
+    if formato in LARGURA_POR_FORMATO:
+        return LARGURA_POR_FORMATO[formato]
+    maior = max([len(titulo) / 1.6] + [len(str(_valor(v) or "")) for v in valores][:200])
+    return min(max(LARGURA_TEXTO_MINIMA, maior + 2), LARGURA_TEXTO_MAXIMA)
+
+
+def _acabamento_do_grafico(grafico, formato_x: str) -> None:
+    """Eixos visíveis (o openpyxl os grava como removidos), sem suavização, legenda embaixo e
+    espaço entre o título e a área do gráfico."""
+    for eixo in (grafico.x_axis, grafico.y_axis):
+        eixo.delete = False
+    grafico.x_axis.number_format = formato_x
+    grafico.y_axis.number_format = "#,##0"
+    grafico.y_axis.title = "R$"
+    for serie in grafico.series:
+        serie.smooth = False
+    if grafico.title is None:  # série acrescentada a outro gráfico: só eixos e linhas
+        return
+    grafico.title.overlay = False
+    grafico.legend.position = "b"
+    grafico.layout = Layout(
+        manualLayout=ManualLayout(
+            layoutTarget="inner", xMode="edge", yMode="edge", x=0.1, y=0.17, w=0.86, h=0.55
+        )
+    )
 
 
 def _fixar_e_filtrar(ws, ultima_linha: int, ultima_coluna: int) -> None:
@@ -189,14 +231,12 @@ def _aba_previsao(wb: Workbook, dados: DadosFechamento) -> None:
     fim = _escrever_tabela(ws, diaria, titulos, 1, coluna)
     grafico = LineChart()
     grafico.title = "Previsão diária da rede"
-    grafico.y_axis.title = "R$"
-    grafico.y_axis.number_format = "#,##0"
-    grafico.x_axis.number_format = "dd/mm"
-    grafico.height, grafico.width = 8, 22
+    grafico.height, grafico.width = 9, 24
     grafico.add_data(
         Reference(ws, min_col=coluna + 1, min_row=1, max_row=fim), titles_from_data=True
     )
     grafico.set_categories(Reference(ws, min_col=coluna, min_row=2, max_row=fim))
+    _acabamento_do_grafico(grafico, "dd/mm")
     ws.add_chart(grafico, f"{get_column_letter(coluna + 3)}2")
 
 
@@ -241,8 +281,14 @@ def _aba_resumo(ws, dados: DadosFechamento) -> None:
             _verde_vermelho(ws, celula.coordinate)
         elif rotulo.startswith("Evolução"):
             _verde_vermelho(ws, celula.coordinate, 0.0)
+    ws["A3"], ws["B3"] = "Data de posição", dados.dia
+    ws["A3"].font = Font(bold=True)
+    ws["B3"].number_format = FORMATO_DATA
+    ws.parent.defined_names[NOME_DATA_POSICAO] = DefinedName(
+        NOME_DATA_POSICAO, attr_text=f"'{ws.title}'!$B$3"
+    )
     ws.column_dimensions["A"].width = 32
-    ws.column_dimensions["B"].width = 20
+    ws.column_dimensions["B"].width = LARGURA_POR_FORMATO[FORMATO_REAL]
 
     primeira = 4 + len(indicadores) + 2
     ws.cell(primeira - 1, 1, "Venda por dia").font = Font(bold=True)
@@ -251,18 +297,16 @@ def _aba_resumo(ws, dados: DadosFechamento) -> None:
         "meta_dia": ("Meta do dia", FORMATO_REAL),
     }  # fmt: skip
     fim = _escrever_tabela(ws, dados.vendas_por_dia, titulos, primeira)
-    ws.column_dimensions["C"].width = 18
     barras = BarChart()
     barras.title = "Venda por dia x meta do dia"
-    barras.y_axis.title = "R$"
-    barras.y_axis.number_format = "#,##0"
-    barras.x_axis.number_format = "dd"
-    barras.height, barras.width = 9, 24
+    barras.height, barras.width = 10, 26
     barras.add_data(Reference(ws, min_col=2, min_row=primeira, max_row=fim), titles_from_data=True)
     categorias = Reference(ws, min_col=1, min_row=primeira + 1, max_row=fim)
     barras.set_categories(categorias)
     linha = LineChart()
     linha.add_data(Reference(ws, min_col=3, min_row=primeira, max_row=fim), titles_from_data=True)
+    _acabamento_do_grafico(barras, "dd/mm")
+    _acabamento_do_grafico(linha, "dd/mm")
     barras += linha
     ws.add_chart(barras, "E4")
 

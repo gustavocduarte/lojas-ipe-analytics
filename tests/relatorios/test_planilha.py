@@ -177,3 +177,50 @@ def test_usa_pasta_existente_e_remove_as_abas_antigas(tmp_path):
     assert modelo.sheetnames[0] == planilha.ABA_RESUMO and "Lixo" not in modelo.sheetnames
     assert modelo[planilha.ABA_RESUMO]["A1"].value != "antigo"
     assert len(modelo.sheetnames) == 5
+
+
+def test_colunas_de_valores_cabem_r_999_999_99_em_todas_as_abas(pasta):
+    cabe = len("R$ 9.999.999,99")
+    for ws in pasta.worksheets:
+        for linha in ws.iter_rows():
+            for celula in linha:
+                if celula.number_format == planilha.FORMATO_REAL and celula.value is not None:
+                    largura = ws.column_dimensions[celula.column_letter].width
+                    assert largura >= cabe, (ws.title, celula.coordinate, largura)
+
+
+def test_largura_por_tipo_de_coluna():
+    assert planilha.largura_da_coluna("Venda", planilha.FORMATO_REAL, []) >= 16
+    assert planilha.largura_da_coluna("Dia", planilha.FORMATO_DATA, []) >= 12
+    curto = planilha.largura_da_coluna("Loja", None, ["L01"])
+    longo = planilha.largura_da_coluna("Nome", None, ["x" * 200])
+    assert curto == planilha.LARGURA_TEXTO_MINIMA
+    assert longo == planilha.LARGURA_TEXTO_MAXIMA
+
+
+def _subgraficos(pasta):
+    for ws in pasta.worksheets:
+        for grafico in ws._charts:
+            yield from grafico._charts
+
+
+def test_graficos_com_eixos_visiveis_sem_suavizacao_e_legenda_embaixo(pasta):
+    graficos = list(_subgraficos(pasta))
+    assert len(graficos) == 3  # barras + linha da meta no resumo, linha na previsão
+    for g in graficos:
+        assert g.x_axis.delete is False and g.y_axis.delete is False
+        assert all(s.smooth is not True for s in g.series)
+    for ws in (pasta[planilha.ABA_RESUMO], pasta[planilha.ABA_PREVISAO]):
+        principal = ws._charts[0]
+        assert principal.legend.position == "b"
+        assert principal.title.overlay is False
+        assert principal.x_axis.numFmt.formatCode == "dd/mm"
+        assert principal.y_axis.numFmt.formatCode == "#,##0"
+
+
+def test_data_de_posicao_gravada_em_nome_definido(pasta):
+    nome = pasta.defined_names[planilha.NOME_DATA_POSICAO]
+    ((aba, endereco),) = nome.destinations
+    assert aba == planilha.ABA_RESUMO
+    valor = pasta[aba][endereco.replace("$", "")].value
+    assert valor.date() == date(2025, 3, 15)
