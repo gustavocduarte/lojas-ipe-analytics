@@ -252,7 +252,8 @@ class TestComando:
     def test_gera_o_arquivo_padrao_e_informa_o_caminho(self, dw, tmp_path, capsys):
         saida = tmp_path / "sub" / "fechamento.xlsx"
         codigo = principal(
-            ["fechamento", "--mes", "2025-03", "--dia", "2025-03-15", "--saida", str(saida)],
+            ["fechamento", "--sem-macros", "--mes", "2025-03", "--dia", "2025-03-15",
+             "--saida", str(saida)],
             conexao=dw, verificar_memoria=None,
         )  # fmt: skip
         assert codigo == 0 and saida.exists()
@@ -262,7 +263,11 @@ class TestComando:
     def test_sem_argumentos_usa_o_ultimo_dia_com_venda(self, dw, tmp_path, capsys):
         saida = tmp_path / "f.xlsx"
         assert (
-            principal(["fechamento", "--saida", str(saida)], conexao=dw, verificar_memoria=None)
+            principal(
+                ["fechamento", "--sem-macros", "--saida", str(saida)],
+                conexao=dw,
+                verificar_memoria=None,
+            )
             == 0
         )
         assert "posição 02/04/2025" in capsys.readouterr().out
