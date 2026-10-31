@@ -1,0 +1,4 @@
+# Binarios e arquivos do VBA: sem conversao de quebra de linha
+*.xlsm binary
+*.xlsx binary
+*.bas text eol=crlf
