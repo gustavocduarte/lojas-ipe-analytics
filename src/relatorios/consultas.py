@@ -11,6 +11,8 @@ import psycopg
 
 from src import config
 
+TIPO_CANCELAMENTO_ALTO = "vendedor_cancelamento_alto"
+
 PARAMETROS_BASE = """
     par AS (
         SELECT %(mes)s::DATE AS ini, %(dia)s::DATE AS dia,
@@ -174,17 +176,47 @@ def vendedores(conexao: psycopg.Connection, mes: date, dia: date) -> pd.DataFram
     return _df(conexao, sql, parametros(mes, dia))
 
 
-def alertas_abertos(conexao: psycopg.Connection) -> pd.DataFrame:
-    """Alertas vigentes e independentes ainda não tratados (novo ou em análise), do mais grave."""
+def alertas_abertos(conexao: psycopg.Connection, dia: date) -> pd.DataFrame:
+    """Alertas vigentes e independentes ainda não tratados (novo ou em análise), do mais grave.
+
+    Só entram alertas com data até o dia de posição; o cancelamento alto (janela móvel que termina
+    no fim de um mês) só vale com a janela fechada antes do mês da posição, e aparece uma vez por
+    vendedor (`consolidar_cancelamentos`)."""
     sql = """
     SELECT severidade_nome AS severidade, nome_tipo_alerta AS tipo, data_alerta AS data,
            COALESCE(nome_loja, nome_centro_custo, '-') AS loja_ou_centro,
-           nome_vendedor AS vendedor, valor_envolvido, status_nome AS status, explicacao
+           nome_vendedor AS vendedor, valor_envolvido, status_nome AS status, explicacao,
+           tipo_alerta, cod_vendedor, status AS status_codigo
     FROM dw.vw_alertas_detalhe
-    WHERE conta_no_painel AND status IN ('novo', 'em_analise')
+    WHERE conta_no_painel AND data_alerta <= %(dia)s
+      AND (tipo_alerta <> %(cancelamento)s OR data_alerta < date_trunc('month', %(dia)s::DATE))
     ORDER BY severidade_ordem DESC, valor_envolvido DESC NULLS LAST, data_alerta DESC, chave_alerta
     """
-    return _df(conexao, sql, {})
+    quadro = _df(conexao, sql, {"dia": dia, "cancelamento": TIPO_CANCELAMENTO_ALTO})
+    quadro = consolidar_cancelamentos(quadro)
+    return quadro[quadro["status_codigo"].isin(("novo", "em_analise"))].reset_index(drop=True)
+
+
+def consolidar_cancelamentos(alertas: pd.DataFrame) -> pd.DataFrame:
+    """Deixa só a janela mais recente de cancelamento alto de cada vendedor. Quando as janelas dos
+    meses anteriores também alertaram, a explicação ganha "N janelas seguidas desde mm/aaaa"
+    (o mês em que terminou a primeira janela da sequência). O histórico fica no dw."""
+    alertas = alertas.copy()
+    eh_cancelamento = alertas["tipo_alerta"] == TIPO_CANCELAMENTO_ALTO
+    antigas = []
+    for _, grupo in alertas[eh_cancelamento].groupby("cod_vendedor"):
+        grupo = grupo.sort_values("data")
+        meses = [d.year * 12 + d.month for d in grupo["data"]]
+        seguidas = 1
+        while seguidas < len(meses) and meses[-seguidas] - meses[-seguidas - 1] == 1:
+            seguidas += 1
+        ultima = grupo.index[-1]
+        antigas.extend(grupo.index[:-1])
+        if seguidas > 1:
+            desde = grupo["data"].iloc[-seguidas]
+            complemento = f" — {seguidas} janelas seguidas desde {desde:%m/%Y}"
+            alertas.loc[ultima, "explicacao"] += complemento
+    return alertas.drop(index=antigas)
 
 
 def previsao_mensal(conexao: psycopg.Connection) -> pd.DataFrame:

@@ -25,7 +25,7 @@ def coletar(conexao: psycopg.Connection, mes: date, dia: date) -> DadosFechament
         indicadores=consultas.indicadores_da_rede(conexao, mes, dia),
         vendas_por_dia=consultas.vendas_por_dia(conexao, mes, dia),
         vendedores=consultas.vendedores(conexao, mes, dia),
-        alertas=consultas.alertas_abertos(conexao),
+        alertas=consultas.alertas_abertos(conexao, dia),
         previsao_mensal=consultas.previsao_mensal(conexao),
         previsao_diaria=consultas.previsao_diaria_da_rede(conexao),
     )

@@ -232,6 +232,36 @@ class TestVendedoresAlertasPrevisao:
         falsos = _escalar(dw, "SELECT count(*) FROM dw.alertas WHERE status = 'falso_positivo'")
         assert falsos == 1  # existe um falso positivo e ele ficou de fora
 
+    def test_nenhum_alerta_depois_do_dia_de_posicao_e_um_cancelamento_por_vendedor(
+        self, dw, tmp_path
+    ):
+        base = (
+            "SELECT %s, %s, 'alta', %s, a.sk_loja, a.sk_vendedor, 10, 'x@1', %s, a.id_carga_origem,"
+            " a.id_carga_ultima FROM dw.alertas a WHERE a.tipo_alerta = 'desconto_acima_limite'"
+            " AND a.status = 'novo' LIMIT 1"
+        )
+        cabecalho = (
+            "INSERT INTO dw.alertas (chave_alerta, tipo_alerta, severidade, sk_tempo, sk_loja,"
+            " sk_vendedor, valor_envolvido, regra, explicacao, id_carga_origem, id_carga_ultima) "
+        )
+        cancelamento = "vendedor_cancelamento_alto"
+        # janelas de jan, fev e mar (a de março termina depois do dia 15: não vale) + um desconto
+        # com data depois do dia de posição
+        for mes, sk in (("2025-01", 20250131), ("2025-02", 20250228), ("2025-03", 20250331)):
+            dw.execute(cabecalho + base, (f"{cancelamento}|V1|{mes}", cancelamento, sk, "janela"))
+        dw.execute(
+            cabecalho + base,
+            ("desconto_acima_limite|depois", "desconto_acima_limite", 20250320, "depois"),
+        )
+        dw.commit()
+        caminho, _ = fechamento.gerar(dw, MES, DIA, tmp_path / "g.xlsx", modelo=None)
+        linhas = _tabela(load_workbook(caminho)[ABA_ALERTAS])
+        assert linhas and all(x["Data"].date() <= DIA for x in linhas)
+        cancel = [x for x in linhas if x["Tipo"] == "Cancelamento alto por vendedor"]
+        assert len(cancel) == 1
+        assert cancel[0]["Data"].date() == date(2025, 2, 28)
+        assert cancel[0]["Explicação"].endswith("2 janelas seguidas desde 01/2025")
+
     def test_previsao_mensal_e_diaria_da_execucao_mais_recente(self, dw, pasta):
         ws = pasta[ABA_PREVISAO]
         linhas = _tabela(ws)

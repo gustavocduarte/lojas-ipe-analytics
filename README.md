@@ -165,7 +165,8 @@ python -m src.relatorios fechamento --mes 2025-12 --dia 2025-12-15
 Gera `data/processed/fechamento_AAAA-MM.xlsx` com cinco abas: **Resumo da rede** (indicadores, gráfico de
 venda por dia contra a meta do dia), **Lojas** (venda e meta do dia, acumulado, cobertura, evolução contra
 o ano anterior, projeção), **Vendedores** (ranking, meta, cobertura), **Alertas abertos** (só
-independentes, do mais grave ao menos) e **Previsão** (por loja, com faixa, erro do backtest e gráfico).
+independentes com data até o dia de posição, do mais grave ao menos; cancelamento alto só com janela
+fechada antes do mês da posição e uma vez por vendedor, com "N janelas seguidas desde mm/aaaa") e **Previsão** (por loja, com faixa, erro do backtest e gráfico).
 Formatos brasileiros, cabeçalho fixo, filtros e verde/vermelho na cobertura e na evolução. Os números
 são conferidos contra consultas independentes ao dw nos testes.
 
