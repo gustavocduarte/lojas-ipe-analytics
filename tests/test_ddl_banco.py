@@ -29,6 +29,8 @@ TABELAS_DW = {
     "alertas",
     "alerta_vinculos",
     "alerta_historico",
+    "previsao_vendas",
+    "previsao_backtest",
 }
 TABELAS_STG = {
     "lojas",
