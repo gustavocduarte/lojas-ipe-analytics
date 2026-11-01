@@ -24,6 +24,8 @@ TABELAS_DW = {
     "fato_meta_vendas",
     "fato_meta_vendedor",
     "vendedor_setor_historico",
+    "desempenho_vendedor_setor",
+    "simulador_backtest",
     "fato_despesas",
     "fato_orcamento_despesas",
     "dim_tipo_alerta",
