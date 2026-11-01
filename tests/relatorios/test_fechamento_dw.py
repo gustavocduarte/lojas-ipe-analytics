@@ -18,6 +18,7 @@ from src.relatorios.planilha import (
     ABA_VENDEDORES,
     TITULO_COBERTURA_ATE_O_DIA,
     TITULO_META_DO_MES_ATINGIDO,
+    TITULO_PROJECAO,
     TITULO_VENDA_ACUMULADA,
 )
 from tests.etl import base_alertas as b
@@ -237,6 +238,28 @@ class TestResumo:
             f"{atingido}% da meta do mês atingido"
         )
         assert valores[TITULO_COBERTURA_ATE_O_DIA] == pytest.approx(receita / meta_ate_dia)
+
+    def test_realizado_mais_projecao_por_dia_bate_com_o_cartao_de_projecao(self, dw, tmp_path):
+        dw.execute(
+            "INSERT INTO dw.previsao_vendas (granularidade, data, sk_loja, setor, valor_previsto,"
+            " valor_baixo, valor_alto, versao_modelo, treino_ate)"
+            " SELECT 'dia', make_date(2025, 3, d), sk_loja, 'Alimentos', 100, 90, 110, 'y@1',"
+            " '2025-03-15' FROM dw.dim_loja, generate_series(16, 31) d"
+        )
+        dw.commit()
+        caminho, _ = fechamento.gerar(dw, MES, DIA, tmp_path / "pj.xlsx", modelo=None)
+        wb = load_workbook(caminho)
+        diario = wb[ABA_DIARIO]
+        vendas = [diario.cell(i, 2).value for i in range(2, 33)]
+        projecao = [diario.cell(i, 7).value for i in range(2, 33)]
+        assert all(p is None for p in projecao[:15]) and all(v is None for v in vendas[15:])
+        assert projecao[15:] == [200.0] * 16  # 2 lojas x 100, de 16 a 31
+        cartao = indicadores_do_resumo(wb[ABA_RESUMO])[TITULO_PROJECAO]
+        assert sum(v for v in vendas if v) + sum(p for p in projecao if p) == pytest.approx(cartao)
+
+    def test_sem_previsao_para_a_posicao_a_projecao_diaria_fica_vazia(self, pasta):
+        diario = pasta[ABA_DIARIO]
+        assert all(diario.cell(i, 7).value is None for i in range(2, 33))
 
     def test_venda_por_dia_ignora_canceladas_e_para_no_dia_de_posicao(self, pasta):
         ws = pasta[ABA_DIARIO]

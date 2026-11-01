@@ -58,6 +58,7 @@ FONTE_RODAPE = "Fonte: dw lojas_ipe_dw"
 COLUNAS_DO_RESUMO, LARGURA_COLUNA_RESUMO = 12, 16
 COLUNAS_POR_CARTAO, COLUNAS_POR_INDICADOR = 3, 2
 LINHA_DO_GRAFICO, LINHAS_DO_GRAFICO = 12, 17
+COR_PROJECAO = "BFBFBF"  # barras da venda projetada, cinza-claro
 ALTURA_GRAFICO_CM, LARGURA_GRAFICO_CM = 9, 37  # a largura total das 12 colunas
 LOJAS_POR_PONTA = 5
 ORDEM_SEVERIDADE = ("Crítica", "Alta", "Média", "Baixa")
@@ -115,6 +116,7 @@ COLUNAS_DIARIO = {
     "cobertura_dia": ("Cobertura do dia", FORMATO_PERCENTUAL),
     "venda_acumulada": ("Venda acumulada", FORMATO_REAL),
     "meta_acumulada": ("Meta acumulada", FORMATO_REAL),
+    "projecao": ("Projeção", FORMATO_REAL),  # venda prevista dos dias depois da posição
 }  # fmt: skip
 COLUNAS_PRODUTOS = {
     "cod_produto": ("Código", None), "descricao": ("Descrição", None), "setor": ("Setor", None),
@@ -157,6 +159,9 @@ class DadosFechamento:
     )
     setores: pd.DataFrame = field(
         default_factory=lambda: pd.DataFrame(columns=list(COLUNAS_SETORES))
+    )
+    projecao_por_dia: pd.DataFrame = field(  # venda prevista da rede, dia a dia, depois da posição
+        default_factory=lambda: pd.DataFrame(columns=["dia", "projecao"])
     )
 
 
@@ -460,13 +465,26 @@ def lojas_extremas(lojas: pd.DataFrame, quantas: int = LOJAS_POR_PONTA) -> tuple
     return maiores, menores
 
 
-def alertas_por_severidade(alertas: pd.DataFrame) -> pd.DataFrame:
-    """Quantidade e valor envolvido dos alertas abertos, por severidade (do mais grave ao menos)."""
+def alertas_por_severidade(alertas: pd.DataFrame, mes: date | None = None) -> pd.DataFrame:
+    """Quantidade e valor envolvido dos alertas abertos, por severidade (do mais grave ao menos):
+    o total em aberto e, à parte, os do mês de `mes` (data de alerta a partir do primeiro dia dele;
+    os alertas já vêm limitados à data de posição)."""
+    datas = alertas["data"].map(lambda d: d.date() if isinstance(d, pd.Timestamp) else d)
+    no_mes = datas >= mes if mes is not None else pd.Series(False, index=alertas.index)
     linhas = []
     for severidade in ORDEM_SEVERIDADE:
         sel = alertas[alertas["severidade"] == severidade]
-        linhas.append((severidade, len(sel), float(sel["valor_envolvido"].fillna(0).sum())))
-    return pd.DataFrame(linhas, columns=["severidade", "quantidade", "valor"])
+        do_mes = sel[no_mes[sel.index]]
+        linhas.append(
+            (
+                severidade, len(sel), float(sel["valor_envolvido"].fillna(0).sum()),
+                len(do_mes), float(do_mes["valor_envolvido"].fillna(0).sum()),
+            )
+        )  # fmt: skip
+    return pd.DataFrame(
+        linhas,
+        columns=["severidade", "quantidade", "valor", "quantidade_no_mes", "valor_no_mes"],
+    )
 
 
 def _aba_diario(ws, dados: DadosFechamento) -> int:
@@ -476,6 +494,10 @@ def _aba_diario(ws, dados: DadosFechamento) -> int:
     dia["cobertura_dia"] = dia["venda"] / dia["meta_dia"].where(dia["meta_dia"] > 0)
     dia["venda_acumulada"] = dia["venda"].cumsum(skipna=True).where(dia["venda"].notna())
     dia["meta_acumulada"] = dia["meta_dia"].cumsum()
+    previsto = dict(
+        zip(dados.projecao_por_dia["dia"], dados.projecao_por_dia["projecao"], strict=True)
+    )
+    dia["projecao"] = pd.to_numeric(dia["dia"].map(previsto)).where(dia["dia"] > dados.dia)
     ultima = _escrever_tabela(ws, dia, COLUNAS_DIARIO, 1)
     _fixar_e_filtrar(ws, ultima, len(COLUNAS_DIARIO))
     letra = _coluna_de(COLUNAS_DIARIO, "cobertura_dia")
@@ -556,10 +578,14 @@ def _aba_resumo(ws, dados: DadosFechamento, ws_diario, ultima_linha_diario: int)
     barras = BarChart()
     barras.title = "Venda por dia x meta do dia"
     barras.height, barras.width = ALTURA_GRAFICO_CM, LARGURA_GRAFICO_CM
-    barras.add_data(
-        Reference(ws_diario, min_col=2, min_row=1, max_row=ultima_linha_diario),
-        titles_from_data=True,
-    )
+    for coluna in (2, list(COLUNAS_DIARIO).index("projecao") + 1):  # venda e projeção
+        barras.add_data(
+            Reference(ws_diario, min_col=coluna, min_row=1, max_row=ultima_linha_diario),
+            titles_from_data=True,
+        )
+    projecao_barras = barras.series[1].graphicalProperties
+    projecao_barras.solidFill = projecao_barras.line.solidFill = COR_PROJECAO
+    barras.overlap = 100  # venda e projeção nunca coincidem no mesmo dia: dividem o espaço
     barras.set_categories(Reference(ws_diario, min_col=1, min_row=2, max_row=ultima_linha_diario))
     linha = LineChart()
     linha.add_data(
@@ -604,31 +630,54 @@ def _aba_resumo(ws, dados: DadosFechamento, ws_diario, ultima_linha_diario: int)
 
     _titulo_de_tabela(ws, topo, 8, 12, "Alertas abertos por severidade")
     _cabecalho_compacto(
-        ws, topo + 1, [(8, 9, "Severidade"), (10, 10, "Quantidade"), (11, 12, "Valor envolvido")]
+        ws, topo + 1, [(8, 8, "Severidade"), (9, 10, "No mês"), (11, 12, "Total em aberto")]
     )
-    por_severidade = alertas_por_severidade(dados.alertas)
-    linha_atual = topo + 2
+    _cabecalho_compacto(
+        ws, topo + 2,
+        [(8, 8, ""), (9, 9, "Quantidade"), (10, 10, "Valor"), (11, 11, "Quantidade"),
+         (12, 12, "Valor")],
+    )  # fmt: skip
+    _mesclar(ws, topo + 1, 8, 8, topo + 2)  # "Severidade" ocupa as duas linhas do cabeçalho
+    ws.row_dimensions[topo + 2].height = 16
+    por_severidade = alertas_por_severidade(dados.alertas, dados.mes)
+    linha_atual = topo + 3
+    colunas_alerta = ("quantidade_no_mes", "valor_no_mes", "quantidade", "valor")
     for item in por_severidade.itertuples():
-        _celula_de_tabela(ws, linha_atual, 8, 9, item.severidade)
-        _celula_de_tabela(
-            ws, linha_atual, 10, 10, item.quantidade, FORMATO_INTEIRO, False, "center"
-        )
-        _celula_de_tabela(ws, linha_atual, 11, 12, item.valor, FORMATO_REAL)
+        _celula_de_tabela(ws, linha_atual, 8, 8, item.severidade)
+        for k, nome in enumerate(colunas_alerta):
+            eh_qtd = nome.startswith("quantidade")
+            _celula_de_tabela(
+                ws, linha_atual, 9 + k, 9 + k, getattr(item, nome),
+                FORMATO_INTEIRO if eh_qtd else FORMATO_REAL, False, "center" if eh_qtd else None,
+            )  # fmt: skip
         linha_atual += 1
-    _celula_de_tabela(ws, linha_atual, 8, 9, "Total", None, True)
-    _celula_de_tabela(
-        ws,
-        linha_atual,
-        10,
-        10,
-        int(por_severidade["quantidade"].sum()),
-        FORMATO_INTEIRO,
-        True,
-        "center",
-    )
-    _celula_de_tabela(
-        ws, linha_atual, 11, 12, float(por_severidade["valor"].sum()), FORMATO_REAL, True
-    )
+    _celula_de_tabela(ws, linha_atual, 8, 8, "Total", None, True)
+    for k, nome in enumerate(colunas_alerta):
+        eh_qtd = nome.startswith("quantidade")
+        soma = por_severidade[nome].sum()
+        _celula_de_tabela(
+            ws, linha_atual, 9 + k, 9 + k, int(soma) if eh_qtd else float(soma),
+            FORMATO_INTEIRO if eh_qtd else FORMATO_REAL, True, "center" if eh_qtd else None,
+        )  # fmt: skip
+    linha_atual += 2  # uma linha em branco antes do próximo bloco
+
+    n = config.RELATORIO_TOP_PRODUTOS_RESUMO
+    _titulo_de_tabela(ws, linha_atual, 8, 12, f"Top {n} produtos do mês")
+    _cabecalho_compacto(
+        ws, linha_atual + 1,
+        [(8, 9, "Produto"), (10, 10, "Setor"), (11, 11, "Receita"), (12, 12, "Participação")],
+    )  # fmt: skip
+    linha_atual += 2
+    for produto in dados.produtos.head(n).itertuples():
+        c = _celula_de_tabela(ws, linha_atual, 8, 9, produto.descricao)
+        c.alignment = Alignment(shrink_to_fit=True)
+        c = _celula_de_tabela(ws, linha_atual, 10, 10, produto.setor)
+        c.alignment = Alignment(shrink_to_fit=True)
+        _celula_de_tabela(ws, linha_atual, 11, 11, produto.receita, FORMATO_REAL)
+        _celula_de_tabela(
+            ws, linha_atual, 12, 12, produto.participacao, FORMATO_PERCENTUAL, False, "center"
+        )
+        linha_atual += 1
     fim_direita = linha_atual + 1
 
     # f) rodapé (a data de posição é lida pela macro do PDF, pelo nome definido)

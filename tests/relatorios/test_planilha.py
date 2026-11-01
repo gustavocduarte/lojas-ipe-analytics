@@ -390,3 +390,106 @@ def test_data_de_posicao_gravada_em_nome_definido(pasta):
     assert aba == planilha.ABA_RESUMO
     valor = pasta[aba][endereco.replace("$", "")].value
     assert valor.date() == date(2025, 3, 15)
+
+
+def achar(ws, texto: str) -> tuple[int, int]:
+    """(linha, coluna) da primeira célula com este texto."""
+    for linha in ws.iter_rows():
+        for celula in linha:
+            if celula.value == texto:
+                return celula.row, celula.column
+    raise AssertionError(f"texto não encontrado: {texto}")
+
+
+def test_alertas_por_severidade_separam_o_mes_do_total_em_aberto():
+    alertas = _dados().alertas
+    extra = pd.DataFrame(
+        {
+            "severidade": ["Crítica", "Alta"], "tipo": ["x", "x"],
+            "data": [date(2025, 2, 28), date(2025, 3, 1)], "loja_ou_centro": ["Ipê 1"] * 2,
+            "vendedor": [None, None], "valor_envolvido": [100.0, 50.0],
+            "status": ["Novo", "Novo"], "explicacao": ["a", "b"],
+        }
+    )  # fmt: skip
+    por = planilha.alertas_por_severidade(
+        pd.concat([alertas, extra], ignore_index=True), date(2025, 3, 1)
+    )
+    assert list(por["quantidade"]) == [2, 1, 0, 1] and list(por["quantidade_no_mes"]) == [
+        1,
+        1,
+        0,
+        1,
+    ]
+    assert list(por["valor"]) == [450.5, 50.0, 0.0, 20.0]
+    assert list(por["valor_no_mes"]) == [350.5, 50.0, 0.0, 20.0]  # 28/02 fica fora do mês
+    assert list(planilha.alertas_por_severidade(alertas)["quantidade_no_mes"]) == [0, 0, 0, 0]
+
+
+def test_resumo_mostra_alertas_no_mes_e_total_em_aberto(pasta):
+    ws = pasta[planilha.ABA_RESUMO]
+    linha, coluna = achar(ws, "Alertas abertos por severidade")
+    assert [ws.cell(linha + 1, coluna + k).value for k in (0, 1, 3)] == [
+        "Severidade", "No mês", "Total em aberto",
+    ]  # fmt: skip
+    assert [ws.cell(linha + 2, coluna + k).value for k in (1, 2, 3, 4)] == [
+        "Quantidade", "Valor", "Quantidade", "Valor",
+    ]  # fmt: skip
+    corpo = [[ws.cell(linha + 3 + i, coluna + k).value for k in range(5)] for i in range(5)]
+    assert corpo[0] == ["Crítica", 1, 350.5, 1, 350.5]
+    assert corpo[3] == ["Baixa", 1, 20.0, 1, 20.0]
+    assert corpo[4] == ["Total", 2, 370.5, 2, 370.5]
+
+
+def test_resumo_traz_o_top_5_de_produtos_do_mes(pasta):
+    ws = pasta[planilha.ABA_RESUMO]
+    linha, coluna = achar(ws, "Top 5 produtos do mês")
+    assert [ws.cell(linha + 1, coluna + k).value for k in (0, 2, 3, 4)] == [
+        "Produto", "Setor", "Receita", "Participação",
+    ]  # fmt: skip
+    produtos = [[ws.cell(linha + 2 + i, coluna + k).value for k in (0, 2, 3, 4)] for i in range(3)]
+    assert produtos[0] == ["Arroz", "Alimentos", 10000.0, pytest.approx(10000 / 18000)]
+    assert [p[0] for p in produtos] == ["Arroz", "Tv", "Sabão"]
+    assert ws.cell(linha + 5, coluna).value is None  # só há 3 produtos
+    assert ws.cell(linha + 2, coluna + 4).number_format == planilha.FORMATO_PERCENTUAL
+
+
+def _dados_com_projecao_consistente():
+    """Realizado do Diário = acumulado das lojas (18.000) e projeção diária somando o que falta
+    para os 37.000 do cartão."""
+    dados = _dados()
+    dados.vendas_por_dia["venda"] = [1200.0 if i <= 15 else None for i in range(1, 32)]
+    dias = pd.date_range("2025-03-16", "2025-03-31")
+    dados.projecao_por_dia = pd.DataFrame({"dia": dias.date, "projecao": [1187.5] * len(dias)})
+    return dados
+
+
+def test_grafico_do_resumo_mostra_a_projecao_como_segunda_serie_de_barras_cinza(tmp_path):
+    montar_pasta(_dados_com_projecao_consistente()).save(tmp_path / "p.xlsx")
+    ws = load_workbook(tmp_path / "p.xlsx")[planilha.ABA_RESUMO]
+    barras, linha = ws._charts[0]._charts
+    assert len(barras.series) == 2 and len(linha.series) == 1
+    assert barras.series[1].tx.strRef.f.endswith("!G1")  # coluna "Projeção" da aba Diário
+    assert barras.series[1].graphicalProperties.solidFill.srgbClr == planilha.COR_PROJECAO
+    assert barras.overlap == 100
+
+
+def test_realizado_mais_projecao_bate_com_o_cartao_de_projecao(tmp_path):
+    montar_pasta(_dados_com_projecao_consistente()).save(tmp_path / "p.xlsx")
+    wb = load_workbook(tmp_path / "p.xlsx")
+    diario = wb[planilha.ABA_DIARIO]
+    titulos = [c.value for c in diario[1]]
+    assert titulos[-1] == "Projeção"
+    vendas = [diario.cell(i, 2).value for i in range(2, 33)]
+    projecao = [diario.cell(i, 7).value for i in range(2, 33)]
+    assert all(p is None for p in projecao[:15])  # até a posição só há venda
+    assert all(v is None for v in vendas[15:])  # depois dela só há projeção
+    total = sum(v for v in vendas if v) + sum(p for p in projecao if p)
+    cartao = indicadores_do_resumo(wb[planilha.ABA_RESUMO])[planilha.TITULO_PROJECAO]
+    assert total == pytest.approx(cartao) == pytest.approx(37000.0)
+
+
+def test_sem_projecao_a_coluna_projecao_fica_vazia(tmp_path):
+    dados = _dados(com_projecao=False)
+    montar_pasta(dados).save(tmp_path / "s.xlsx")
+    diario = load_workbook(tmp_path / "s.xlsx")[planilha.ABA_DIARIO]
+    assert all(diario.cell(i, 7).value is None for i in range(2, 33))

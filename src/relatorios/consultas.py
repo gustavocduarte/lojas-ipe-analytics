@@ -145,6 +145,28 @@ def vendas_por_dia(conexao: psycopg.Connection, mes: date, dia: date) -> pd.Data
     return _df(conexao, sql, parametros(mes, dia))
 
 
+def projecao_por_dia(conexao: psycopg.Connection, mes: date, dia: date) -> pd.DataFrame:
+    """Venda prevista da rede em cada dia do mês depois de `dia`: a mesma previsão (mesma execução
+    do modelo, treinada até `dia`) que fecha a projeção de fechamento do mês em
+    `dw.fn_projecao_fechamento_mes`. Vazio quando não há previsão para essa posição."""
+    sql = """
+    WITH versao AS (
+        SELECT versao_modelo FROM dw.previsao_vendas
+        WHERE nivel = 'loja_setor' AND treino_ate = %(dia)s
+        ORDER BY gerado_em DESC, versao_modelo LIMIT 1
+    )
+    SELECT f.data AS dia, SUM(f.valor_previsto) AS projecao
+    FROM dw.previsao_vendas f
+    JOIN versao USING (versao_modelo)
+    WHERE f.nivel = 'loja_setor' AND f.granularidade = 'dia' AND f.treino_ate = %(dia)s
+      AND f.data > %(dia)s
+      AND f.data <= (date_trunc('month', %(mes)s::DATE) + INTERVAL '1 month' - INTERVAL '1 day')
+    GROUP BY f.data
+    ORDER BY f.data
+    """
+    return _df(conexao, sql, {"mes": mes, "dia": dia})
+
+
 def vendedores(conexao: psycopg.Connection, mes: date, dia: date) -> pd.DataFrame:
     """Ranking de vendedores pela receita do mês até o dia, com meta e cobertura."""
     sql = f"""
