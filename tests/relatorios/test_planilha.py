@@ -507,6 +507,32 @@ def test_grafico_do_resumo_mostra_a_projecao_como_segunda_serie_de_barras_cinza(
     assert barras.overlap == 100
 
 
+def test_linha_da_meta_contrasta_com_a_projecao_cinza_e_a_venda_azul(tmp_path):
+    montar_pasta(_dados_com_projecao_consistente()).save(tmp_path / "p.xlsx")
+    ws = load_workbook(tmp_path / "p.xlsx")[planilha.ABA_RESUMO]
+    barras, linha = ws._charts[0]._charts
+    cor = lambda c: str(getattr(c.srgbClr, "val", c.srgbClr))[-6:]  # noqa: E731
+    cor_da_meta = cor(linha.series[0].graphicalProperties.line.solidFill)
+    assert cor_da_meta == planilha.COR_META
+    assert cor(barras.series[1].graphicalProperties.solidFill) == planilha.COR_PROJECAO
+    assert cor_da_meta not in (planilha.COR_PROJECAO, planilha.COR_CABECALHO)
+
+
+def test_resumo_linhas_da_tabela_de_lojas_tem_altura_uniforme(tmp_path):
+    dados = _dados()
+    base = dados.lojas.iloc[[0]]
+    dados.lojas = pd.concat(
+        [base.assign(cod_loja=f"L{i:02d}", cobertura_ate_o_dia=i / 10) for i in range(12)],
+        ignore_index=True,
+    )
+    montar_pasta(dados).save(tmp_path / "p.xlsx")
+    ws = load_workbook(tmp_path / "p.xlsx")[planilha.ABA_RESUMO]
+    linha, _ = achar(ws, "Lojas — maior e menor cobertura da meta até o dia")
+    ultima, _ = achar(ws, "Menores coberturas")
+    alturas = {ws.row_dimensions[r].height for r in range(linha + 2, ultima + 6)}
+    assert alturas == {planilha.ALTURA_TITULO_SECAO}  # inclusive ao lado do título da direita
+
+
 def test_realizado_mais_projecao_bate_com_o_cartao_de_projecao(tmp_path):
     montar_pasta(_dados_com_projecao_consistente()).save(tmp_path / "p.xlsx")
     wb = load_workbook(tmp_path / "p.xlsx")

@@ -18,6 +18,9 @@ Private Const LARGURA_MAXIMA As Double = 45
 Private Const PREFIXO_COBERTURA As String = "Cobertura"   ' cobertura: verde a partir de 100%
 Private Const PREFIXO_EVOLUCAO As String = "Evolu"        ' evolucao: verde a partir de 0%
 Private Const TITULO_DESTAQUE As String = "Destaque"
+Private Const FONTE_ABA As String = "Calibri"           ' uma unica fonte em toda a aba
+Private Const TAMANHO_FONTE As Long = 11
+Private Const PREFIXO_POSICAO As String = "Posi"        ' colunas de posicao (ranking): centralizadas
 ' Estilo unico de titulo de secao (o mesmo do Python, titulo_de_secao em planilha.py).
 Private Const TAMANHO_TITULO As Long = 13
 Private Const ALTURA_TITULO As Long = 22
@@ -62,6 +65,8 @@ Public Sub GerarAbaDaLoja()
     uf = CStr(wsLojas.Cells(linhaLoja, PRIMEIRA_COLUNA_INDICADOR - 1).Value)
 
     Set wsNova = CriarAbaVazia("Loja " & codigo)
+    wsNova.Cells.Font.Size = TAMANHO_FONTE
+    PadronizarFonte wsNova
     TituloDeSecao wsNova, 1, 1, COLUNAS_DO_TITULO, "Loja " & codigo & " - " & nomeLoja & " (" & uf & ")"
 
     ' Indicadores em dois blocos, "Dia" e "Mes": titulo na coluna A, valor na B, mesmo formato.
@@ -161,6 +166,7 @@ Private Function CopiarLinhasDaLoja(wsOrigem As Worksheet, tituloFiltro As Strin
             copiadas = copiadas + 1
         End If
     Next linhaOrigem
+    CentralizarPosicao wsDestino, linhaCabecalho, linhaDestino, qtdColunas
     If copiadas > 0 Then
         For coluna = 1 To qtdColunas
             titulo = CStr(wsDestino.Cells(linhaCabecalho, coluna).Value)
@@ -205,8 +211,26 @@ Private Function CopiarDadosDaLoja(wsDados As Worksheet, colInicial As Long, qtd
             copiadas = copiadas + 1
         End If
     Next linhaOrigem
+    CentralizarPosicao wsDestino, linhaInicial + 1, linhaDestino, qtdColunas - 1
     CopiarDadosDaLoja = copiadas
 End Function
+
+' A coluna de posicao (ranking) fica centralizada, cabecalho e numeros, para nao herdar o aspecto
+' da coluna A, que e larga por causa dos rotulos dos indicadores.
+Private Sub CentralizarPosicao(ws As Worksheet, linhaCabecalho As Long, ultimaLinha As Long, qtdColunas As Long)
+    Dim coluna As Long
+    For coluna = 1 To qtdColunas
+        If Left$(CStr(ws.Cells(linhaCabecalho, coluna).Value), Len(PREFIXO_POSICAO)) = PREFIXO_POSICAO Then
+            ws.Range(ws.Cells(linhaCabecalho, coluna), ws.Cells(ultimaLinha, coluna)).HorizontalAlignment = xlCenter
+        End If
+    Next coluna
+End Sub
+
+' O Excel usa a fonte do estilo Normal da pasta; aqui a aba inteira (inclusive o que vem copiado
+' da aba Alertas abertos) usa sempre a mesma.
+Private Sub PadronizarFonte(ws As Worksheet)
+    ws.Cells.Font.Name = FONTE_ABA
+End Sub
 
 ' Titulo de secao: 13 pt, negrito, azul do cabecalho, mesclado na largura da tabela e com borda
 ' inferior grossa azul, colado ao cabecalho dela (sem linha em branco entre o titulo e a tabela).
@@ -279,6 +303,7 @@ Private Sub AjustarLarguras(ws As Worksheet, colunaExplicacao As Long, primeiraL
         ws.Range(ws.Cells(linha, colunaExplicacao), ws.Cells(linha, ultimaCol)).Merge
     Next linha
     EstiloCabecalho ws.Range(ws.Cells(primeiraLinhaAlertas - 1, 1), ws.Cells(primeiraLinhaAlertas - 1, ultimaCol))
+    PadronizarFonte ws   ' de novo, antes do AutoFit: a largura depende da fonte
     ws.UsedRange.Columns.AutoFit
     ' O AutoFit sozinho cortava textos longos (Tipo e Vendedor dos alertas): a coluna nunca fica
     ' mais estreita que o maior texto dela.

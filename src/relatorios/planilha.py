@@ -75,6 +75,7 @@ TAMANHO_TITULO_SECAO, ALTURA_TITULO_SECAO = (
     22,
 )  # título de seção e de gráfico (pt; altura da linha)
 COR_PROJECAO = "BFBFBF"  # barras da venda projetada, cinza-claro
+COR_META = "C55A11"  # linha da meta do dia: laranja-escuro, contrasta com o azul e o cinza
 ALTURA_GRAFICO_CM, LARGURA_GRAFICO_CM = 9, 37  # a largura total das 12 colunas
 LOJAS_POR_PONTA = 5
 ORDEM_SEVERIDADE = ("Crítica", "Alta", "Média", "Baixa")
@@ -703,6 +704,8 @@ def _aba_resumo(ws, dados: DadosFechamento, ws_diario, ultima_linha_diario: int)
     )
     _acabamento_do_grafico(barras, "dd/mm")
     _acabamento_do_grafico(linha, "dd/mm")
+    meta = linha.series[0].graphicalProperties
+    meta.line.solidFill, meta.line.width = COR_META, 28575  # 2,25 pt
     barras += linha
     ws.add_chart(barras, f"A{LINHA_DO_GRAFICO}")
 
@@ -787,6 +790,10 @@ def _aba_resumo(ws, dados: DadosFechamento, ws_diario, ultima_linha_diario: int)
         )
         linha_atual += 1
     fim_direita = linha_atual + 1
+    # As duas tabelas dividem as linhas (o título e o cabeçalho de uma caem ao lado das linhas da
+    # outra): sem uma altura única, as linhas ao lado deles ficariam mais altas que as demais.
+    for linha_da_tabela in range(topo + 2, max(fim_esquerda, fim_direita)):
+        ws.row_dimensions[linha_da_tabela].height = ALTURA_TITULO_SECAO
 
     # f) rodapé (a data de posição é lida pela macro do PDF, pelo nome definido)
     rodape = max(fim_esquerda, fim_direita) + 1

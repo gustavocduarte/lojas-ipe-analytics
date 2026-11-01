@@ -244,3 +244,15 @@ def test_todo_titulo_da_aba_da_loja_passa_pelo_procedimento_unico():
     assert "Font.Size = 14" not in texto  # o título solto da aba, em estilo antigo, não existe mais
     assert ".Font.Bold = True\r\n    linhaDestino" not in texto
     assert "EstiloCabecalho wsDestino.Range(wsDestino.Cells(linhaInicial, 1)" not in texto
+
+
+def test_aba_da_loja_usa_uma_fonte_so_e_centraliza_a_posicao():
+    texto = _ler("ModuloLoja")
+    assert re.search(r'FONTE_ABA As String = "Calibri"', texto)
+    assert texto.count("PadronizarFonte ") >= 2  # ao criar a aba e antes do AutoFit
+    assert texto.index("PadronizarFonte ws") < texto.index("ws.UsedRange.Columns.AutoFit")
+    prefixo = re.search(r'PREFIXO_POSICAO As String = "([^"]+)"', texto).group(1)
+    assert planilha.COLUNAS_VENDEDORES["posicao"][0].startswith(prefixo)
+    assert planilha.COLUNAS_DADOS_PRODUTOS_LOJA["posicao"][0].startswith(prefixo)
+    assert texto.count("CentralizarPosicao wsDestino") == 2  # tabelas copiadas e blocos de apoio
+    assert "HorizontalAlignment = xlCenter" in texto.split("Sub CentralizarPosicao")[1]
