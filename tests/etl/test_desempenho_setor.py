@@ -190,3 +190,36 @@ def test_backtest_do_simulador_avalia_trocas_e_placebo_e_grava_de_forma_idempote
     n = backtest.gravar(con, resultado)
     assert backtest.gravar(con, resultado) == n
     assert con.execute("SELECT count(*) FROM dw.simulador_backtest").fetchone()[0] == n
+
+
+def test_backtest_v2_fatias_semanais_tabela_e_gravacao_idempotente(banco_carregado):
+    from src import config
+    from src.simulador import fatias
+
+    con = banco_carregado
+    historico = fatias.Historico(con)
+    semanal = fatias.Semanal(historico)
+    itens = fatias.preparar(historico, semanal)
+    assert itens
+    for item in itens:
+        assert ((item["proprias"] >= 0) & (item["proprias"] <= 1 + 1e-9)).all()
+        assert len(item["previsto_semana"]) == len(item["real_semana"]) == 8
+    ks = fatias.escolher_k(itens)
+    assert list(ks.k) == list(config.SIMULADOR_K_GRADE)
+    k = fatias.k_escolhido(ks)
+    curva = fatias.curva_percentil(itens, k)
+    # mais percentil, mais projeção: a cobertura nunca sobe
+    for _, g in curva.groupby(["grupo", "horizonte_dias"]):
+        assert g.sort_values("percentil").cobertura_conservadora.is_monotonic_decreasing
+    percentil = fatias.escolher_percentil(curva)
+    tabela = fatias.tabela_final(itens, k, percentil)
+    assert {"v2_central", "v2_conservador", "completo_p25_diario", "ingenuo"} <= set(tabela.metodo)
+    n = fatias.gravar(con, tabela, curva, k, percentil)
+    assert fatias.gravar(con, tabela, curva, k, percentil) == n
+    assert (
+        con.execute("SELECT count(*) FROM dw.simulador_backtest WHERE versao = 'v2'").fetchone()[0]
+        == n
+    )
+    assert con.execute("SELECT count(*) FROM dw.simulador_backtest_curva").fetchone()[0] == len(
+        curva
+    )

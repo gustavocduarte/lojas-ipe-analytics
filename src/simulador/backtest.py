@@ -323,7 +323,7 @@ def correlacao_com_habilidade(conexao: psycopg.Connection, gabarito: pd.DataFram
 
 def gravar(conexao: psycopg.Connection, resultado: pd.DataFrame) -> int:
     """Substitui o conteúdo de dw.simulador_backtest pelo resultado (idempotente)."""
-    conexao.execute("DELETE FROM dw.simulador_backtest")
+    conexao.execute("DELETE FROM dw.simulador_backtest WHERE versao = 'v1'")
     with conexao.cursor() as cur:
         cur.executemany(
             "INSERT INTO dw.simulador_backtest (grupo, metodo, horizonte_dias, eventos, semanas,"

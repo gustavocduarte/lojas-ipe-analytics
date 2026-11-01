@@ -1,6 +1,7 @@
 """Simulador de troca de setor.
 
     python -m src.simulador backtest [--gravar]     # trocas reais e placebo, 4 e 8 semanas
+    python -m src.simulador backtest-v2 [--gravar]  # fatia semanal encolhida (v2)
     python -m src.simulador backtest --habilidade-verdadeira data/raw/_habilidade_verdadeira.csv
 
 O gabarito de habilidade só serve para conferir, em análise, se o dw recupera a habilidade; a
@@ -21,7 +22,7 @@ import psycopg
 from src import banco, config
 from src.logs import configurar_logging
 from src.memoria import MemoriaInsuficiente, verificar_memoria_livre
-from src.simulador import backtest
+from src.simulador import backtest, fatias
 
 log = logging.getLogger("src.simulador")
 
@@ -35,6 +36,12 @@ def _criar_parser() -> argparse.ArgumentParser:
     teste.add_argument("--gravar", action="store_true", help="grava em dw.simulador_backtest")
     teste.add_argument("--habilidade-verdadeira", type=Path, help="CSV do gabarito (só análise)")
     teste.add_argument("-v", "--detalhado", action="store_true")
+    v2 = sub.add_parser(
+        "backtest-v2", help="fatia semanal encolhida contra o p25 diário e o ingênuo"
+    )
+    v2.add_argument("--gravar", action="store_true", help="grava em dw.simulador_backtest(_curva)")
+    v2.add_argument("--habilidade-verdadeira", type=Path, help="CSV do gabarito (só análise)")
+    v2.add_argument("-v", "--detalhado", action="store_true")
     return parser
 
 
@@ -71,6 +78,31 @@ def _backtest(conexao: psycopg.Connection, args) -> int:
     return config.CODIGO_SAIDA_OK
 
 
+def _backtest_v2(conexao: psycopg.Connection, args) -> int:
+    historico = backtest.Historico(conexao)
+    semanal = fatias.Semanal(historico)
+    itens = fatias.preparar(historico, semanal)
+    tabela_k = fatias.escolher_k(itens)
+    k = fatias.k_escolhido(tabela_k)
+    curva = fatias.curva_percentil(itens, k)
+    percentil = fatias.escolher_percentil(curva)
+    tabela = fatias.tabela_final(itens, k, percentil)
+    print("WAPE do v2 central por k (56 dias):")
+    print(tabela_k.round(4).to_string(index=False))
+    print(f"k escolhido: {k:g}; percentil do conservador: {percentil:g}")
+    print("curva do percentil:")
+    print(curva.round(4).to_string(index=False))
+    print(_formatar(tabela))
+    if args.gravar:
+        print(f"gravado: {fatias.gravar(conexao, tabela, curva, k, percentil)} linhas")
+    if args.habilidade_verdadeira:
+        gabarito = pd.read_csv(args.habilidade_verdadeira, sep=";", dtype={"habilidade": float})
+        print(
+            "fatia encolhida x habilidade:", fatias.correlacao_fatia(semanal, conexao, gabarito, k)
+        )
+    return config.CODIGO_SAIDA_OK
+
+
 def principal(
     argv: Sequence[str] | None = None,
     *,
@@ -85,7 +117,10 @@ def principal(
     try:
         if verificar_memoria is not None:
             verificar_memoria()
-        return _backtest(conexao or banco.conectar(), args)
+        conexao = conexao or banco.conectar()
+        if args.comando == "backtest-v2":
+            return _backtest_v2(conexao, args)
+        return _backtest(conexao, args)
     except ValueError as erro:
         log.error("erro de uso: %s", erro)
         return config.CODIGO_SAIDA_ERRO_DE_USO

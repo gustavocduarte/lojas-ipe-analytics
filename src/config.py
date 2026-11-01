@@ -506,3 +506,10 @@ SIMULADOR_MIN_DIAS_PLACEBO = 90  # vendedor do placebo: dias lotado no setor ant
 SIMULADOR_DIAS_NAIVE = 90  # método ingênuo: média diária no setor de origem nesses dias
 SIMULADOR_MOTIVO_TROCA = "Troca de setor"
 SIMULADOR_DIAS_CONFIANCA_CORRELACAO = 90  # correlação com a habilidade: mínimo de dias lotado
+SIMULADOR_K_GRADE = (0, 2, 4, 8, 13, 26, 52)  # encolhimento da fatia: candidatos de k (semanas)
+SIMULADOR_PERCENTIS_CURVA = tuple(round(0.05 * i, 2) for i in range(1, 20))  # 5% a 95%
+SIMULADOR_COBERTURA_ALVO = 0.75  # cobertura desejada do conservador
+SIMULADOR_SEMANAS_CORRELACAO = 13  # correlação com a habilidade: mínimo de semanas lotado
+SIMULADOR_TOLERANCIA_K = (
+    0.005  # k: o maior cujo WAPE fica até 0,5 p.p. do menor (protege n pequeno)
+)
