@@ -187,6 +187,69 @@ def vendedores(conexao: psycopg.Connection, mes: date, dia: date) -> pd.DataFram
     return _df(conexao, sql, parametros(mes, dia))
 
 
+def classificar_abc(participacao_acumulada: pd.Series) -> pd.Series:
+    """Classe ABC pela participação acumulada na receita (produtos já ordenados do maior ao menor):
+    A até o limite A (inclusive), B até o limite B, C o resto. Limites em `config`."""
+    folga = 1e-9  # a soma de frações em ponto flutuante não pode empurrar 80% para a classe B
+
+    def classe(acumulada: float) -> str:
+        if acumulada <= config.RELATORIO_ABC_LIMITE_A + folga:
+            return "A"
+        return "B" if acumulada <= config.RELATORIO_ABC_LIMITE_B + folga else "C"
+
+    return participacao_acumulada.map(classe)
+
+
+def produtos(conexao: psycopg.Connection, mes: date, dia: date) -> pd.DataFrame:
+    """Produtos da rede no mês até o dia (vendas concluídas), do maior ao menor em receita, com
+    participação, participação acumulada e classe ABC calculadas sobre a rede inteira."""
+    sql = f"""
+    WITH {PARAMETROS_BASE}
+    SELECT p.sku AS cod_produto, p.nome_produto AS descricao, p.setor,
+           SUM(v.quantidade) AS quantidade, SUM(v.receita_liquida) AS receita,
+           SUM(v.margem) / NULLIF(SUM(v.receita_liquida), 0) AS margem_percentual
+    FROM dw.fato_vendas v
+    JOIN dw.dim_tempo t ON t.sk_tempo = v.sk_tempo
+    JOIN dw.dim_produto p ON p.sk_produto = v.sk_produto
+    CROSS JOIN par
+    WHERE v.status = %(status)s AND t.data BETWEEN par.ini AND par.dia
+    GROUP BY p.sku, p.nome_produto, p.setor
+    ORDER BY receita DESC, p.sku
+    """
+    quadro = _df(conexao, sql, parametros(mes, dia))
+    total = quadro["receita"].sum()
+    quadro["participacao"] = quadro["receita"] / total if total else None
+    quadro["participacao_acumulada"] = quadro["participacao"].cumsum()
+    quadro["classe"] = classificar_abc(quadro["participacao_acumulada"])
+    return quadro
+
+
+def setores(conexao: psycopg.Connection, mes: date, dia: date) -> pd.DataFrame:
+    """Receita, participação, margem e evolução (vs o mesmo período do ano anterior) por setor."""
+    sql = f"""
+    WITH {PARAMETROS_BASE}
+    SELECT p.setor,
+           SUM(v.receita_liquida) FILTER (WHERE t.data BETWEEN par.ini AND par.dia) AS receita,
+           SUM(v.margem) FILTER (WHERE t.data BETWEEN par.ini AND par.dia) AS margem,
+           SUM(v.receita_liquida)
+               FILTER (WHERE t.data BETWEEN par.ini_ant AND par.dia_ant) AS receita_ano_anterior
+    FROM dw.fato_vendas v
+    JOIN dw.dim_tempo t ON t.sk_tempo = v.sk_tempo
+    JOIN dw.dim_produto p ON p.sk_produto = v.sk_produto
+    CROSS JOIN par
+    WHERE v.status = %(status)s
+      AND (t.data BETWEEN par.ini AND par.dia OR t.data BETWEEN par.ini_ant AND par.dia_ant)
+    GROUP BY p.setor
+    """
+    quadro = _df(conexao, sql, parametros(mes, dia)).dropna(subset=["receita"])
+    quadro = quadro.sort_values(["receita", "setor"], ascending=[False, True], ignore_index=True)
+    quadro["participacao"] = quadro["receita"] / quadro["receita"].sum()
+    quadro["margem_percentual"] = quadro["margem"] / quadro["receita"].where(quadro["receita"] > 0)
+    anterior = quadro["receita_ano_anterior"].where(quadro["receita_ano_anterior"] > 0)
+    quadro["evolucao"] = quadro["receita"] / anterior - 1
+    return quadro[["setor", "receita", "participacao", "margem_percentual", "evolucao"]]
+
+
 def alertas_abertos(conexao: psycopg.Connection, dia: date) -> pd.DataFrame:
     """Alertas vigentes e independentes ainda não tratados (novo ou em análise), do mais grave.
 

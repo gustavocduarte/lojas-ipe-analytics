@@ -61,8 +61,26 @@ def _dados(com_previsao: bool = True, com_projecao: bool = True) -> DadosFechame
     diaria = pd.DataFrame(
         {"dia": pd.date_range("2026-01-01", periods=31).date, "previsto": [1000.0] * 31}
     )
+    produtos = pd.DataFrame(
+        {
+            "cod_produto": ["P1", "P2", "P3"], "descricao": ["Arroz", "Tv", "Sabão"],
+            "setor": ["Alimentos", "Eletro", "Limpeza"], "quantidade": [100, 5, 40],
+            "receita": [10000.0, 6000.0, 2000.0], "margem_percentual": [0.3, 0.2, 0.4],
+            "participacao": [10000 / 18000, 6000 / 18000, 2000 / 18000],
+            "participacao_acumulada": [10000 / 18000, 16000 / 18000, 1.0],
+            "classe": ["B", "B", "C"],
+        }
+    )  # fmt: skip
+    setores = pd.DataFrame(
+        {
+            "setor": ["Alimentos", "Eletro", "Limpeza"], "receita": [10000.0, 6000.0, 2000.0],
+            "participacao": [10000 / 18000, 6000 / 18000, 2000 / 18000],
+            "margem_percentual": [0.3, 0.2, 0.4], "evolucao": [0.1, -0.05, None],
+        }
+    )  # fmt: skip
     return DadosFechamento(
-        mes=date(2025, 3, 1), dia=date(2025, 3, 15), lojas=lojas,
+        mes=date(2025, 3, 1), dia=date(2025, 3, 15), lojas=lojas, produtos=produtos,
+        setores=setores,
         indicadores={"receita": 18000.0, "margem": 7200.0, "margem_percentual": 0.4,
                      "cupons": 60, "ticket_medio": 300.0},
         vendas_por_dia=vendas, vendedores=vendedores, alertas=alertas,
@@ -96,11 +114,40 @@ def contexto_do_cartao(ws, rotulo: str) -> str:
     return ws.cell(celula.row + 3, celula.column).value
 
 
-def test_tem_as_seis_abas_na_ordem(pasta):
+def test_tem_as_sete_abas_na_ordem(pasta):
     assert pasta.sheetnames == [
         planilha.ABA_RESUMO, planilha.ABA_DIARIO, planilha.ABA_LOJAS, planilha.ABA_VENDEDORES,
-        planilha.ABA_ALERTAS, planilha.ABA_PREVISAO,
+        planilha.ABA_PRODUTOS, planilha.ABA_ALERTAS, planilha.ABA_PREVISAO,
     ]  # fmt: skip
+
+
+def test_aba_produtos_traz_top_com_abc_setores_e_grafico_de_participacao(pasta):
+    ws = pasta[planilha.ABA_PRODUTOS]
+    assert "Top 20 produtos da rede" in ws["A1"].value and "15/03/2025" in ws["A1"].value
+    titulos = [c.value for c in ws[2]]
+    assert titulos == [t for t, _ in planilha.COLUNAS_PRODUTOS.values()]
+    linha = dict(zip(titulos, [c.value for c in ws[3]], strict=True))
+    assert linha["Código"] == "P1" and linha["Classe ABC"] == "B"
+    assert linha["Quantidade"] == 100 and linha["Receita"] == 10000.0
+    assert linha["Participação acumulada"] == pytest.approx(10000 / 18000)
+    formatos = {t: ws.cell(3, i + 1).number_format for i, t in enumerate(titulos)}
+    assert formatos["Receita"] == planilha.FORMATO_REAL
+    assert formatos["Margem %"] == planilha.FORMATO_PERCENTUAL
+    topo = next(i for i in range(4, 20) if ws.cell(i, 1).value == "Receita por setor no mês")
+    assert topo == 7  # a linha 6 fica em branco entre os blocos
+    setor = [c.value for c in ws[topo + 1]][:5]
+    assert setor == [t for t, _ in planilha.COLUNAS_SETORES.values()]
+    assert [ws.cell(topo + 2 + k, 1).value for k in range(3)] == ["Alimentos", "Eletro", "Limpeza"]
+    assert ws.cell(topo + 4, 5).value is None  # sem receita no ano anterior: sem evolução
+    assert len(ws._charts) == 1
+
+
+def test_sem_vendas_a_aba_produtos_sai_so_com_cabecalhos(tmp_path):
+    dados = _dados()
+    dados.produtos, dados.setores = dados.produtos.iloc[0:0], dados.setores.iloc[0:0]
+    montar_pasta(dados).save(tmp_path / "v.xlsx")
+    ws = load_workbook(tmp_path / "v.xlsx")[planilha.ABA_PRODUTOS]
+    assert ws["A2"].value == "Código" and ws.max_row <= 6 and len(ws._charts) == 0
 
 
 @pytest.mark.parametrize(
@@ -263,6 +310,7 @@ def test_ha_graficos_nativos_no_resumo_e_na_previsao(pasta):
     assert len(pasta[planilha.ABA_RESUMO]._charts) == 1
     assert len(pasta[planilha.ABA_PREVISAO]._charts) == 1
     assert len(pasta[planilha.ABA_LOJAS]._charts) == 0
+    assert len(pasta[planilha.ABA_PRODUTOS]._charts) == 1  # participação por setor
     assert len(pasta[planilha.ABA_DIARIO]._charts) == 0  # o gráfico do Resumo lê os dados dele
 
 
@@ -293,7 +341,7 @@ def test_usa_pasta_existente_e_remove_as_abas_antigas(tmp_path):
     montar_pasta(_dados(), modelo)
     assert modelo.sheetnames[0] == planilha.ABA_RESUMO and "Lixo" not in modelo.sheetnames
     assert modelo[planilha.ABA_RESUMO]["A1"].value != "antigo"
-    assert len(modelo.sheetnames) == 6
+    assert len(modelo.sheetnames) == 7
 
 
 def test_colunas_de_valores_cabem_r_999_999_99_em_todas_as_abas(pasta):
@@ -323,7 +371,8 @@ def _subgraficos(pasta):
 
 def test_graficos_com_eixos_visiveis_sem_suavizacao_e_legenda_embaixo(pasta):
     graficos = list(_subgraficos(pasta))
-    assert len(graficos) == 3  # barras + linha da meta no resumo, linha na previsão
+    # barras + linha da meta no resumo, linha na previsão, barras da participação por setor
+    assert len(graficos) == 4
     for g in graficos:
         assert g.x_axis.delete is False and g.y_axis.delete is False
         assert all(s.smooth is not True for s in g.series)

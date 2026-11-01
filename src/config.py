@@ -457,3 +457,13 @@ ARQ_MODELO_XLSM = (
     DIR_VBA / "modelo_fechamento.xlsm"
 )  # criado à mão no Excel (veja docs/macro_vba.md)
 MODELO_ARQ_FECHAMENTO = "fechamento_{ano}-{mes:02d}"  # sem extensão: .xlsx, ou .xlsm com o modelo
+
+# --- Relatório de fechamento: produtos e padrão de venda --------------------------------------
+RELATORIO_TOP_PRODUTOS = 20  # aba Produtos
+RELATORIO_TOP_PRODUTOS_RESUMO = 5  # Resumo da rede
+RELATORIO_TOP_PRODUTOS_LOJA = 5  # aba da loja (macro GerarAbaDaLoja)
+RELATORIO_ABC_LIMITE_A = 0.80  # classe A: participação acumulada na receita até 80%
+RELATORIO_ABC_LIMITE_B = 0.95  # classe B: até 95%; o resto é C
+RELATORIO_DIAS_QUANDO_A_LOJA_VENDE = (
+    90  # janela (até a posição) do dia da semana e da faixa horária
+)

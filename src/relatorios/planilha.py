@@ -12,6 +12,7 @@ from datetime import date, datetime
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, LineChart, Reference
+from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.layout import Layout, ManualLayout
 from openpyxl.formatting.rule import CellIsRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -47,6 +48,7 @@ ABA_RESUMO = "Resumo da rede"
 ABA_DIARIO = "Diário"
 ABA_LOJAS = "Lojas"
 ABA_VENDEDORES = "Vendedores"
+ABA_PRODUTOS = "Produtos"
 ABA_ALERTAS = "Alertas abertos"
 ABA_PREVISAO = "Previsão"
 NOME_DATA_POSICAO = "DataPosicao"  # nome definido lido pela macro ExportarResumoPDF
@@ -114,6 +116,20 @@ COLUNAS_DIARIO = {
     "venda_acumulada": ("Venda acumulada", FORMATO_REAL),
     "meta_acumulada": ("Meta acumulada", FORMATO_REAL),
 }  # fmt: skip
+COLUNAS_PRODUTOS = {
+    "cod_produto": ("Código", None), "descricao": ("Descrição", None), "setor": ("Setor", None),
+    "quantidade": ("Quantidade", FORMATO_INTEIRO), "receita": ("Receita", FORMATO_REAL),
+    "margem_percentual": ("Margem %", FORMATO_PERCENTUAL),
+    "participacao": ("Participação na receita", FORMATO_PERCENTUAL),
+    "participacao_acumulada": ("Participação acumulada", FORMATO_PERCENTUAL),
+    "classe": ("Classe ABC", None),
+}  # fmt: skip
+COLUNAS_SETORES = {
+    "setor": ("Setor", None), "receita": ("Receita", FORMATO_REAL),
+    "participacao": ("Participação na receita", FORMATO_PERCENTUAL),
+    "margem_percentual": ("Margem %", FORMATO_PERCENTUAL),
+    "evolucao": ("Evolução vs ano anterior", FORMATO_PERCENTUAL),
+}  # fmt: skip
 COLUNAS_PREVISAO = {
     "mes": ("Mês", FORMATO_MES), "cod_loja": ("Loja", None), "nome_loja": ("Nome", None),
     "previsto": ("Previsto", FORMATO_REAL), "faixa_baixa": ("Faixa baixa", FORMATO_REAL),
@@ -136,6 +152,12 @@ class DadosFechamento:
     previsao_mensal: pd.DataFrame
     previsao_diaria: pd.DataFrame
     gerado_em: datetime = field(default_factory=datetime.now)
+    produtos: pd.DataFrame = field(  # os maiores da rede, já com a classe ABC
+        default_factory=lambda: pd.DataFrame(columns=list(COLUNAS_PRODUTOS))
+    )
+    setores: pd.DataFrame = field(
+        default_factory=lambda: pd.DataFrame(columns=list(COLUNAS_SETORES))
+    )
 
 
 def _valor(v):
@@ -182,14 +204,16 @@ def largura_da_coluna(titulo: str, formato: str | None, valores) -> float:
     return min(max(LARGURA_TEXTO_MINIMA, maior + 2), LARGURA_TEXTO_MAXIMA)
 
 
-def _acabamento_do_grafico(grafico, formato_x: str) -> None:
+def _acabamento_do_grafico(
+    grafico, formato_x: str, formato_y: str = "#,##0", titulo_y: str = "R$"
+) -> None:
     """Eixos visíveis (o openpyxl os grava como removidos), sem suavização, legenda embaixo e
     espaço entre o título e a área do gráfico."""
     for eixo in (grafico.x_axis, grafico.y_axis):
         eixo.delete = False
     grafico.x_axis.number_format = formato_x
-    grafico.y_axis.number_format = "#,##0"
-    grafico.y_axis.title = "R$"
+    grafico.y_axis.number_format = formato_y
+    grafico.y_axis.title = titulo_y
     for serie in grafico.series:
         serie.smooth = False
     if grafico.title is None:  # série acrescentada a outro gráfico: só eixos e linhas
@@ -281,6 +305,43 @@ def _aba_previsao(wb: Workbook, dados: DadosFechamento) -> None:
     grafico.set_categories(Reference(ws, min_col=coluna, min_row=2, max_row=fim))
     _acabamento_do_grafico(grafico, "dd/mm")
     ws.add_chart(grafico, f"{get_column_letter(coluna + 3)}2")
+
+
+def _aba_produtos(wb: Workbook, dados: DadosFechamento) -> None:
+    """Top produtos da rede com curva ABC, receita por setor e o gráfico da participação."""
+    ws = wb.create_sheet(ABA_PRODUTOS)
+    n = config.RELATORIO_TOP_PRODUTOS
+    colunas = len(COLUNAS_PRODUTOS)
+    _titulo_de_tabela(
+        ws, 1, 1, colunas, f"Top {n} produtos da rede no mês (até {dados.dia:%d/%m/%Y})"
+    )
+    ultima = _escrever_tabela(ws, dados.produtos, COLUNAS_PRODUTOS, 2)
+    ws.auto_filter.ref = f"A2:{get_column_letter(colunas)}{max(ultima, 3)}"
+    topo = max(ultima, 2) + 2  # uma linha em branco entre os blocos
+    _titulo_de_tabela(ws, topo, 1, len(COLUNAS_SETORES), "Receita por setor no mês")
+    setores = dados.setores
+    fim = _escrever_tabela(ws, setores, COLUNAS_SETORES, topo + 1)
+    if setores.empty:
+        return
+    letra = _coluna_de(COLUNAS_SETORES, "evolucao")
+    _verde_vermelho(ws, f"{letra}{topo + 2}:{letra}{fim}", 0.0)
+    grafico = BarChart()
+    grafico.title = "Participação por setor na receita do mês"
+    grafico.height, grafico.width = 9, 18
+    coluna = list(COLUNAS_SETORES).index("participacao") + 1
+    grafico.add_data(
+        Reference(ws, min_col=coluna, min_row=topo + 1, max_row=fim), titles_from_data=True
+    )
+    grafico.set_categories(Reference(ws, min_col=1, min_row=topo + 2, max_row=fim))
+    _acabamento_do_grafico(grafico, "General", "0%", "% da receita")
+    grafico.legend = None  # uma série só
+    grafico.y_axis.scaling.min = 0
+    rotulos = DataLabelList(numFmt="0.0%")
+    rotulos.showVal = True
+    rotulos.showSerName = rotulos.showCatName = rotulos.showLegendKey = False
+    rotulos.showPercent = False
+    grafico.dataLabels = rotulos
+    ws.add_chart(grafico, f"{get_column_letter(len(COLUNAS_SETORES) + 2)}{topo}")
 
 
 def _brl(valor: float) -> str:
@@ -596,7 +657,7 @@ def _aba_resumo(ws, dados: DadosFechamento, ws_diario, ultima_linha_diario: int)
 
 
 def montar_pasta(dados: DadosFechamento, modelo: Workbook | None = None) -> Workbook:
-    """Cria as seis abas. Com `modelo` (ex.: o .xlsm com as macros), as abas antigas dele saem."""
+    """Cria as sete abas. Com `modelo` (ex.: o .xlsm com as macros), as abas antigas dele saem."""
     wb = modelo or Workbook()
     temporaria = wb.create_sheet("_temporaria", 0)
     for aba in [a for a in wb.worksheets if a is not temporaria]:
@@ -606,6 +667,7 @@ def montar_pasta(dados: DadosFechamento, modelo: Workbook | None = None) -> Work
     _aba_resumo(resumo, dados, diario, ultima_linha_diario)
     _aba_lojas(wb, dados)
     _aba_vendedores(wb, dados)
+    _aba_produtos(wb, dados)
     _aba_alertas(wb, dados)
     _aba_previsao(wb, dados)
     wb.remove(temporaria)

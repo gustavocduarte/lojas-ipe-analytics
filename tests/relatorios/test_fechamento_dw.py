@@ -13,6 +13,7 @@ from src.relatorios.planilha import (
     ABA_DIARIO,
     ABA_LOJAS,
     ABA_PREVISAO,
+    ABA_PRODUTOS,
     ABA_RESUMO,
     ABA_VENDEDORES,
     TITULO_COBERTURA_ATE_O_DIA,
@@ -109,16 +110,37 @@ def pasta(dw, tmp_path):
     return load_workbook(caminho)
 
 
+@pytest.fixture
+def pasta_com_produtos(dw, tmp_path):
+    """Produto 2 (Eletro) vende na L02; o produto 1 (Alimentos) vende na L01."""
+    dw.execute(
+        "INSERT INTO dw.dim_produto (sku, nome_produto, marca, setor, categoria, custo_unitario,"
+        " preco_lista) VALUES ('P2', 'Produto 2', 'Marca', 'Eletro', 'Eletro', 60, 100)"
+    )
+    dw.execute(
+        "UPDATE dw.fato_vendas SET sk_produto = (SELECT sk_produto FROM dw.dim_produto"
+        " WHERE sku = 'P2') WHERE sk_loja ="
+        " (SELECT sk_loja FROM dw.dim_loja WHERE cod_loja = 'L02')"
+    )
+    dw.commit()
+    caminho, _ = fechamento.gerar(dw, MES, DIA, tmp_path / "p.xlsx", modelo=None)
+    return load_workbook(caminho)
+
+
 def _escalar(con, sql, *params):
     valor = con.execute(sql, params).fetchone()[0]
     return float(valor) if isinstance(valor, Decimal) else valor
 
 
 def _tabela(ws):
-    titulos = [c.value for c in ws[1]]
+    return _tabela_a_partir(ws, 1)
+
+
+def _tabela_a_partir(ws, linha_cabecalho: int):
+    titulos = [c.value for c in ws[linha_cabecalho]]
     return [
         dict(zip(titulos, [c.value for c in linha], strict=True))
-        for linha in ws.iter_rows(min_row=2)
+        for linha in ws.iter_rows(min_row=linha_cabecalho + 1)
     ]
 
 
@@ -224,6 +246,36 @@ class TestResumo:
         assert dias[4][0] == pytest.approx(150 * 5)  # a cancelada de 9.999 não entra
         assert all(venda is None for venda, _ in dias[15:])  # depois do dia 15 não há venda
         assert all(meta and meta > 0 for _, meta in dias)
+
+
+class TestProdutos:
+    def test_top_de_produtos_so_ate_o_dia_e_so_vendas_concluidas(self, pasta_com_produtos):
+        ws = pasta_com_produtos[ABA_PRODUTOS]
+        linhas = {x["Código"]: x for x in _tabela_a_partir(ws, 2) if x["Código"] in ("P1", "P2")}
+        p1, p2 = linhas["P1"], linhas["P2"]
+        assert p1["Receita"] == pytest.approx(
+            100 * sum(range(1, 16)) + 60 + 55
+        )  # sem os dias 16-20
+        assert p2["Receita"] == pytest.approx(50 * sum(range(1, 16)))  # sem a cancelada nem abril
+        assert p1["Quantidade"] == 17 and p2["Quantidade"] == 15
+        total = p1["Receita"] + p2["Receita"]
+        assert p1["Participação na receita"] == pytest.approx(p1["Receita"] / total)
+        assert p2["Participação acumulada"] == pytest.approx(1.0)
+        assert p1["Margem %"] == pytest.approx((p1["Receita"] - 17 * 60) / p1["Receita"])
+        assert (p1["Classe ABC"], p2["Classe ABC"]) == ("A", "C")  # acumulado de 66,9% e 100%
+
+    def test_setores_com_evolucao_contra_o_mesmo_periodo_do_ano_anterior(self, pasta_com_produtos):
+        ws = pasta_com_produtos[ABA_PRODUTOS]
+        topo = next(i for i in range(3, 40) if ws.cell(i, 1).value == "Receita por setor no mês")
+        setores = {
+            ws.cell(i, 1).value: [ws.cell(i, c).value for c in range(2, 6)]
+            for i in range(topo + 2, topo + 4)
+        }
+        receita_alimentos = 100 * sum(range(1, 16)) + 60 + 55
+        assert setores["Alimentos"][0] == pytest.approx(receita_alimentos)
+        assert setores["Alimentos"][3] == pytest.approx(receita_alimentos / (80 * 120) - 1)
+        assert setores["Eletro"][3] is None  # sem venda de Eletro no ano anterior
+        assert sum(v[1] for v in setores.values()) == pytest.approx(1.0)
 
 
 class TestVendedoresAlertasPrevisao:
