@@ -20,6 +20,7 @@ TABELAS_DW_POR_ENTIDADE = {
     "formas_pagamento": "dim_forma_pagamento",
     "campanhas": "dim_campanha",
     "vendedores": "dim_vendedor",
+    "lotacao_setor": "vendedor_setor_historico",
     "clientes": "dim_cliente",
     "vendas": "fato_vendas",
     "metas_vendas": "fato_meta_vendas",

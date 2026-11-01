@@ -124,6 +124,20 @@ Chave natural: `cod_vendedor`
 | `data_desligamento` | data | não | Data de desligamento; vazio = ainda ativo. | aceita vazio |
 | `percentual_comissao` | decimal | sim | Comissão em % (2 = 2%). | rejeita a linha |
 
+## lotacao_setor
+
+Lotação do vendedor por setor, com histórico: um período por linha (sem sobreposição).
+
+Chave natural: `cod_vendedor`, `data_inicio`
+
+| Coluna | Tipo | Obrigatória | Significado | Se vier vazia |
+|---|---|---|---|---|
+| `cod_vendedor` | texto | sim | Vendedor. | rejeita a linha |
+| `setor` | texto | sim | Setor onde ele trabalha no período (o mesmo domínio de produtos). | rejeita a linha |
+| `data_inicio` | data | sim | Primeiro dia no setor (não anterior à admissão). | rejeita a linha |
+| `data_fim` | data | não | Último dia no setor; vazio = período vigente. | aceita vazio |
+| `motivo` | texto | não | Lotação inicial, Admissão ou Troca de setor. | aceita vazio |
+
 ## clientes
 
 Clientes do programa de fidelidade (sem dados pessoais identificáveis).

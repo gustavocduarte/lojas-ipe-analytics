@@ -69,6 +69,11 @@ CREATE TABLE stg.metas_vendedor (
     arquivo_origem TEXT, linha_origem INTEGER, carregado_em TIMESTAMP NOT NULL DEFAULT now()
 );
 
+CREATE TABLE stg.lotacao_setor (
+    cod_vendedor TEXT, setor TEXT, data_inicio TEXT, data_fim TEXT, motivo TEXT,
+    arquivo_origem TEXT, linha_origem INTEGER, carregado_em TIMESTAMP NOT NULL DEFAULT now()
+);
+
 CREATE TABLE stg.despesas (
     numero_documento TEXT, data_lancamento TEXT, cod_centro_custo TEXT, valor TEXT,
     descricao TEXT, fornecedor TEXT,

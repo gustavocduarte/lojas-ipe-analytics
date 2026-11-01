@@ -18,7 +18,7 @@ BEGIN
     CALL etl.carregar_horas();
     FOREACH v_entidade IN ARRAY ARRAY['lojas', 'horarios_loja', 'produtos', 'centros_custo',
                                       'formas_pagamento', 'campanhas', 'vendedores', 'clientes',
-                                      'feriados'] LOOP
+                                      'feriados', 'lotacao_setor'] LOOP
         IF etl.entidade_na_carga(p_id_carga, v_entidade) THEN
             EXECUTE format('CALL etl.carregar_%s($1)', v_entidade) USING p_id_carga;
         END IF;

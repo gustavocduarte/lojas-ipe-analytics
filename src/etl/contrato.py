@@ -155,6 +155,23 @@ _ENTIDADES = (
         ),
     ),
     EntidadeContrato(
+        "lotacao_setor",
+        "Lotação do vendedor por setor, com histórico: um período por linha (sem sobreposição).",
+        ("cod_vendedor", "data_inicio"),
+        (
+            _c("cod_vendedor", TEXTO, True, "Vendedor."),
+            _c(
+                "setor",
+                TEXTO,
+                True,
+                "Setor onde ele trabalha no período (o mesmo domínio de produtos).",
+            ),
+            _c("data_inicio", DATA, True, "Primeiro dia no setor (não anterior à admissão)."),
+            _c("data_fim", DATA, False, "Último dia no setor; vazio = período vigente."),
+            _c("motivo", TEXTO, False, "Lotação inicial, Admissão ou Troca de setor."),
+        ),
+    ),
+    EntidadeContrato(
         "clientes",
         "Clientes do programa de fidelidade (sem dados pessoais identificáveis).",
         ("cod_cliente",),

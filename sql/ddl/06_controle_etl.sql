@@ -69,6 +69,7 @@ ALTER TABLE stg.clientes           ADD COLUMN id_carga BIGINT;
 ALTER TABLE stg.vendas             ADD COLUMN id_carga BIGINT;
 ALTER TABLE stg.metas_vendas       ADD COLUMN id_carga BIGINT;
 ALTER TABLE stg.metas_vendedor     ADD COLUMN id_carga BIGINT;
+ALTER TABLE stg.lotacao_setor      ADD COLUMN id_carga BIGINT;
 ALTER TABLE stg.despesas           ADD COLUMN id_carga BIGINT;
 ALTER TABLE stg.orcamento_despesas ADD COLUMN id_carga BIGINT;
 

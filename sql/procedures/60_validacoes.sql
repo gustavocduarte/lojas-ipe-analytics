@@ -57,6 +57,14 @@ BEGIN
     INTO v;
     RETURN QUERY SELECT 'chaves_dimensoes'::TEXT, v = 0, v, 'dimensões com loja inexistente';
 
+    -- 1b. lotação por setor: períodos de um mesmo vendedor nunca se sobrepõem
+    SELECT count(*) INTO v FROM dw.vendedor_setor_historico a
+    JOIN dw.vendedor_setor_historico b ON b.sk_vendedor = a.sk_vendedor AND b.sk_lotacao > a.sk_lotacao
+    WHERE a.data_inicio <= COALESCE(b.data_fim, DATE 'infinity')
+      AND b.data_inicio <= COALESCE(a.data_fim, DATE 'infinity');
+    RETURN QUERY SELECT 'lotacao_sem_sobreposicao'::TEXT, v = 0, v,
+                        'pares de períodos de lotação que se sobrepõem no mesmo vendedor';
+
     -- 2. soma dos itens = total do cupom (cupons repetidos contam uma vez; cupons com algum item
     --    rejeitado ficam de fora, pois estão incompletos de propósito)
     IF to_regclass('pg_temp._lim_vendas') IS NOT NULL THEN
@@ -110,6 +118,8 @@ BEGIN
             WHEN 'metas_vendedor' THEN 'dw.fato_meta_vendedor d JOIN _lim_metas_vendedor t'
                 ' ON d.sk_tempo = to_char(t.competencia, ''YYYYMMDD'')::INT'
                 ' AND d.sk_vendedor = t.sk_vendedor'
+            WHEN 'lotacao_setor' THEN 'dw.vendedor_setor_historico d JOIN _lim_lotacao_setor t'
+                ' ON d.sk_vendedor = t.sk_vendedor AND d.data_inicio = t.data_inicio'
             WHEN 'orcamento_despesas' THEN 'dw.fato_orcamento_despesas d JOIN'
                 ' _lim_orcamento_despesas t'
                 ' ON d.sk_tempo = to_char(t.competencia, ''YYYYMMDD'')::INT'

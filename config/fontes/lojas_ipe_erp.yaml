@@ -87,6 +87,15 @@ entidades:
       data_desligamento: data_desligamento
       percentual_comissao: percentual_comissao
 
+  lotacao_setor:
+    arquivo: lotacao_setor.csv
+    colunas:
+      cod_vendedor: cod_vendedor
+      setor: setor
+      data_inicio: data_inicio
+      data_fim: data_fim
+      motivo: motivo
+
   clientes:
     arquivo: clientes.csv
     colunas:
