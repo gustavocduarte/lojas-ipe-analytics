@@ -24,6 +24,8 @@ def _quadros():
             "cobertura_mes": [0.3, 0.2, 0.1], "ritmo_necessario_dia": [1500.0, 2000.0, None],
             "setor_principal": ["Eletro", "Alimentos", None],
             "percentual_setor_principal": [0.6, 1.0, None],
+            "setor_lotacao": ["Eletro", "Casa", None],
+            "percentual_setor_lotacao": [0.5, 0.25, None],
         }
     )  # fmt: skip
     dias = pd.DataFrame(
@@ -131,6 +133,8 @@ def test_cabecalho_do_vendedor_com_posicao_na_loja_e_na_rede(dados):
     assert c["Posição na loja"] == "2 de 2" and c["Posição na rede"] == "2 de 3"
     assert _pares(dados, "V3", pv.BLOCO_CABECALHO)["Posição na loja"] == "1 de 1"
     assert _pares(dados, "V3", pv.BLOCO_CABECALHO)["Setor principal"] == "-"
+    assert c["Setor de lotação"] == "Casa (25,0% da receita)"
+    assert _pares(dados, "V3", pv.BLOCO_CABECALHO)["Setor de lotação"] == "-"
 
 
 def test_metas_do_dia_do_mes_e_do_ano(dados):

@@ -161,9 +161,12 @@ def montar_dados_por_vendedor(
         setor = "-" if _nativo(v.setor_principal) is None else v.setor_principal
         if setor != "-" and _nativo(v.percentual_setor_principal) is not None:
             setor += f" ({_pct(v.percentual_setor_principal)} da receita)"
+        lotacao = "-" if _nativo(v.setor_lotacao) is None else v.setor_lotacao
+        if lotacao != "-" and _nativo(v.percentual_setor_lotacao) is not None:
+            lotacao += f" ({_pct(v.percentual_setor_lotacao)} da receita)"
         pares(cod, BLOCO_CABECALHO, "Identificação", [
             ("Nome", v.nome_vendedor, "T"), ("Loja", f"{v.cod_loja} - {v.nome_loja}", "T"),
-            ("Setor principal", setor, "T"),
+            ("Setor principal", setor, "T"), ("Setor de lotação", lotacao, "T"),
             ("Posição na loja", f"{int(v.posicao_loja)} de {int(v.vendedores_na_loja)}", "T"),
             ("Posição na rede", f"{int(v.posicao)} de {len(ranking)}", "T"),
         ])  # fmt: skip

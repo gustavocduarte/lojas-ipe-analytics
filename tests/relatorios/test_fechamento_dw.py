@@ -538,6 +538,42 @@ class TestVendedoresAlertasPrevisao:
         assert linhas["V2"]["Setor principal"] == "Eletro"
         assert linhas["V2"]["% no setor principal"] == pytest.approx((total_v2 - 300) / total_v2)
 
+    def test_setor_de_lotacao_e_percentual_contam_so_o_que_foi_vendido_lotado_no_setor(
+        self, dw, tmp_path, pasta_com_setor_do_vendedor
+    ):
+        # V1 foi lotado em Eletro até 08/03 e em Alimentos a partir de 09/03; V2 só em Alimentos
+        for cod, setor, ini, fim in (
+            ("V1", "Eletro", "2025-01-01", "2025-03-08"),
+            ("V1", "Alimentos", "2025-03-09", None),
+            ("V2", "Alimentos", "2025-01-01", None),
+        ):
+            dw.execute(
+                "INSERT INTO dw.vendedor_setor_historico (sk_vendedor, setor, data_inicio,"
+                " data_fim, motivo) VALUES ((SELECT sk_vendedor FROM dw.dim_vendedor"
+                " WHERE cod_vendedor = %s), %s, %s, %s, 'Lotação inicial')",
+                (cod, setor, ini, fim),
+            )
+        dw.commit()
+        caminho, _ = fechamento.gerar(dw, MES, DIA, tmp_path / "lot.xlsx", modelo=None)
+        linhas = {x["Vendedor"]: x for x in _tabela(load_workbook(caminho)[ABA_VENDEDORES])}
+        vendas = dw.execute(
+            "SELECT d.cod_vendedor, p.setor, t.data, v.receita_liquida FROM dw.fato_vendas v"
+            " JOIN dw.dim_tempo t USING (sk_tempo) JOIN dw.dim_produto p USING (sk_produto)"
+            " JOIN dw.dim_vendedor d USING (sk_vendedor) WHERE v.status = 'Concluída'"
+            " AND t.data BETWEEN '2025-03-01' AND '2025-03-15'"
+        ).fetchall()
+        for cod, setor_hoje in (("V1", "Alimentos"), ("V2", "Alimentos")):
+            total = sum(float(r) for c, _, _, r in vendas if c == cod)
+            lotado = sum(
+                float(r) for c, st, dia, r in vendas if c == cod and st == "Alimentos"
+                and (cod == "V2" or dia.day >= 9)
+            ) + sum(
+                float(r) for c, st, dia, r in vendas
+                if c == cod == "V1" and st == "Eletro" and dia.day <= 8
+            )  # fmt: skip
+            assert linhas[cod]["Setor de lotação"] == setor_hoje
+            assert linhas[cod]["% no setor de lotação"] == pytest.approx(lotado / total)
+
     def test_so_alertas_independentes_abertos_e_do_mais_grave_ao_menos(self, dw, pasta):
         esperado = _escalar(
             dw, "SELECT count(*) FROM dw.alertas WHERE vigente AND independente"

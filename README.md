@@ -85,6 +85,9 @@ python -m src.banco --procedures ; python -m src.banco --views
 python -m src.previsao backtest                    # compara as abordagens (treino até 30/06/2025)
 python -m src.previsao gerar --gravar              # 3 meses depois do último dia com venda
 python -m src.previsao gerar --corte 2025-12-15 --ate 2025-12-31 --gravar   # corte simulado
+# Lotação por setor (preparação do simulador de troca de setor): desempenho e backtest
+# CALL dw.gravar_desempenho_vendedor_setor();  -- p25 da venda diária nos dias lotado (zeros incluídos)
+python -m src.simulador backtest --gravar            # trocas reais e placebo, 4 e 8 semanas
 ```
 **Modelos** (só numpy/pandas, leves): `ingenua` (mesmo dia da semana um ano antes), `decomposicao`
 (nível recente x dia da semana x feriado x **janela pré-Natal (15 a 24/12)** x mês x tendência amortecida;

@@ -104,6 +104,7 @@ python -m src.etl alertas            # reavalia as regras de alerta (sem recarre
 python -m src.banco --views          # cria/atualiza as views (alertas, meta diária, projeções)
 python -m src.previsao backtest      # compara as abordagens de previsão
 python -m src.previsao gerar --gravar  # prevê 3 meses e grava no dw (--corte/--ate para cenários)
+python -m src.simulador backtest --gravar  # backtest do simulador de troca de setor (dw.simulador_backtest)
 python -m src.relatorios fechamento  # gera data/processed/fechamento_AAAA-MM.xlsx
 python -m src.etl fontes             # lista as fontes mapeadas
 pytest                               # testes sem banco

@@ -124,6 +124,8 @@ COLUNAS_VENDEDORES = {
     "meta_mes": ("Meta do mês", FORMATO_REAL),
     "cobertura_mes": (TITULO_META_DO_MES_ATINGIDO, FORMATO_PERCENTUAL),
     "ritmo_necessario_dia": (TITULO_RITMO_NECESSARIO, FORMATO_REAL),
+    "setor_lotacao": ("Setor de lotação", None),
+    "percentual_setor_lotacao": ("% no setor de lotação", FORMATO_PERCENTUAL),
     "setor_principal": ("Setor principal", None),
     "percentual_setor_principal": ("% no setor principal", FORMATO_PERCENTUAL),
 }  # fmt: skip

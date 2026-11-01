@@ -211,6 +211,21 @@ def vendedores(conexao: psycopg.Connection, mes: date, dia: date) -> pd.DataFram
         SELECT DISTINCT ON (sk_vendedor) sk_vendedor, setor, receita
         FROM setor_do_vendedor
         ORDER BY sk_vendedor, receita DESC, setor
+    ),
+    lotacao AS (  -- o setor em que o vendedor está lotado na posição e quanto vendeu nele
+        SELECT h.sk_vendedor, h.setor,
+               (SELECT SUM(v.receita_liquida)
+                FROM dw.fato_vendas v
+                JOIN dw.dim_tempo t ON t.sk_tempo = v.sk_tempo
+                JOIN dw.dim_produto p ON p.sk_produto = v.sk_produto
+                JOIN dw.vendedor_setor_historico x ON x.sk_vendedor = v.sk_vendedor
+                     AND x.setor = p.setor AND t.data BETWEEN x.data_inicio
+                         AND COALESCE(x.data_fim, DATE 'infinity')
+                WHERE v.status = %(status)s AND v.sk_vendedor = h.sk_vendedor
+                  AND t.data BETWEEN par.ini AND par.dia) AS receita_no_setor
+        FROM dw.vendedor_setor_historico h
+        CROSS JOIN par
+        WHERE par.dia BETWEEN h.data_inicio AND COALESCE(h.data_fim, DATE 'infinity')
     )
     SELECT RANK() OVER (ORDER BY COALESCE(v.acumulado, 0) DESC) AS posicao,
            d.cod_vendedor, d.nome_vendedor, l.cod_loja, l.nome_loja,
@@ -226,7 +241,9 @@ def vendedores(conexao: psycopg.Connection, mes: date, dia: date) -> pd.DataFram
                    (par.ini + INTERVAL '1 month' - INTERVAL '1 day')), 0), 0)
                AS ritmo_necessario_dia,
            pr.setor AS setor_principal,
-           pr.receita / NULLIF(v.acumulado, 0) AS percentual_setor_principal
+           pr.receita / NULLIF(v.acumulado, 0) AS percentual_setor_principal,
+           lo.setor AS setor_lotacao,
+           lo.receita_no_setor / NULLIF(v.acumulado, 0) AS percentual_setor_lotacao
     FROM dw.dim_vendedor d
     JOIN dw.dim_loja l ON l.sk_loja = d.sk_loja
     LEFT JOIN venda v ON v.sk_vendedor = d.sk_vendedor
@@ -234,6 +251,7 @@ def vendedores(conexao: psycopg.Connection, mes: date, dia: date) -> pd.DataFram
     LEFT JOIN meta_dia md ON md.sk_vendedor = d.sk_vendedor
     LEFT JOIN meta_restante mr ON mr.sk_vendedor = d.sk_vendedor
     LEFT JOIN principal pr ON pr.sk_vendedor = d.sk_vendedor
+    LEFT JOIN lotacao lo ON lo.sk_vendedor = d.sk_vendedor
     CROSS JOIN par
     WHERE v.sk_vendedor IS NOT NULL OR m.sk_vendedor IS NOT NULL
     ORDER BY posicao, d.cod_vendedor

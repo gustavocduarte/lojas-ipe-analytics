@@ -41,6 +41,7 @@ def _dados(com_previsao: bool = True, com_projecao: bool = True) -> DadosFechame
             "cobertura_mes": [1.2, 0.6667], "ritmo_necessario_dia": [0.0, 300.0],
             "setor_principal": ["Alimentos", "Eletro"],
             "percentual_setor_principal": [0.8, 0.55],
+            "setor_lotacao": ["Alimentos", None], "percentual_setor_lotacao": [0.7, None],
         }
     )  # fmt: skip
     alertas = pd.DataFrame(
