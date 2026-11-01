@@ -51,6 +51,7 @@ ABA_VENDEDORES = "Vendedores"
 ABA_PRODUTOS = "Produtos"
 ABA_ALERTAS = "Alertas abertos"
 ABA_PREVISAO = "Previsão"
+ABA_PREVISAO_DIARIA = "Previsão diária"
 NOME_DATA_POSICAO = "DataPosicao"  # nome definido lido pela macro ExportarResumoPDF
 FONTE_RODAPE = "Fonte: dw lojas_ipe_dw"
 
@@ -139,6 +140,10 @@ COLUNAS_PREVISAO = {
     "previsto": ("Previsto", FORMATO_REAL), "faixa_baixa": ("Faixa baixa", FORMATO_REAL),
     "faixa_alta": ("Faixa alta", FORMATO_REAL),
     "wape_backtest_loja": ("Erro (WAPE) no backtest da loja", FORMATO_PERCENTUAL),
+}  # fmt: skip
+COLUNAS_PREVISAO_DIARIA = {
+    "dia": ("Dia", FORMATO_DATA), "previsto": ("Previsto da rede", FORMATO_REAL),
+    "faixa_baixa": ("Faixa baixa", FORMATO_REAL), "faixa_alta": ("Faixa alta", FORMATO_REAL),
 }  # fmt: skip
 
 
@@ -297,21 +302,28 @@ def _aba_previsao(wb: Workbook, dados: DadosFechamento) -> None:
     ws = wb.create_sheet(ABA_PREVISAO)
     ultima = _escrever_tabela(ws, dados.previsao_mensal, COLUNAS_PREVISAO, 1)
     _fixar_e_filtrar(ws, ultima, len(COLUNAS_PREVISAO))
+
+
+def _aba_previsao_diaria(wb: Workbook, dados: DadosFechamento) -> None:
+    """Previsão diária da rede com a faixa baixa e alta calibrada no total da rede, e o gráfico."""
+    ws = wb.create_sheet(ABA_PREVISAO_DIARIA)
     diaria = dados.previsao_diaria
+    ultima = _escrever_tabela(ws, diaria, COLUNAS_PREVISAO_DIARIA, 1)
+    _fixar_e_filtrar(ws, ultima, len(COLUNAS_PREVISAO_DIARIA))
     if diaria.empty:
         return
-    coluna = len(COLUNAS_PREVISAO) + 2
-    titulos = {"dia": ("Dia", FORMATO_DATA), "previsto": ("Previsto da rede", FORMATO_REAL)}
-    fim = _escrever_tabela(ws, diaria, titulos, 1, coluna)
     grafico = LineChart()
-    grafico.title = "Previsão diária da rede"
+    grafico.title = "Previsão diária da rede, com a faixa baixa e alta"
     grafico.height, grafico.width = 9, 24
     grafico.add_data(
-        Reference(ws, min_col=coluna + 1, min_row=1, max_row=fim), titles_from_data=True
+        Reference(ws, min_col=2, max_col=4, min_row=1, max_row=ultima), titles_from_data=True
     )
-    grafico.set_categories(Reference(ws, min_col=coluna, min_row=2, max_row=fim))
+    grafico.set_categories(Reference(ws, min_col=1, min_row=2, max_row=ultima))
     _acabamento_do_grafico(grafico, "dd/mm")
-    ws.add_chart(grafico, f"{get_column_letter(coluna + 3)}2")
+    for serie in grafico.series[1:]:  # a faixa fica tracejada e cinza, o previsto em destaque
+        serie.graphicalProperties.line.solidFill = COR_PROJECAO
+        serie.graphicalProperties.line.dashStyle = "dash"
+    ws.add_chart(grafico, f"{get_column_letter(len(COLUNAS_PREVISAO_DIARIA) + 2)}2")
 
 
 def _aba_produtos(wb: Workbook, dados: DadosFechamento) -> None:
@@ -708,7 +720,7 @@ def _aba_resumo(ws, dados: DadosFechamento, ws_diario, ultima_linha_diario: int)
 
 
 def montar_pasta(dados: DadosFechamento, modelo: Workbook | None = None) -> Workbook:
-    """Cria as sete abas. Com `modelo` (ex.: o .xlsm com as macros), as abas antigas dele saem."""
+    """Cria as oito abas. Com `modelo` (ex.: o .xlsm com as macros), as abas antigas dele saem."""
     wb = modelo or Workbook()
     temporaria = wb.create_sheet("_temporaria", 0)
     for aba in [a for a in wb.worksheets if a is not temporaria]:
@@ -721,6 +733,7 @@ def montar_pasta(dados: DadosFechamento, modelo: Workbook | None = None) -> Work
     _aba_produtos(wb, dados)
     _aba_alertas(wb, dados)
     _aba_previsao(wb, dados)
+    _aba_previsao_diaria(wb, dados)
     wb.remove(temporaria)
     wb.active = 0
     return wb

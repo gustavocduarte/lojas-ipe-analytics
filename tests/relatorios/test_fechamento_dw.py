@@ -13,6 +13,7 @@ from src.relatorios.planilha import (
     ABA_DIARIO,
     ABA_LOJAS,
     ABA_PREVISAO,
+    ABA_PREVISAO_DIARIA,
     ABA_PRODUTOS,
     ABA_RESUMO,
     ABA_VENDEDORES,
@@ -143,7 +144,8 @@ def pasta_com_setor_do_vendedor(dw, tmp_path):
         " AND id_venda_erp NOT IN ('A2', 'A4', 'A6')"  # V2: 300 em Alimentos, o resto em Eletro
     )
     dw.execute(
-        f"UPDATE dw.fato_vendas SET sk_produto = {eletro} WHERE id_venda_erp IN ('A1', 'A3', 'CANC')"
+        f"UPDATE dw.fato_vendas SET sk_produto = {eletro}"
+        " WHERE id_venda_erp IN ('A1', 'A3', 'CANC')"
     )  # V1: 300 em Eletro dentro da posição, mais uma cancelada
     dw.execute(  # V1 depois do dia 15: 100 x (16..20) em Eletro
         f"UPDATE dw.fato_vendas SET sk_produto = {eletro} WHERE sk_tempo > 20250315"
@@ -415,9 +417,36 @@ class TestVendedoresAlertasPrevisao:
         assert l01["Erro (WAPE) no backtest da loja"] == pytest.approx(0.1234)
         l02 = next(x for x in linhas if x["Loja"] == "L02")
         assert l02["Erro (WAPE) no backtest da loja"] is None
-        previsto_dia = [ws.cell(i, 10).value for i in range(2, 33)]
-        assert previsto_dia == [1200.0] * 31  # 2 lojas x 600
-        assert len(ws._charts) == 1
+        assert ws.max_column == 7 and len(ws._charts) == 0
+        diaria = pasta[ABA_PREVISAO_DIARIA]
+        assert [diaria.cell(i, 2).value for i in range(2, 33)] == [1200.0] * 31  # 2 lojas x 600
+        assert len(diaria._charts) == 1
+
+    def test_faixa_diaria_da_rede_usa_a_calibrada_no_total_e_nao_a_soma_das_series(
+        self, dw, tmp_path
+    ):
+        # sem linhas de nível "rede": cai na soma das faixas das séries (2 x 500 e 2 x 700)
+        sem_rede = _tabela(
+            load_workbook(fechamento.gerar(dw, MES, DIA, tmp_path / "a.xlsx", modelo=None)[0])[
+                ABA_PREVISAO_DIARIA
+            ]
+        )
+        assert (sem_rede[0]["Faixa baixa"], sem_rede[0]["Faixa alta"]) == (1000.0, 1400.0)
+        dw.execute(
+            "INSERT INTO dw.previsao_vendas (nivel, granularidade, data, sk_loja, setor,"
+            " valor_previsto, valor_baixo, valor_alto, versao_modelo, treino_ate)"
+            " SELECT 'rede', 'dia', make_date(2026, 1, d), NULL, NULL, 1200, 1100, 1350, 'x@1',"
+            " '2025-12-31' FROM generate_series(1, 31) d"
+        )
+        dw.commit()
+        com_rede = _tabela(
+            load_workbook(fechamento.gerar(dw, MES, DIA, tmp_path / "b.xlsx", modelo=None)[0])[
+                ABA_PREVISAO_DIARIA
+            ]
+        )
+        assert len(com_rede) == 31  # as linhas de rede não duplicam os dias
+        assert (com_rede[0]["Faixa baixa"], com_rede[0]["Faixa alta"]) == (1100.0, 1350.0)
+        assert com_rede[0]["Previsto da rede"] == 1200.0
 
 
 class TestComando:

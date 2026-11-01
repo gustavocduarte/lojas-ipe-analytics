@@ -61,7 +61,12 @@ def _dados(com_previsao: bool = True, com_projecao: bool = True) -> DadosFechame
         }
     )  # fmt: skip
     diaria = pd.DataFrame(
-        {"dia": pd.date_range("2026-01-01", periods=31).date, "previsto": [1000.0] * 31}
+        {
+            "dia": pd.date_range("2026-01-01", periods=31).date,
+            "previsto": [1000.0] * 31,
+            "faixa_baixa": [800.0] * 31,
+            "faixa_alta": [1300.0] * 31,
+        }  # fmt: skip
     )
     produtos = pd.DataFrame(
         {
@@ -116,10 +121,11 @@ def contexto_do_cartao(ws, rotulo: str) -> str:
     return ws.cell(celula.row + 3, celula.column).value
 
 
-def test_tem_as_sete_abas_na_ordem(pasta):
+def test_tem_as_oito_abas_na_ordem(pasta):
     assert pasta.sheetnames == [
         planilha.ABA_RESUMO, planilha.ABA_DIARIO, planilha.ABA_LOJAS, planilha.ABA_VENDEDORES,
         planilha.ABA_PRODUTOS, planilha.ABA_ALERTAS, planilha.ABA_PREVISAO,
+        planilha.ABA_PREVISAO_DIARIA,
     ]  # fmt: skip
 
 
@@ -160,6 +166,7 @@ def test_sem_vendas_a_aba_produtos_sai_so_com_cabecalhos(tmp_path):
         planilha.ABA_VENDEDORES,
         planilha.ABA_ALERTAS,
         planilha.ABA_PREVISAO,
+        planilha.ABA_PREVISAO_DIARIA,
     ],
 )
 def test_abas_de_tabela_tem_cabecalho_fixo_e_filtro(pasta, aba):
@@ -310,7 +317,8 @@ def test_aba_diario_traz_venda_meta_cobertura_e_acumulado(pasta):
 
 def test_ha_graficos_nativos_no_resumo_e_na_previsao(pasta):
     assert len(pasta[planilha.ABA_RESUMO]._charts) == 1
-    assert len(pasta[planilha.ABA_PREVISAO]._charts) == 1
+    assert len(pasta[planilha.ABA_PREVISAO_DIARIA]._charts) == 1
+    assert len(pasta[planilha.ABA_PREVISAO]._charts) == 0  # a tabela mensal não tem gráfico
     assert len(pasta[planilha.ABA_LOJAS]._charts) == 0
     assert len(pasta[planilha.ABA_PRODUTOS]._charts) == 1  # participação por setor
     assert len(pasta[planilha.ABA_DIARIO]._charts) == 0  # o gráfico do Resumo lê os dados dele
@@ -326,6 +334,8 @@ def test_sem_projecao_nem_previsao_as_celulas_ficam_vazias(tmp_path):
     assert contexto_do_cartao(ws, planilha.TITULO_PROJECAO) == "Sem previsão para o mês"
     assert wb[planilha.ABA_PREVISAO].max_row == 1
     assert len(wb[planilha.ABA_PREVISAO]._charts) == 0
+    assert wb[planilha.ABA_PREVISAO_DIARIA].max_row == 1
+    assert len(wb[planilha.ABA_PREVISAO_DIARIA]._charts) == 0
 
 
 def test_venda_depois_do_dia_de_posicao_fica_vazia(pasta):
@@ -343,7 +353,7 @@ def test_usa_pasta_existente_e_remove_as_abas_antigas(tmp_path):
     montar_pasta(_dados(), modelo)
     assert modelo.sheetnames[0] == planilha.ABA_RESUMO and "Lixo" not in modelo.sheetnames
     assert modelo[planilha.ABA_RESUMO]["A1"].value != "antigo"
-    assert len(modelo.sheetnames) == 7
+    assert len(modelo.sheetnames) == 8
 
 
 def test_colunas_de_valores_cabem_r_999_999_99_em_todas_as_abas(pasta):
@@ -378,7 +388,7 @@ def test_graficos_com_eixos_visiveis_sem_suavizacao_e_legenda_embaixo(pasta):
     for g in graficos:
         assert g.x_axis.delete is False and g.y_axis.delete is False
         assert all(s.smooth is not True for s in g.series)
-    for ws in (pasta[planilha.ABA_RESUMO], pasta[planilha.ABA_PREVISAO]):
+    for ws in (pasta[planilha.ABA_RESUMO], pasta[planilha.ABA_PREVISAO_DIARIA]):
         principal = ws._charts[0]
         assert principal.legend.position == "b"
         assert principal.title.overlay is False
@@ -504,3 +514,17 @@ def test_vendedores_trazem_o_setor_principal_e_a_participacao_dele(pasta):
     linha = dict(zip(titulos, [c.value for c in ws[3]], strict=True))
     assert linha["Setor principal"] == "Eletro" and linha["% no setor principal"] == 0.55
     assert ws.cell(3, len(titulos)).number_format == planilha.FORMATO_PERCENTUAL
+
+
+def test_previsao_diaria_e_um_bloco_separado_com_faixa_baixa_e_alta(pasta):
+    ws = pasta[planilha.ABA_PREVISAO_DIARIA]
+    assert [c.value for c in ws[1]] == ["Dia", "Previsto da rede", "Faixa baixa", "Faixa alta"]
+    linha = [c.value for c in ws[2]]
+    assert linha[0].date() == date(2026, 1, 1) and linha[1:] == [1000.0, 800.0, 1300.0]
+    assert ws.cell(2, 3).number_format == planilha.FORMATO_REAL
+    grafico = ws._charts[0]._charts[0]
+    assert len(grafico.series) == 3  # previsto e as duas pontas da faixa
+    assert grafico.series[1].graphicalProperties.line.prstDash == "dash"
+    mensal = pasta[planilha.ABA_PREVISAO]
+    assert [c.value for c in mensal[1]][-1] == "Erro (WAPE) no backtest da loja"
+    assert mensal.max_column == len(planilha.COLUNAS_PREVISAO)  # nada do diário na aba mensal
