@@ -497,3 +497,12 @@ RELATORIO_ABC_LIMITE_B = 0.95  # classe B: até 95%; o resto é C
 RELATORIO_DIAS_QUANDO_A_LOJA_VENDE = (
     90  # janela (até a posição) do dia da semana e da faixa horária
 )
+
+# --- Simulador de troca de setor: backtest -------------------------------------------------
+SIMULADOR_HORIZONTES_DIAS = (28, 56)  # 4 e 8 semanas depois da troca
+SIMULADOR_DIAS_POR_SEMANA = 7
+SIMULADOR_SEMENTE_PLACEBO = 20250101  # sorteio das datas do grupo placebo
+SIMULADOR_MIN_DIAS_PLACEBO = 90  # vendedor do placebo: dias lotado no setor antes da data fictícia
+SIMULADOR_DIAS_NAIVE = 90  # método ingênuo: média diária no setor de origem nesses dias
+SIMULADOR_MOTIVO_TROCA = "Troca de setor"
+SIMULADOR_DIAS_CONFIANCA_CORRELACAO = 90  # correlação com a habilidade: mínimo de dias lotado

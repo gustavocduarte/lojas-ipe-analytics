@@ -159,3 +159,34 @@ def test_view_do_simulador_respeita_a_demanda_do_setor_e_so_projeta_dias_futuros
     assert (v.projecao_dia.astype(float) <= cheia + 1e-6).all()
     assert (v.projecao_dia.astype(float) >= 0).all()
     assert (v.demanda_restante.astype(float) <= v.demanda_prevista.astype(float) + 1e-6).all()
+
+
+def test_backtest_do_simulador_avalia_trocas_e_placebo_e_grava_de_forma_idempotente(
+    banco_carregado, dados_pequenos
+):
+    import pandas as pd
+
+    from src import config
+    from src.simulador import backtest
+
+    con = banco_carregado
+    _gravar(con)
+    historico = backtest.Historico(con)
+    trocas = backtest.eventos_de_troca(historico)
+    assert len(trocas) == len(
+        pd.read_csv(dados_pequenos[0].diretorio_saida / config.ARQ_TROCAS_SETOR, sep=";")
+    )
+    resultado = backtest.executar(historico)
+    assert "trocas" in set(resultado.grupo) <= {"trocas", "placebo"}  # placebo exige histórico
+    assert set(resultado.horizonte_dias) == set(config.SIMULADOR_HORIZONTES_DIAS)
+    assert resultado.cobertura_conservadora.between(0, 1).all()
+    assert (resultado.semanas == resultado.eventos * resultado.horizonte_dias // 7).all()
+    assert (resultado.wape >= 0).all()
+    # o método conservador nunca projeta mais do que o central (p25 <= média nos mesmos dias)
+    chave = ["grupo", "horizonte_dias"]
+    c = resultado[resultado.metodo == "completo"].set_index(chave)
+    m = resultado[resultado.metodo == "completo_central"].set_index(chave)
+    assert (c.vies <= m.vies + 1e-9).all()
+    n = backtest.gravar(con, resultado)
+    assert backtest.gravar(con, resultado) == n
+    assert con.execute("SELECT count(*) FROM dw.simulador_backtest").fetchone()[0] == n
