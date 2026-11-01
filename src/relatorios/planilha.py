@@ -14,6 +14,15 @@ from openpyxl import Workbook
 from openpyxl.chart import BarChart, LineChart, Reference
 from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.layout import Layout, ManualLayout
+from openpyxl.chart.text import RichText, Text
+from openpyxl.chart.title import Title
+from openpyxl.drawing.text import (
+    CharacterProperties,
+    Paragraph,
+    ParagraphProperties,
+    RegularTextRun,
+)
+from openpyxl.drawing.text import Font as FonteDesenho
 from openpyxl.formatting.rule import CellIsRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -40,6 +49,7 @@ COR_CINZA = "595959"
 COR_BORDA = "BFBFBF"
 COR_FUNDO_CARTAO = "F2F2F2"
 COR_FAIXA_SUBTITULO = "DDEBF7"
+COR_FUNDO_GRUPO = "F2F2F2"  # linha de grupo dentro da tabela
 COR_STATUS_VERDE = "2E7D32"
 COR_STATUS_VERMELHO = "C00000"
 FONTE = "Calibri"
@@ -60,6 +70,10 @@ FONTE_RODAPE = "Fonte: dw lojas_ipe_dw"
 COLUNAS_DO_RESUMO, LARGURA_COLUNA_RESUMO = 12, 16
 COLUNAS_POR_CARTAO, COLUNAS_POR_INDICADOR = 3, 2
 LINHA_DO_GRAFICO, LINHAS_DO_GRAFICO = 12, 17
+TAMANHO_TITULO_SECAO, ALTURA_TITULO_SECAO = (
+    13,
+    22,
+)  # título de seção e de gráfico (pt; altura da linha)
 COR_PROJECAO = "BFBFBF"  # barras da venda projetada, cinza-claro
 ALTURA_GRAFICO_CM, LARGURA_GRAFICO_CM = 9, 37  # a largura total das 12 colunas
 LOJAS_POR_PONTA = 5
@@ -345,7 +359,7 @@ def _aba_previsao_diaria(wb: Workbook, dados: DadosFechamento) -> None:
     if diaria.empty:
         return
     grafico = LineChart()
-    grafico.title = "Previsão diária da rede, com a faixa baixa e alta"
+    titulo_do_grafico(grafico, "Previsão diária da rede, com a faixa baixa e alta")
     grafico.height, grafico.width = 9, 24
     grafico.add_data(
         Reference(ws, min_col=2, max_col=4, min_row=1, max_row=ultima), titles_from_data=True
@@ -363,13 +377,13 @@ def _aba_produtos(wb: Workbook, dados: DadosFechamento) -> None:
     ws = wb.create_sheet(ABA_PRODUTOS)
     n = config.RELATORIO_TOP_PRODUTOS
     colunas = len(COLUNAS_PRODUTOS)
-    _titulo_de_tabela(
+    titulo_de_secao(
         ws, 1, 1, colunas, f"Top {n} produtos da rede no mês (até {dados.dia:%d/%m/%Y})"
     )
     ultima = _escrever_tabela(ws, dados.produtos, COLUNAS_PRODUTOS, 2)
     ws.auto_filter.ref = f"A2:{get_column_letter(colunas)}{max(ultima, 3)}"
     topo = max(ultima, 2) + 2  # uma linha em branco entre os blocos
-    _titulo_de_tabela(ws, topo, 1, len(COLUNAS_SETORES), "Receita por setor no mês")
+    titulo_de_secao(ws, topo, 1, len(COLUNAS_SETORES), "Receita por setor no mês")
     setores = dados.setores
     fim = _escrever_tabela(ws, setores, COLUNAS_SETORES, topo + 1)
     if setores.empty:
@@ -377,7 +391,7 @@ def _aba_produtos(wb: Workbook, dados: DadosFechamento) -> None:
     letra = _coluna_de(COLUNAS_SETORES, "evolucao")
     _verde_vermelho(ws, f"{letra}{topo + 2}:{letra}{fim}", 0.0)
     grafico = BarChart()
-    grafico.title = "Participação por setor na receita do mês"
+    titulo_do_grafico(grafico, "Participação por setor na receita do mês")
     grafico.height, grafico.width = 9, 18
     coluna = list(COLUNAS_SETORES).index("participacao") + 1
     grafico.add_data(
@@ -399,15 +413,14 @@ def _aba_dados_por_loja(wb: Workbook, dados: DadosFechamento) -> None:
     """Aba oculta de apoio da macro GerarAbaDaLoja: três blocos com os dados de cada loja. Linha 1 =
     título do bloco (a macro o copia para a aba da loja), linha 2 = cabeçalho, dados abaixo."""
     ws = wb.create_sheet(ABA_DADOS_POR_LOJA)
-    janela = f"{config.RELATORIO_DIAS_QUANDO_A_LOJA_VENDE} dias até {dados.dia:%d/%m/%Y}"
-    top = config.RELATORIO_TOP_PRODUTOS_LOJA
+    top, janela = config.RELATORIO_TOP_PRODUTOS_LOJA, config.RELATORIO_DIAS_QUANDO_A_LOJA_VENDE
     blocos = [
         (COLUNA_DADOS_PRODUTOS, dados.produtos_por_loja, COLUNAS_DADOS_PRODUTOS_LOJA,
          f"Top {top} produtos da loja no mês (até {dados.dia:%d/%m/%Y})"),
         (COLUNA_DADOS_DIA_DA_SEMANA, dados.dia_da_semana_por_loja, COLUNAS_DADOS_DIA_DA_SEMANA,
-         f"Quando a loja vende: receita média por dia da semana ({janela})"),
+         f"Quando a loja vende: por dia da semana ({janela} dias)"),
         (COLUNA_DADOS_FAIXA, dados.faixa_por_loja, COLUNAS_DADOS_FAIXA,
-         f"Quando a loja vende: receita média por dia, por faixa horária ({janela})"),
+         f"Quando a loja vende: por faixa horária ({janela} dias)"),
     ]  # fmt: skip
     for coluna, quadro, colunas, titulo in blocos:
         ws.cell(1, coluna, titulo)
@@ -489,12 +502,42 @@ def _indicador_pequeno(ws, linha: int, coluna: int, rotulo: str, valor, formato:
     v.alignment = Alignment(horizontal="center")
 
 
-def _titulo_de_tabela(ws, linha: int, coluna: int, ate_coluna: int, texto: str) -> None:
+def titulo_de_secao(ws, linha: int, coluna: int, ate_coluna: int, texto: str) -> None:
+    """Estilo único de título de seção: 13 pt, negrito, azul-escuro do cabeçalho, mesclado na
+    largura da tabela, com borda inferior grossa azul colada ao cabeçalho dela (sem linha em
+    branco entre o título e a tabela; entre blocos diferentes fica uma linha de espaço). O
+    equivalente no VBA é
+    `TituloDeSecao` (ModuloLoja)."""
     c = _mesclar(ws, linha, coluna, ate_coluna)
-    c.value, c.font = texto, _fonte(11, negrito=True, cor=COR_CABECALHO)
-    c.alignment = Alignment(vertical="center")
+    c.value, c.font = texto, _fonte(TAMANHO_TITULO_SECAO, negrito=True, cor=COR_CABECALHO)
+    c.alignment = Alignment(horizontal="left", vertical="center")
     for k in range(coluna, ate_coluna + 1):
-        ws.cell(linha, k).border = Border(bottom=Side(style="medium", color=COR_CABECALHO))
+        ws.cell(linha, k).border = Border(bottom=Side(style="thick", color=COR_CABECALHO))
+    ws.row_dimensions[linha].height = ALTURA_TITULO_SECAO
+
+
+def linha_de_grupo(ws, linha: int, coluna: int, ate_coluna: int, texto: str) -> None:
+    """Subtítulo dentro da tabela (ex.: "Maiores coberturas"): fundo cinza-claro, negrito, na
+    largura da tabela."""
+    c = _mesclar(ws, linha, coluna, ate_coluna)
+    c.value, c.font = texto, _fonte(9, negrito=True)
+    c.alignment = Alignment(horizontal="left", vertical="center", indent=1)
+    for k in range(coluna, ate_coluna + 1):
+        ws.cell(linha, k).fill = PatternFill("solid", fgColor=COR_FUNDO_GRUPO)
+        ws.cell(linha, k).border = Border(bottom=Side(style="hair", color=COR_BORDA))
+
+
+def titulo_do_grafico(grafico, texto: str) -> None:
+    """Título do gráfico com o mesmo tamanho e cor dos títulos de seção."""
+    propriedades = CharacterProperties(
+        sz=TAMANHO_TITULO_SECAO * 100, b=True, solidFill=COR_CABECALHO,
+        latin=FonteDesenho(typeface=FONTE),
+    )  # fmt: skip
+    paragrafo = Paragraph(
+        pPr=ParagraphProperties(defRPr=propriedades),
+        r=[RegularTextRun(rPr=propriedades, t=texto)],
+    )
+    grafico.title = Title(tx=Text(rich=RichText(p=[paragrafo])), overlay=False)
 
 
 def _cabecalho_compacto(ws, linha: int, blocos: list[tuple[int, int, str]]) -> None:
@@ -642,7 +685,7 @@ def _aba_resumo(ws, dados: DadosFechamento, ws_diario, ultima_linha_diario: int)
 
     # d) gráfico em largura total (os dados estão na aba Diário)
     barras = BarChart()
-    barras.title = "Venda por dia x meta do dia"
+    titulo_do_grafico(barras, "Venda por dia x meta do dia")
     barras.height, barras.width = ALTURA_GRAFICO_CM, LARGURA_GRAFICO_CM
     for coluna in (2, list(COLUNAS_DIARIO).index("projecao") + 1):  # venda e projeção
         barras.add_data(
@@ -665,7 +708,7 @@ def _aba_resumo(ws, dados: DadosFechamento, ws_diario, ultima_linha_diario: int)
 
     # e) tabelas lado a lado
     topo = LINHA_DO_GRAFICO + LINHAS_DO_GRAFICO + 1
-    _titulo_de_tabela(ws, topo, 1, 6, "Lojas — maior e menor cobertura da meta até o dia")
+    titulo_de_secao(ws, topo, 1, 6, "Lojas — maior e menor cobertura da meta até o dia")
     _cabecalho_compacto(
         ws, topo + 1,
         [(1, 1, "Loja"), (2, 3, "Nome"), (4, 4, "Acumulado do mês"),
@@ -677,8 +720,7 @@ def _aba_resumo(ws, dados: DadosFechamento, ws_diario, ultima_linha_diario: int)
     for rotulo, grupo in (("Maiores coberturas", maiores), ("Menores coberturas", menores)):
         if grupo.empty:
             continue
-        sub = _mesclar(ws, linha_atual, 1, 6)
-        sub.value, sub.font = rotulo, _fonte(8, cor=COR_CINZA, italico=True)
+        linha_de_grupo(ws, linha_atual, 1, 6, rotulo)
         linha_atual += 1
         for loja in grupo.itertuples():
             _celula_de_tabela(ws, linha_atual, 1, 1, loja.cod_loja)
@@ -694,7 +736,7 @@ def _aba_resumo(ws, dados: DadosFechamento, ws_diario, ultima_linha_diario: int)
         _verde_vermelho(ws, coordenada)
     fim_esquerda = linha_atual
 
-    _titulo_de_tabela(ws, topo, 8, 12, "Alertas abertos por severidade")
+    titulo_de_secao(ws, topo, 8, 12, "Alertas abertos por severidade")
     _cabecalho_compacto(
         ws, topo + 1, [(8, 8, "Severidade"), (9, 10, "No mês"), (11, 12, "Total em aberto")]
     )
@@ -728,7 +770,7 @@ def _aba_resumo(ws, dados: DadosFechamento, ws_diario, ultima_linha_diario: int)
     linha_atual += 2  # uma linha em branco antes do próximo bloco
 
     n = config.RELATORIO_TOP_PRODUTOS_RESUMO
-    _titulo_de_tabela(ws, linha_atual, 8, 12, f"Top {n} produtos do mês")
+    titulo_de_secao(ws, linha_atual, 8, 12, f"Top {n} produtos do mês")
     _cabecalho_compacto(
         ws, linha_atual + 1,
         [(8, 9, "Produto"), (10, 10, "Setor"), (11, 11, "Receita"), (12, 12, "Participação")],

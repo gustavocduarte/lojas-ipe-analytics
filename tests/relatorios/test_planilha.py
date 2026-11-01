@@ -561,8 +561,8 @@ def test_aba_oculta_dados_por_loja_traz_os_tres_blocos_com_titulo_e_cabecalho(pa
     )  # fmt: skip
     assert inicio == (1, 8, 14)
     assert ws.cell(1, inicio[0]).value == "Top 5 produtos da loja no mês (até 15/03/2025)"
-    assert "dia da semana (90 dias até 15/03/2025)" in ws.cell(1, inicio[1]).value
-    assert "faixa horária (90 dias até 15/03/2025)" in ws.cell(1, inicio[2]).value
+    assert ws.cell(1, inicio[1]).value == "Quando a loja vende: por dia da semana (90 dias)"
+    assert ws.cell(1, inicio[2]).value == "Quando a loja vende: por faixa horária (90 dias)"
     assert [ws.cell(2, inicio[0] + k).value for k in range(6)] == [
         "Loja", "Posição", "Produto", "Setor", "Receita", "Participação na receita da loja",
     ]  # fmt: skip

@@ -5,7 +5,7 @@ ou como `.xlsm` com duas macros:
 
 | Macro | O que faz | Atalho |
 |---|---|---|
-| `GerarAbaDaLoja` | Pergunta o código da loja (ex.: `L01`) e cria a aba `Loja L01` com os indicadores da loja (blocos Dia e Mês), os vendedores dela (sem as colunas repetidas de loja) e os alertas abertos dela, tudo copiado das abas do próprio arquivo. | `Ctrl+Shift+L` |
+| `GerarAbaDaLoja` | Pergunta o código da loja (ex.: `L01`) e cria a aba `Loja L01` com os indicadores da loja (blocos Dia e Mês), os vendedores dela (sem as colunas repetidas de loja), o top 5 de produtos da loja no mês, "Quando a loja vende" (receita média por dia da semana e por faixa horária nos últimos 90 dias, com o melhor dia e a melhor faixa destacados) e os alertas abertos dela, tudo copiado das abas do próprio arquivo; produtos e "quando a loja vende" vêm da aba oculta `Dados por loja`, que o Python grava e a macro filtra pela loja escolhida. As coberturas e a evolução levam as cores de status (verde/vermelho), como nas abas do Python. | `Ctrl+Shift+L` |
 | `ExportarResumoPDF` | Exporta a aba `Resumo da rede` para PDF (paisagem, uma página), na mesma pasta do arquivo: `Resumo_da_rede_AAAA-MM-DD.pdf`, com a **data de posição** do relatório (não a de hoje). O gerador grava essa data no rodapé da aba `Resumo da rede` (coluna L) e a nomeia `DataPosicao`; a macro lê esse nome. | `Ctrl+Shift+P` |
 
 As macros só leem o que já está na planilha: **não abrem conexão com o banco, não acessam a rede e
@@ -92,7 +92,7 @@ O CI não tem Excel, então a parte automática é estática (`tests/vba/test_mo
 | # | Passo | Resultado esperado |
 |---|---|---|
 | 1 | Abrir o `.xlsm` e habilitar o conteúdo | Abre na aba `Resumo da rede`, sem erro |
-| 2 | `Ctrl+Shift+L`, digitar `L01` | Aparece a aba `Loja L01` com indicadores, vendedores e alertas; os números batem com a linha da loja na aba `Lojas` |
+| 2 | `Ctrl+Shift+L`, digitar `L01` | Aparece a aba `Loja L01` com título, blocos Dia e Mês, vendedores, top 5 de produtos, "Quando a loja vende" (melhor dia e melhor faixa em verde-claro) e alertas, todos com título de seção azul e linha grossa embaixo; os números batem com a linha da loja na aba `Lojas`; coberturas e evolução com cor verde/vermelho; colunas Tipo e Vendedor dos alertas sem texto cortado |
 | 3 | `Ctrl+Shift+L` de novo, `L01` | A aba é recriada (não duplica) |
 | 4 | `Ctrl+Shift+L`, digitar `XXX` | Aviso "Loja 'XXX' nao encontrada", nada é criado |
 | 5 | `Ctrl+Shift+L` e cancelar a caixa | Nada acontece |

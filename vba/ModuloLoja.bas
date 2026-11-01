@@ -18,6 +18,11 @@ Private Const LARGURA_MAXIMA As Double = 45
 Private Const PREFIXO_COBERTURA As String = "Cobertura"   ' cobertura: verde a partir de 100%
 Private Const PREFIXO_EVOLUCAO As String = "Evolu"        ' evolucao: verde a partir de 0%
 Private Const TITULO_DESTAQUE As String = "Destaque"
+' Estilo unico de titulo de secao (o mesmo do Python, titulo_de_secao em planilha.py).
+Private Const TAMANHO_TITULO As Long = 13
+Private Const ALTURA_TITULO As Long = 22
+Private Const COR_TITULO As Long = 7884319           ' RGB(31, 78, 120), o azul do cabecalho
+Private Const COLUNAS_DO_TITULO As Long = 5          ' largura do titulo da aba (A1)
 ' Blocos da aba "Dados por loja": coluna inicial (a da Loja) e quantidade de colunas de cada um.
 Private Const COL_PRODUTOS As Long = 1
 Private Const COLS_PRODUTOS As Long = 6
@@ -33,7 +38,7 @@ Private Const COLUNAS_DO_DIA As Long = 3              ' Venda do dia, Meta do di
 Public Sub GerarAbaDaLoja()
     Dim wsLojas As Worksheet, wsVendedores As Worksheet, wsAlertas As Worksheet, wsNova As Worksheet
     Dim wsDados As Worksheet
-    Dim qtdProdutos As Long, qtdDias As Long, qtdFaixas As Long
+    Dim qtdProdutos As Long, qtdDias As Long, qtdFaixas As Long, colFinalAlertas As Long
     Dim codigo As String, nomeLoja As String, uf As String
     Dim linhaLoja As Long, linha As Long
     Dim qtdVendedores As Long, qtdAlertas As Long, linhaAlertas As Long
@@ -57,9 +62,7 @@ Public Sub GerarAbaDaLoja()
     uf = CStr(wsLojas.Cells(linhaLoja, PRIMEIRA_COLUNA_INDICADOR - 1).Value)
 
     Set wsNova = CriarAbaVazia("Loja " & codigo)
-    wsNova.Cells(1, 1).Value = "Loja " & codigo & " - " & nomeLoja & " (" & uf & ")"
-    wsNova.Cells(1, 1).Font.Bold = True
-    wsNova.Cells(1, 1).Font.Size = 14
+    TituloDeSecao wsNova, 1, 1, COLUNAS_DO_TITULO, "Loja " & codigo & " - " & nomeLoja & " (" & uf & ")"
 
     ' Indicadores em dois blocos, "Dia" e "Mes": titulo na coluna A, valor na B, mesmo formato.
     linha = 3
@@ -71,7 +74,7 @@ Public Sub GerarAbaDaLoja()
     ' Nas tabelas a loja e o nome dela (repetidos em toda linha) ficam de fora.
     linha = linha + 1
     qtdVendedores = CopiarLinhasDaLoja(wsVendedores, TITULO_CODIGO_LOJA, codigo, wsNova, linha, _
-                                       "Vendedores", TITULO_CODIGO_LOJA, TITULO_NOME_DA_LOJA)
+                                       "Vendedores", TITULO_CODIGO_LOJA, TITULO_NOME_DA_LOJA, 0)
     linha = linha + qtdVendedores + 3
     ' Produtos e "quando a loja vende" vem da aba de apoio; so as linhas desta loja sao copiadas.
     qtdProdutos = CopiarDadosDaLoja(wsDados, COL_PRODUTOS, COLS_PRODUTOS, codigo, wsNova, linha)
@@ -81,8 +84,10 @@ Public Sub GerarAbaDaLoja()
     qtdFaixas = CopiarDadosDaLoja(wsDados, COL_FAIXA, COLS_FAIXA, codigo, wsNova, linha)
     linha = linha + qtdFaixas + 3
     linhaAlertas = linha
+    ' O titulo dos alertas cobre a tabela inteira, ate a ultima coluna da Explicacao mesclada.
+    colFinalAlertas = ColunaDoTitulo(wsAlertas, TituloExplicacao()) + COLUNAS_DA_EXPLICACAO - 1
     qtdAlertas = CopiarLinhasDaLoja(wsAlertas, TITULO_LOJA_NOS_ALERTAS, nomeLoja, wsNova, linha, _
-                                    "Alertas abertos", "", "")
+                                    "Alertas abertos", "", "", colFinalAlertas)
 
     AjustarLarguras wsNova, ColunaDoTitulo(wsAlertas, TituloExplicacao()), linhaAlertas + 2, qtdAlertas
     wsNova.Activate
@@ -101,8 +106,7 @@ Private Function CopiarIndicadores(wsLojas As Worksheet, linhaLoja As Long, wsDe
                                    linhaInicial As Long, bloco As String, colInicial As Long, _
                                    colFinal As Long) As Long
     Dim coluna As Long, linha As Long
-    wsDestino.Cells(linhaInicial, 1).Value = bloco
-    EstiloCabecalho wsDestino.Range(wsDestino.Cells(linhaInicial, 1), wsDestino.Cells(linhaInicial, 2))
+    TituloDeSecao wsDestino, linhaInicial, 1, 2, bloco
     linha = linhaInicial + 1
     For coluna = colInicial To colFinal
         wsDestino.Cells(linha, 1).Value = wsLojas.Cells(1, coluna).Value
@@ -119,7 +123,7 @@ End Function
 ' Devolve quantas linhas foram copiadas.
 Private Function CopiarLinhasDaLoja(wsOrigem As Worksheet, tituloFiltro As String, valorFiltro As String, _
                                     wsDestino As Worksheet, linhaInicial As Long, secao As String, _
-                                    omitir1 As String, omitir2 As String) As Long
+                                    omitir1 As String, omitir2 As String, ByVal colunasDoTitulo As Long) As Long
     Dim colunaFiltro As Long, ultimaLinha As Long, ultimaCol As Long
     Dim linhaOrigem As Long, linhaDestino As Long, coluna As Long, colDestino As Long, copiadas As Long
     Dim titulo As String, linhaCabecalho As Long, qtdColunas As Long
@@ -128,8 +132,6 @@ Private Function CopiarLinhasDaLoja(wsOrigem As Worksheet, tituloFiltro As Strin
     ultimaLinha = wsOrigem.Cells(wsOrigem.Rows.Count, 1).End(xlUp).Row
     ultimaCol = UltimaColuna(wsOrigem)
 
-    wsDestino.Cells(linhaInicial, 1).Value = secao
-    wsDestino.Cells(linhaInicial, 1).Font.Bold = True
     linhaDestino = linhaInicial + 1
     For coluna = 1 To ultimaCol
         titulo = CStr(wsOrigem.Cells(1, coluna).Value)
@@ -141,6 +143,8 @@ Private Function CopiarLinhasDaLoja(wsOrigem As Worksheet, tituloFiltro As Strin
     EstiloCabecalho wsDestino.Range(wsDestino.Cells(linhaDestino, 1), wsDestino.Cells(linhaDestino, colDestino))
     linhaCabecalho = linhaDestino
     qtdColunas = colDestino
+    If colunasDoTitulo = 0 Then colunasDoTitulo = qtdColunas
+    TituloDeSecao wsDestino, linhaInicial, 1, colunasDoTitulo, secao
 
     For linhaOrigem = 2 To ultimaLinha
         If CStr(wsOrigem.Cells(linhaOrigem, colunaFiltro).Value) = valorFiltro Then
@@ -204,10 +208,24 @@ Private Function CopiarDadosDaLoja(wsDados As Worksheet, colInicial As Long, qtd
     CopiarDadosDaLoja = copiadas
 End Function
 
-' Titulo de secao (por enquanto so em negrito; o estilo de bloco com a tabela vem na rodada de titulos).
+' Titulo de secao: 13 pt, negrito, azul do cabecalho, mesclado na largura da tabela e com borda
+' inferior grossa azul, colado ao cabecalho dela (sem linha em branco entre o titulo e a tabela).
 Private Sub TituloDeSecao(ws As Worksheet, linha As Long, colInicial As Long, colFinal As Long, texto As String)
+    Dim faixa As Range
+    Set faixa = ws.Range(ws.Cells(linha, colInicial), ws.Cells(linha, colFinal))
     ws.Cells(linha, colInicial).Value = texto
-    ws.Cells(linha, colInicial).Font.Bold = True
+    faixa.Merge
+    With faixa
+        .Font.Bold = True
+        .Font.Size = TAMANHO_TITULO
+        .Font.Color = COR_TITULO
+        .HorizontalAlignment = xlLeft
+        .VerticalAlignment = xlCenter
+        .Borders(xlEdgeBottom).LineStyle = xlContinuous
+        .Borders(xlEdgeBottom).Weight = xlThick
+        .Borders(xlEdgeBottom).Color = COR_TITULO
+    End With
+    ws.Rows(linha).RowHeight = ALTURA_TITULO
 End Sub
 
 ' Cobertura (verde a partir de 100%) e evolucao (verde a partir de 0%) levam a cor de status, como

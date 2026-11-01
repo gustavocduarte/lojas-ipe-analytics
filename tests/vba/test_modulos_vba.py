@@ -222,3 +222,25 @@ def test_aba_da_loja_inclui_produtos_quando_a_loja_vende_e_larguras_pelo_texto()
     assert texto.count("= CopiarDadosDaLoja(wsDados") == 3  # produtos, dia da semana e faixa
     assert "LarguraDoTexto" in texto
     assert re.search(r"LARGURA_MAXIMA As Double = (\d+)", texto).group(1) == "45"
+
+
+def test_titulo_de_secao_da_macro_tem_o_mesmo_estilo_do_python():
+    texto = _ler("ModuloLoja")
+    consts = _constantes_longas(texto)
+    assert consts["TAMANHO_TITULO"] == planilha.TAMANHO_TITULO_SECAO
+    assert consts["ALTURA_TITULO"] == planilha.ALTURA_TITULO_SECAO
+    r, g, b = (int(planilha.COR_CABECALHO[i : i + 2], 16) for i in (0, 2, 4))
+    assert consts["COR_TITULO"] == r + g * 256 + b * 65536  # o azul do cabeçalho do Python
+    corpo = texto.split("Private Sub TituloDeSecao(")[1].split("End Sub")[0]
+    for trecho in (".Merge", "xlThick", "Font.Size = TAMANHO_TITULO", "Font.Bold = True", "xlLeft"):
+        assert trecho in corpo, trecho
+    assert "Borders(xlEdgeBottom).Color = COR_TITULO" in corpo
+
+
+def test_todo_titulo_da_aba_da_loja_passa_pelo_procedimento_unico():
+    texto = _ler("ModuloLoja")
+    chamadas = re.findall(r"^\s+TituloDeSecao \w+, ", texto, flags=re.M)
+    assert len(chamadas) == 4  # título da aba, Dia/Mês, Vendedores/Alertas e os blocos de apoio
+    assert "Font.Size = 14" not in texto  # o título solto da aba, em estilo antigo, não existe mais
+    assert ".Font.Bold = True\r\n    linhaDestino" not in texto
+    assert "EstiloCabecalho wsDestino.Range(wsDestino.Cells(linhaInicial, 1)" not in texto
