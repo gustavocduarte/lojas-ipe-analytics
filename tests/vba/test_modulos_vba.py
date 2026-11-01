@@ -9,12 +9,13 @@ import pytest
 from openpyxl import load_workbook
 
 from src import config
-from src.relatorios import planilha
+from src.relatorios import planilha, por_vendedor
 from src.relatorios.planilha import montar_pasta
 from tests.relatorios.test_planilha import _dados
 
 MODULOS = {
     "ModuloLoja": {"GerarAbaDaLoja"},
+    "ModuloVendedor": {"GerarAbaDoVendedor"},
     "ModuloPDF": {"ExportarResumoPDF"},
     "ModuloAtalhos": {"RegistrarAtalhos", "RemoverAtalhos", "Auto_Open", "Auto_Close"},
 }
@@ -24,7 +25,7 @@ PROIBIDOS = [
 ]  # fmt: skip
 ABAS_CONHECIDAS = {
     planilha.ABA_RESUMO, planilha.ABA_LOJAS, planilha.ABA_VENDEDORES, planilha.ABA_ALERTAS,
-    planilha.ABA_PREVISAO, planilha.ABA_DADOS_POR_LOJA,
+    planilha.ABA_PREVISAO, planilha.ABA_DADOS_POR_LOJA, planilha.ABA_DADOS_POR_VENDEDOR,
 }  # fmt: skip
 
 
@@ -117,10 +118,12 @@ def test_xlsm_gerado_a_partir_do_modelo_mantem_o_projeto_vba(tmp_path):
 
 
 @pytest.mark.skipif(not MODELO.exists(), reason="vba/modelo_fechamento.xlsm ainda não foi criado")
-def test_modelo_traz_os_tres_modulos_importados():
+def test_modelo_traz_os_modulos_importados():
     with zipfile.ZipFile(MODELO) as pacote:
         projeto = pacote.read("xl/vbaProject.bin")
     for modulo in MODULOS:
+        if modulo == "ModuloVendedor":
+            continue  # novo: entra no modelo quando o usuário o importar no Excel
         assert modulo.encode("utf-16-le") in projeto  # nome do fluxo no arquivo OLE
 
 
@@ -256,3 +259,75 @@ def test_aba_da_loja_usa_uma_fonte_so_e_centraliza_a_posicao():
     assert planilha.COLUNAS_DADOS_PRODUTOS_LOJA["posicao"][0].startswith(prefixo)
     assert texto.count("CentralizarPosicao wsDestino") == 2  # tabelas copiadas e blocos de apoio
     assert "HorizontalAlignment = xlCenter" in texto.split("Sub CentralizarPosicao")[1]
+
+
+def _constantes_texto(texto: str) -> dict:
+    return dict(re.findall(r'Const (\w+) As String = "([^"]+)"', texto))
+
+
+def test_macro_do_vendedor_le_a_aba_de_apoio_no_formato_longo_do_python():
+    texto = _ler("ModuloVendedor")
+    consts = _constantes_longas(texto)
+    cabecalho = list(por_vendedor.COLUNAS)
+    assert _constantes_texto(texto)["ABA_DADOS"] == planilha.ABA_DADOS_POR_VENDEDOR
+    posicoes = (
+        ("COL_VENDEDOR", "cod_vendedor"), ("COL_BLOCO", "bloco"), ("COL_ORDEM", "ordem"),
+        ("COL_TITULO", "titulo"), ("COL_CABECALHOS", "cabecalhos"),
+        ("COL_FORMATOS", "formatos"), ("COL_VALORES", "col_1"),
+    )  # fmt: skip
+    for nome, coluna in posicoes:
+        assert cabecalho[consts[nome] - 1] == coluna, nome
+    assert consts["COL_VALORES"] - 1 + consts["QTD_VALORES"] == len(cabecalho)
+    assert consts["QTD_VALORES"] == por_vendedor.COLUNAS_DE_VALOR
+
+
+def test_blocos_da_macro_sao_os_do_python_e_na_mesma_ordem():
+    texto = _ler("ModuloVendedor")
+    escritos = re.search(r"blocos = Array\((.*?)\)\r\n", texto, flags=re.S).group(1)
+    escritos = re.sub(r"_\r\n\s*", "", escritos)
+    nomes = [t.strip() for t in escritos.split(",")]
+    constantes = _constantes_texto(texto)
+    resolvidos = [constantes.get(n, n.strip('"')) for n in nomes]
+    assert resolvidos == list(por_vendedor.BLOCOS)
+
+
+def test_letras_de_formato_da_macro_sao_as_do_python():
+    texto = _ler("ModuloVendedor")
+    corpo = texto.split("Function FormatoDaLetra")[1].split("End Function")[0]
+    da_macro = {
+        letra: valor.replace('""', '"')[1:-1]
+        for letra, valor in re.findall(r'Case "(\w)"\r\n\s+FormatoDaLetra = (.*)\r\n', corpo)
+    }
+    esperado = {k: v for k, v in por_vendedor.FORMATOS.items() if v is not None and k != "T"}
+    assert da_macro == esperado
+    assert 'Case Else\r\n            FormatoDaLetra = "General"' in corpo  # "T" = texto
+    assert por_vendedor.FORMATOS["T"] == "General"
+
+
+def test_estilo_da_aba_do_vendedor_e_o_mesmo_da_aba_da_loja():
+    loja = _constantes_longas(_ler("ModuloLoja"))
+    vendedor = _constantes_longas(_ler("ModuloVendedor"))
+    for nome in ("TAMANHO_TITULO", "ALTURA_TITULO", "COR_TITULO", "TAMANHO_FONTE"):
+        assert loja[nome] == vendedor[nome], nome
+    r, g, b = (int(planilha.COR_META[i : i + 2], 16) for i in (0, 2, 4))
+    assert vendedor["COR_META"] == r + g * 256 + b * 65536  # a mesma cor da meta do Resumo
+    for modulo in ("ModuloLoja", "ModuloVendedor"):
+        assert (
+            re.search(r'FONTE_ABA As String = "([^"]+)"', _ler(modulo)).group(1) == planilha.FONTE
+        )
+    corpo = _ler("ModuloVendedor").split("Private Sub TituloDeSecao(")[1].split("End Sub")[0]
+    for trecho in (".Merge", "xlThick", "Font.Size = TAMANHO_TITULO", "Font.Bold = True", "xlLeft"):
+        assert trecho in corpo, trecho
+    texto = _ler("ModuloVendedor")
+    cobertura = re.search(r'PREFIXO_COBERTURA As String = "([^"]+)"', texto).group(1)
+    titulos = [por_vendedor.TITULO_COBERTURA_DIA, por_vendedor.TITULO_COBERTURA_ATE_O_DIA]
+    assert all(t.startswith(cobertura) for t in titulos)
+
+
+def test_macro_do_vendedor_tem_grafico_nativo_mensagem_amigavel_e_atalho():
+    texto = _ler("ModuloVendedor")
+    assert "ChartObjects.Add" in texto and "xlColumnClustered" in texto and "xlLine" in texto
+    assert "nao encontrado" in texto and "exemplo: V0001" in texto  # código inexistente
+    assert 'Application.OnKey "^+V", "GerarAbaDoVendedor"' in _ler("ModuloAtalhos")
+    # a tabela da evolução tem venda e meta nas colunas 2 e 3, que o gráfico usa
+    assert "Cells(linhaCabecalho, 2)" in texto and "Cells(linhaCabecalho, 3)" in texto

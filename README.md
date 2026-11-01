@@ -162,20 +162,21 @@ fim da `dim_tempo`.
 python -m src.relatorios fechamento                                 # mês/dia da referência
 python -m src.relatorios fechamento --mes 2025-12 --dia 2025-12-15
 ```
-Gera `data/processed/fechamento_AAAA-MM.xlsx` com nove abas (a última, oculta, só apoia a macro):
+Gera `data/processed/fechamento_AAAA-MM.xlsx` com dez abas (as duas últimas, ocultas, só apoiam as macros):
 **Resumo da rede** (a página do PDF, A4 paisagem: quatro cartões — venda acumulada, cobertura da meta até o
 dia, projeção de fechamento e evolução contra o ano anterior —, gráfico de venda por dia contra a meta (os
 dias depois da posição mostram a venda projetada, a mesma projeção do cartão, em barras cinza-claro), as
 cinco lojas de maior e de menor cobertura, os alertas abertos por severidade, separados em "No mês" e
 "Total em aberto", e o top 5 de produtos do mês), **Diário** (venda, meta, cobertura e acumulado por dia), **Lojas** (venda e meta do dia, acumulado, cobertura, evolução contra
-o ano anterior, projeção), **Vendedores** (ranking, meta, cobertura, setor principal e % da receita nele), **Produtos** (top 20 da
+o ano anterior, projeção), **Vendedores** (ranking, meta, cobertura, ritmo necessário por dia — o que falta da meta do mês dividido pelos dias que restam, contados em dias de meta média —, setor principal e % da receita nele), **Produtos** (top 20 da
 rede no mês até a posição, com margem, participação, participação acumulada e classe ABC — A até 80% da
 receita acumulada, B até 95%, C o resto, limites em `config` —, receita, participação, margem e evolução
 por setor e o gráfico da participação por setor), **Alertas abertos** (só
 independentes com data até o dia de posição, do mais grave ao menos; cancelamento alto só com janela
 fechada antes do mês da posição e uma vez por vendedor, com "N janelas seguidas desde mm/aaaa") **Previsão** (por loja, com faixa e erro do backtest), **Previsão diária** (a rede dia a dia, com a faixa
 baixa e alta calibrada no total da rede, e o gráfico) e **Dados por loja** (oculta: por loja, o top 5 de
-produtos do mês e a receita média por dia da semana e por faixa horária nos últimos 90 dias até a posição).
+produtos do mês e a receita média por dia da semana e por faixa horária nos últimos 90 dias até a posição) e
+**Dados por vendedor** (oculta: todos os vendedores em formato longo, para a macro da aba do vendedor).
 Todas as consultas respeitam a data de posição (nada depois do dia) e só contam vendas concluídas.
 Os títulos de seção seguem um estilo único (13 pt, negrito, azul do cabeçalho, mesclado na largura da
 tabela, com borda inferior grossa colada ao cabeçalho), igual no Python e na macro.
@@ -185,7 +186,7 @@ mês inteiro aparece como "% da meta do mês atingido", sem cor, porque no meio 
 vermelha. Os números
 são conferidos contra consultas independentes ao dw nos testes.
 
-Com `vba/modelo_fechamento.xlsm` presente a saída é `.xlsm` com duas macros (`GerarAbaDaLoja`,
-`ExportarResumoPDF`, atalhos `Ctrl+Shift+L` e `Ctrl+Shift+P`). O modelo é criado uma vez, à mão, no Excel
+Com `vba/modelo_fechamento.xlsm` presente a saída é `.xlsm` com três macros (`GerarAbaDaLoja`,
+`GerarAbaDoVendedor`, `ExportarResumoPDF`, atalhos `Ctrl+Shift+L`, `Ctrl+Shift+V` e `Ctrl+Shift+P`). O modelo é criado uma vez, à mão, no Excel
 (passo a passo, segurança de macros e roteiro de teste em `docs/macro_vba.md`); sem ele o relatório sai
 como `.xlsx`.

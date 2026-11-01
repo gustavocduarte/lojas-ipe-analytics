@@ -3,6 +3,7 @@
 from datetime import date, timedelta
 from decimal import Decimal
 
+import pandas as pd
 import pytest
 from openpyxl import load_workbook
 
@@ -12,6 +13,7 @@ from src.relatorios.__main__ import principal
 from src.relatorios.planilha import (
     ABA_ALERTAS,
     ABA_DADOS_POR_LOJA,
+    ABA_DADOS_POR_VENDEDOR,
     ABA_DIARIO,
     ABA_LOJAS,
     ABA_PREVISAO,
@@ -415,6 +417,93 @@ class TestDadosPorLoja:
         assert linhas["Manhã"]["Receita média por dia"] == pytest.approx(manha / dias_com_venda)
         assert linhas["Noite"]["Destaque"] == "Melhor faixa" and linhas["Manhã"]["Destaque"] is None
         assert sum(x["Participação na receita"] for x in linhas.values()) == pytest.approx(1.0)
+
+
+class TestPorVendedor:
+    """Aba oculta "Dados por vendedor": cada número bate com uma consulta independente ao dw, só
+    até o dia de posição e só com vendas concluídas (as canceladas entram só na taxa)."""
+
+    @staticmethod
+    def _dados(caminho):
+        ws = load_workbook(caminho)[ABA_DADOS_POR_VENDEDOR]
+        linhas = list(ws.iter_rows(values_only=True))
+        return pd.DataFrame(linhas[1:], columns=linhas[0])
+
+    @pytest.fixture
+    def dados(self, dw, tmp_path):
+        caminho, _ = fechamento.gerar(dw, MES, DIA, tmp_path / "f.xlsx", modelo=None)
+        return self._dados(caminho)
+
+    @staticmethod
+    def _bloco(dados, cod, bloco):
+        quadro = dados[(dados.cod_vendedor == cod) & (dados.bloco == bloco)]
+        return quadro[quadro.ordem > 0].sort_values("ordem")
+
+    def test_dia_a_dia_para_na_posicao_ignora_cancelada_e_conta_os_dias_com_venda(self, dw, dados):
+        dias = self._bloco(dados, "V1", "dia_a_dia")
+        datas = [d.date() for d in dias.col_1]
+        assert datas == [date(2025, 3, d) for d in range(1, 16)]  # nada de 16 a 20
+        venda = dict(zip(datas, dias.col_2, strict=True))
+        assert venda[date(2025, 3, 5)] == 500  # a cancelada de 9999 ficou de fora
+        assert venda[date(2025, 3, 7)] == 700 + 60 and venda[date(2025, 3, 8)] == 800 + 55
+        meta_do_dia = _escalar(
+            dw, "SELECT m.valor_meta_dia FROM dw.vw_meta_vendedor_diaria m JOIN dw.dim_vendedor d"
+            " USING (sk_vendedor) WHERE d.cod_vendedor = 'V1' AND m.data = '2025-03-05'",
+        )  # fmt: skip
+        assert dict(zip(datas, dias.col_3, strict=True))[date(2025, 3, 5)] == meta_do_dia
+        zero = dados[(dados.cod_vendedor == "V1") & (dados.bloco == "dia_a_dia")].iloc[0]
+        bateu = sum(
+            1 for v, m in zip(dias.col_2, dias.col_3, strict=True) if m is not None and v >= m
+        )
+        assert bateu >= 1  # o V1 vende 100 x dia contra uma meta diária pequena
+        assert zero.titulo.endswith(f": {bateu} de 15 dias com venda")
+
+    def test_evolucao_tem_o_mes_corrente_ate_o_dia_e_os_meses_anteriores(self, dw, dados):
+        meses = {m.date(): (v, meta) for m, v, meta in self._bloco(dados, "V1", "evolucao")[
+            ["col_1", "col_2", "col_3"]].itertuples(index=False)}  # fmt: skip
+        assert meses[date(2025, 3, 1)][0] == 100 * sum(range(1, 16)) + 60 + 55  # sem 16 a 20
+        assert meses[date(2024, 3, 1)] == (80 * sum(range(1, 16)), None)  # sem meta cadastrada
+        assert date(2025, 4, 1) not in meses  # o item de abril fica depois da posição
+
+    def test_comportamento_conta_a_cancelada_so_na_taxa(self, dw, dados):
+        linhas = self._bloco(dados, "V1", "comportamento").itertuples()
+        c = {r.col_1: (r.col_2, r.col_3) for r in linhas}
+        receita, cupons, itens = 100 * sum(range(1, 16)) + 60 + 55, 17, 17
+        assert c["Ticket médio"][0] == pytest.approx(receita / cupons)
+        assert c["Itens por cupom"][0] == pytest.approx(itens / cupons)
+        bruto = 100 * 15 + 100 + 100
+        assert c["Desconto médio"][0] == pytest.approx((40 + 45) / bruto)
+        assert c["Taxa de cancelamento"][0] == pytest.approx(1 / (cupons + 1))
+        # a média da loja L01 é a do V1 (o V2 vende na L02)
+        assert c["Ticket médio"][1] == pytest.approx(receita / cupons)
+
+    def test_posicao_e_mix_e_produtos(self, dw, dados):
+        c = dict(zip(self._bloco(dados, "V2", "cabecalho").col_1,
+                     self._bloco(dados, "V2", "cabecalho").col_2, strict=True))  # fmt: skip
+        assert c["Posição na rede"] == "2 de 2" and c["Posição na loja"] == "1 de 1"
+        produtos = self._bloco(dados, "V1", "produtos")
+        assert list(produtos.col_3) == [17]  # um produto só; a cancelada não entra
+        mix = self._bloco(dados, "V1", "mix")
+        assert list(mix.col_1) == ["Alimentos"] and list(mix.col_3) == [1.0]
+
+    def test_ritmo_necessario_usa_os_dias_restantes_ponderados_pela_meta_diaria(self, dw, tmp_path):
+        dw.execute(
+            "UPDATE dw.fato_meta_vendedor SET valor_meta = 20000 WHERE sk_vendedor ="
+            " (SELECT sk_vendedor FROM dw.dim_vendedor WHERE cod_vendedor = 'V2')"
+        )
+        dw.commit()
+        caminho, _ = fechamento.gerar(dw, MES, DIA, tmp_path / "r.xlsx", modelo=None)
+        linhas = {x["Vendedor"]: x for x in _tabela(load_workbook(caminho)[ABA_VENDEDORES])}
+        restante = _escalar(
+            dw, "SELECT sum(m.valor_meta_dia) FROM dw.vw_meta_vendedor_diaria m JOIN"
+            " dw.dim_vendedor d USING (sk_vendedor) WHERE d.cod_vendedor = 'V2'"
+            " AND m.data BETWEEN '2025-03-16' AND '2025-03-31'",
+        )  # fmt: skip
+        falta = 20000 - 50 * sum(range(1, 16))
+        dias_medios = restante / (20000 / 31)  # os 16 dias que restam, em dias de meta média
+        assert linhas["V2"]["Ritmo necessário por dia"] == pytest.approx(falta / dias_medios)
+        assert 16 > dias_medios > 0  # março tem 31 dias; os 16 restantes não são dias "médios"
+        assert linhas["V1"]["Ritmo necessário por dia"] == 0  # a meta do V1 já foi batida
 
 
 class TestVendedoresAlertasPrevisao:

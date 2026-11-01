@@ -38,7 +38,7 @@ def _dados(com_previsao: bool = True, com_projecao: bool = True) -> DadosFechame
             "cod_loja": ["L01", "L02"], "nome_loja": ["Ipê 1", "Ipê 2"],
             "acumulado_mes": [12000.0, 6000.0], "meta_acumulada": [5000.0, 8000.0],
             "cobertura_ate_o_dia": [2.4, 0.75], "meta_mes": [10000.0, 9000.0],
-            "cobertura_mes": [1.2, 0.6667],
+            "cobertura_mes": [1.2, 0.6667], "ritmo_necessario_dia": [0.0, 300.0],
             "setor_principal": ["Alimentos", "Eletro"],
             "percentual_setor_principal": [0.8, 0.55],
         }
@@ -143,11 +143,12 @@ def contexto_do_cartao(ws, rotulo: str) -> str:
     return ws.cell(celula.row + 3, celula.column).value
 
 
-def test_tem_as_nove_abas_na_ordem(pasta):
+def test_tem_as_dez_abas_na_ordem(pasta):
     assert pasta.sheetnames == [
         planilha.ABA_RESUMO, planilha.ABA_DIARIO, planilha.ABA_LOJAS, planilha.ABA_VENDEDORES,
         planilha.ABA_PRODUTOS, planilha.ABA_ALERTAS, planilha.ABA_PREVISAO,
         planilha.ABA_PREVISAO_DIARIA, planilha.ABA_DADOS_POR_LOJA,
+        planilha.ABA_DADOS_POR_VENDEDOR,
     ]  # fmt: skip
 
 
@@ -375,7 +376,7 @@ def test_usa_pasta_existente_e_remove_as_abas_antigas(tmp_path):
     montar_pasta(_dados(), modelo)
     assert modelo.sheetnames[0] == planilha.ABA_RESUMO and "Lixo" not in modelo.sheetnames
     assert modelo[planilha.ABA_RESUMO]["A1"].value != "antigo"
-    assert len(modelo.sheetnames) == 9
+    assert len(modelo.sheetnames) == 10
 
 
 def test_colunas_de_valores_cabem_r_999_999_99_em_todas_as_abas(pasta):

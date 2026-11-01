@@ -10,7 +10,7 @@ from openpyxl import load_workbook
 
 from src import config
 from src.memoria import pico_memoria_processo_gb
-from src.relatorios import consultas
+from src.relatorios import consultas, por_vendedor
 from src.relatorios.planilha import DadosFechamento, montar_pasta
 
 log = logging.getLogger(__name__)
@@ -19,14 +19,16 @@ log = logging.getLogger(__name__)
 def coletar(conexao: psycopg.Connection, mes: date, dia: date) -> DadosFechamento:
     """Consulta o dw (uma consulta por aba) para o mês e o dia de posição."""
     dia_da_semana, faixa = consultas.quando_a_loja_vende(conexao, dia)
+    vendedores = consultas.vendedores(conexao, mes, dia)
+    alertas = consultas.alertas_abertos(conexao, dia)
     return DadosFechamento(
         mes=mes,
         dia=dia,
         lojas=consultas.lojas(conexao, mes, dia),
         indicadores=consultas.indicadores_da_rede(conexao, mes, dia),
         vendas_por_dia=consultas.vendas_por_dia(conexao, mes, dia),
-        vendedores=consultas.vendedores(conexao, mes, dia),
-        alertas=consultas.alertas_abertos(conexao, dia),
+        vendedores=vendedores,
+        alertas=alertas,
         previsao_mensal=consultas.previsao_mensal(conexao),
         previsao_diaria=consultas.previsao_diaria_da_rede(conexao),
         projecao_por_dia=consultas.projecao_por_dia(conexao, mes, dia),
@@ -35,6 +37,17 @@ def coletar(conexao: psycopg.Connection, mes: date, dia: date) -> DadosFechament
         produtos_por_loja=consultas.produtos_por_loja(conexao, mes, dia),
         dia_da_semana_por_loja=dia_da_semana,
         faixa_por_loja=faixa,
+        dados_por_vendedor=por_vendedor.montar_dados_por_vendedor(
+            vendedores,
+            consultas.vendedor_dias(conexao, mes, dia),
+            consultas.vendedor_evolucao(conexao, mes, dia),
+            consultas.vendedor_produtos(conexao, mes, dia),
+            consultas.vendedor_mix_por_setor(conexao, mes, dia),
+            consultas.vendedor_comportamento(conexao, mes, dia),
+            alertas,
+            mes,
+            dia,
+        ),
     )
 
 

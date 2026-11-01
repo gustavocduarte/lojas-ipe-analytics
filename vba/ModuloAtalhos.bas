@@ -4,15 +4,18 @@ Option Explicit
 ' Atalhos de teclado das macros. O Excel executa Auto_Open ao abrir o arquivo (com macros
 ' habilitadas) e Auto_Close ao fechar. Sem os atalhos, use Alt+F8 e escolha a macro.
 '   Ctrl+Shift+L -> GerarAbaDaLoja
+'   Ctrl+Shift+V -> GerarAbaDoVendedor
 '   Ctrl+Shift+P -> ExportarResumoPDF
 
 Public Sub RegistrarAtalhos()
     Application.OnKey "^+L", "GerarAbaDaLoja"
+    Application.OnKey "^+V", "GerarAbaDoVendedor"
     Application.OnKey "^+P", "ExportarResumoPDF"
 End Sub
 
 Public Sub RemoverAtalhos()
     Application.OnKey "^+L"
+    Application.OnKey "^+V"
     Application.OnKey "^+P"
 End Sub
 

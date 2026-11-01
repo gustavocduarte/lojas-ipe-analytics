@@ -31,6 +31,7 @@ from openpyxl.worksheet.page import PageMargins
 from openpyxl.worksheet.properties import PageSetupProperties
 
 from src import config
+from src.relatorios import por_vendedor
 
 FORMATO_REAL = '"R$" #,##0.00'
 FORMATO_PERCENTUAL = "0.0%"
@@ -63,6 +64,7 @@ ABA_ALERTAS = "Alertas abertos"
 ABA_PREVISAO = "Previsão"
 ABA_PREVISAO_DIARIA = "Previsão diária"
 ABA_DADOS_POR_LOJA = "Dados por loja"  # oculta: a macro GerarAbaDaLoja lê só o próprio arquivo
+ABA_DADOS_POR_VENDEDOR = "Dados por vendedor"  # oculta: a macro GerarAbaDoVendedor, formato longo
 NOME_DATA_POSICAO = "DataPosicao"  # nome definido lido pela macro ExportarResumoPDF
 FONTE_RODAPE = "Fonte: dw lojas_ipe_dw"
 
@@ -95,6 +97,7 @@ ALTURA_CABECALHO = 45  # até três linhas de título
 # meta do mês inteiro só informa quanto da meta mensal já foi feito.
 TITULO_COBERTURA_ATE_O_DIA = "Cobertura da meta até o dia"
 TITULO_META_DO_MES_ATINGIDO = "% da meta do mês atingido"
+TITULO_RITMO_NECESSARIO = "Ritmo necessário por dia"
 
 # nome da coluna na consulta -> (título na planilha, formato)
 COLUNAS_LOJAS = {
@@ -120,6 +123,7 @@ COLUNAS_VENDEDORES = {
     "cobertura_ate_o_dia": (TITULO_COBERTURA_ATE_O_DIA, FORMATO_PERCENTUAL),
     "meta_mes": ("Meta do mês", FORMATO_REAL),
     "cobertura_mes": (TITULO_META_DO_MES_ATINGIDO, FORMATO_PERCENTUAL),
+    "ritmo_necessario_dia": (TITULO_RITMO_NECESSARIO, FORMATO_REAL),
     "setor_principal": ("Setor principal", None),
     "percentual_setor_principal": ("% no setor principal", FORMATO_PERCENTUAL),
 }  # fmt: skip
@@ -216,6 +220,9 @@ class DadosFechamento:
     )
     projecao_por_dia: pd.DataFrame = field(  # venda prevista da rede, dia a dia, depois da posição
         default_factory=lambda: pd.DataFrame(columns=["dia", "projecao"])
+    )
+    dados_por_vendedor: pd.DataFrame = field(  # alimentam a macro da aba do vendedor
+        default_factory=lambda: pd.DataFrame(columns=list(por_vendedor.COLUNAS))
     )
 
 
@@ -426,6 +433,15 @@ def _aba_dados_por_loja(wb: Workbook, dados: DadosFechamento) -> None:
     for coluna, quadro, colunas, titulo in blocos:
         ws.cell(1, coluna, titulo)
         _escrever_tabela(ws, quadro, colunas, 2, coluna)
+    ws.sheet_state = "hidden"
+
+
+def _aba_dados_por_vendedor(wb: Workbook, dados: DadosFechamento) -> None:
+    """Aba oculta de apoio da macro GerarAbaDoVendedor: todos os vendedores em formato longo (veja
+    `por_vendedor`), cabeçalho na linha 1 e uma linha de dados por item de cada bloco."""
+    ws = wb.create_sheet(ABA_DADOS_POR_VENDEDOR)
+    colunas = {nome: (nome, None) for nome in por_vendedor.COLUNAS}
+    _escrever_tabela(ws, dados.dados_por_vendedor, colunas, 1)
     ws.sheet_state = "hidden"
 
 
@@ -821,8 +837,8 @@ def _aba_resumo(ws, dados: DadosFechamento, ws_diario, ultima_linha_diario: int)
 
 
 def montar_pasta(dados: DadosFechamento, modelo: Workbook | None = None) -> Workbook:
-    """Cria as nove abas (a última, de apoio às macros, fica oculta). Com `modelo` (ex.: o .xlsm
-    com as macros), as abas antigas dele saem."""
+    """Cria as dez abas (as duas últimas, de apoio às macros, ficam ocultas). Com `modelo` (ex.: o
+    .xlsm com as macros), as abas antigas dele saem."""
     wb = modelo or Workbook()
     temporaria = wb.create_sheet("_temporaria", 0)
     for aba in [a for a in wb.worksheets if a is not temporaria]:
@@ -837,6 +853,7 @@ def montar_pasta(dados: DadosFechamento, modelo: Workbook | None = None) -> Work
     _aba_previsao(wb, dados)
     _aba_previsao_diaria(wb, dados)
     _aba_dados_por_loja(wb, dados)
+    _aba_dados_por_vendedor(wb, dados)
     wb.remove(temporaria)
     wb.active = 0
     return wb
