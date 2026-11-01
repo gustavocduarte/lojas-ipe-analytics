@@ -18,6 +18,7 @@ log = logging.getLogger(__name__)
 
 def coletar(conexao: psycopg.Connection, mes: date, dia: date) -> DadosFechamento:
     """Consulta o dw (uma consulta por aba) para o mês e o dia de posição."""
+    dia_da_semana, faixa = consultas.quando_a_loja_vende(conexao, dia)
     return DadosFechamento(
         mes=mes,
         dia=dia,
@@ -31,6 +32,9 @@ def coletar(conexao: psycopg.Connection, mes: date, dia: date) -> DadosFechament
         projecao_por_dia=consultas.projecao_por_dia(conexao, mes, dia),
         produtos=consultas.produtos(conexao, mes, dia).head(config.RELATORIO_TOP_PRODUTOS),
         setores=consultas.setores(conexao, mes, dia),
+        produtos_por_loja=consultas.produtos_por_loja(conexao, mes, dia),
+        dia_da_semana_por_loja=dia_da_semana,
+        faixa_por_loja=faixa,
     )
 
 

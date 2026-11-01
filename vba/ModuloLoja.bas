@@ -8,12 +8,23 @@ Option Explicit
 Private Const ABA_LOJAS As String = "Lojas"
 Private Const ABA_VENDEDORES As String = "Vendedores"
 Private Const ABA_ALERTAS As String = "Alertas abertos"
+Private Const ABA_DADOS As String = "Dados por loja"   ' oculta; o Python grava nela os dados por loja
 Private Const TITULO_CODIGO_LOJA As String = "Loja"
 Private Const TITULO_NOME_LOJA As String = "Nome"
 Private Const TITULO_LOJA_NOS_ALERTAS As String = "Loja ou centro de custo"
 Private Const TITULO_NOME_DA_LOJA As String = "Nome da loja"
 Private Const LARGURA_MINIMA As Double = 14      ' cabe "R$ 9.999.999,99"
-Private Const LARGURA_MAXIMA As Double = 40
+Private Const LARGURA_MAXIMA As Double = 45
+Private Const PREFIXO_COBERTURA As String = "Cobertura"   ' cobertura: verde a partir de 100%
+Private Const PREFIXO_EVOLUCAO As String = "Evolu"        ' evolucao: verde a partir de 0%
+Private Const TITULO_DESTAQUE As String = "Destaque"
+' Blocos da aba "Dados por loja": coluna inicial (a da Loja) e quantidade de colunas de cada um.
+Private Const COL_PRODUTOS As Long = 1
+Private Const COLS_PRODUTOS As Long = 6
+Private Const COL_DIA_SEMANA As Long = 8
+Private Const COLS_DIA_SEMANA As Long = 5
+Private Const COL_FAIXA As Long = 14
+Private Const COLS_FAIXA As Long = 5
 Private Const COLUNAS_DA_EXPLICACAO As Long = 5   ' a Explicacao ocupa colunas mescladas
 Private Const CARACTERES_POR_LINHA As Long = 75
 Private Const PRIMEIRA_COLUNA_INDICADOR As Long = 4   ' Lojas: colunas 1 a 3 = Loja, Nome, UF
@@ -21,6 +32,8 @@ Private Const COLUNAS_DO_DIA As Long = 3              ' Venda do dia, Meta do di
 
 Public Sub GerarAbaDaLoja()
     Dim wsLojas As Worksheet, wsVendedores As Worksheet, wsAlertas As Worksheet, wsNova As Worksheet
+    Dim wsDados As Worksheet
+    Dim qtdProdutos As Long, qtdDias As Long, qtdFaixas As Long
     Dim codigo As String, nomeLoja As String, uf As String
     Dim linhaLoja As Long, linha As Long
     Dim qtdVendedores As Long, qtdAlertas As Long, linhaAlertas As Long
@@ -29,6 +42,7 @@ Public Sub GerarAbaDaLoja()
     Set wsLojas = ThisWorkbook.Worksheets(ABA_LOJAS)
     Set wsVendedores = ThisWorkbook.Worksheets(ABA_VENDEDORES)
     Set wsAlertas = ThisWorkbook.Worksheets(ABA_ALERTAS)
+    Set wsDados = ThisWorkbook.Worksheets(ABA_DADOS)
 
     codigo = UCase$(Trim$(InputBox("Codigo da loja (" & ListaDeLojas(wsLojas) & "):", _
                                    "Gerar aba da loja")))
@@ -59,6 +73,13 @@ Public Sub GerarAbaDaLoja()
     qtdVendedores = CopiarLinhasDaLoja(wsVendedores, TITULO_CODIGO_LOJA, codigo, wsNova, linha, _
                                        "Vendedores", TITULO_CODIGO_LOJA, TITULO_NOME_DA_LOJA)
     linha = linha + qtdVendedores + 3
+    ' Produtos e "quando a loja vende" vem da aba de apoio; so as linhas desta loja sao copiadas.
+    qtdProdutos = CopiarDadosDaLoja(wsDados, COL_PRODUTOS, COLS_PRODUTOS, codigo, wsNova, linha)
+    linha = linha + qtdProdutos + 3
+    qtdDias = CopiarDadosDaLoja(wsDados, COL_DIA_SEMANA, COLS_DIA_SEMANA, codigo, wsNova, linha)
+    linha = linha + qtdDias + 3
+    qtdFaixas = CopiarDadosDaLoja(wsDados, COL_FAIXA, COLS_FAIXA, codigo, wsNova, linha)
+    linha = linha + qtdFaixas + 3
     linhaAlertas = linha
     qtdAlertas = CopiarLinhasDaLoja(wsAlertas, TITULO_LOJA_NOS_ALERTAS, nomeLoja, wsNova, linha, _
                                     "Alertas abertos", "", "")
@@ -87,6 +108,7 @@ Private Function CopiarIndicadores(wsLojas As Worksheet, linhaLoja As Long, wsDe
         wsDestino.Cells(linha, 1).Value = wsLojas.Cells(1, coluna).Value
         wsDestino.Cells(linha, 2).Value = wsLojas.Cells(linhaLoja, coluna).Value
         wsDestino.Cells(linha, 2).NumberFormat = wsLojas.Cells(linhaLoja, coluna).NumberFormat
+        CorDoIndicador wsDestino.Cells(linha, 2), CStr(wsDestino.Cells(linha, 1).Value)
         linha = linha + 1
     Next coluna
     CopiarIndicadores = linha
@@ -100,7 +122,7 @@ Private Function CopiarLinhasDaLoja(wsOrigem As Worksheet, tituloFiltro As Strin
                                     omitir1 As String, omitir2 As String) As Long
     Dim colunaFiltro As Long, ultimaLinha As Long, ultimaCol As Long
     Dim linhaOrigem As Long, linhaDestino As Long, coluna As Long, colDestino As Long, copiadas As Long
-    Dim titulo As String
+    Dim titulo As String, linhaCabecalho As Long, qtdColunas As Long
 
     colunaFiltro = ColunaDoTitulo(wsOrigem, tituloFiltro)
     ultimaLinha = wsOrigem.Cells(wsOrigem.Rows.Count, 1).End(xlUp).Row
@@ -117,6 +139,8 @@ Private Function CopiarLinhasDaLoja(wsOrigem As Worksheet, tituloFiltro As Strin
         End If
     Next coluna
     EstiloCabecalho wsDestino.Range(wsDestino.Cells(linhaDestino, 1), wsDestino.Cells(linhaDestino, colDestino))
+    linhaCabecalho = linhaDestino
+    qtdColunas = colDestino
 
     For linhaOrigem = 2 To ultimaLinha
         If CStr(wsOrigem.Cells(linhaOrigem, colunaFiltro).Value) = valorFiltro Then
@@ -133,7 +157,97 @@ Private Function CopiarLinhasDaLoja(wsOrigem As Worksheet, tituloFiltro As Strin
             copiadas = copiadas + 1
         End If
     Next linhaOrigem
+    If copiadas > 0 Then
+        For coluna = 1 To qtdColunas
+            titulo = CStr(wsDestino.Cells(linhaCabecalho, coluna).Value)
+            If Left$(titulo, Len(PREFIXO_COBERTURA)) = PREFIXO_COBERTURA Then
+                CorDeStatus wsDestino.Range(wsDestino.Cells(linhaCabecalho + 1, coluna), _
+                                            wsDestino.Cells(linhaDestino, coluna)), 1
+            End If
+        Next coluna
+    End If
     CopiarLinhasDaLoja = copiadas
+End Function
+
+' Copia de "Dados por loja" um bloco: titulo (linha 1 do bloco), cabecalho (linha 2) e as linhas
+' da loja escolhida, sem a primeira coluna do bloco (a Loja). A linha em que a ultima coluna
+' (Destaque) vem preenchida fica em negrito com fundo verde claro. Devolve quantas linhas copiou.
+Private Function CopiarDadosDaLoja(wsDados As Worksheet, colInicial As Long, qtdColunas As Long, _
+                                   codigo As String, wsDestino As Worksheet, linhaInicial As Long) As Long
+    Dim ultimaLinha As Long, linhaOrigem As Long, linhaDestino As Long
+    Dim coluna As Long, copiadas As Long, comDestaque As Boolean
+
+    TituloDeSecao wsDestino, linhaInicial, 1, qtdColunas - 1, CStr(wsDados.Cells(1, colInicial).Value)
+    linhaDestino = linhaInicial + 1
+    For coluna = 1 To qtdColunas - 1
+        wsDestino.Cells(linhaDestino, coluna).Value = wsDados.Cells(2, colInicial + coluna).Value
+    Next coluna
+    EstiloCabecalho wsDestino.Range(wsDestino.Cells(linhaDestino, 1), wsDestino.Cells(linhaDestino, qtdColunas - 1))
+    comDestaque = (CStr(wsDados.Cells(2, colInicial + qtdColunas - 1).Value) = TITULO_DESTAQUE)
+
+    ultimaLinha = wsDados.Cells(wsDados.Rows.Count, colInicial).End(xlUp).Row
+    For linhaOrigem = 3 To ultimaLinha
+        If CStr(wsDados.Cells(linhaOrigem, colInicial).Value) = codigo Then
+            linhaDestino = linhaDestino + 1
+            For coluna = 1 To qtdColunas - 1
+                wsDestino.Cells(linhaDestino, coluna).Value = wsDados.Cells(linhaOrigem, colInicial + coluna).Value
+                wsDestino.Cells(linhaDestino, coluna).NumberFormat = wsDados.Cells(linhaOrigem, colInicial + coluna).NumberFormat
+            Next coluna
+            If comDestaque Then
+                If Len(CStr(wsDados.Cells(linhaOrigem, colInicial + qtdColunas - 1).Value)) > 0 Then
+                    EstiloDestaque wsDestino.Range(wsDestino.Cells(linhaDestino, 1), wsDestino.Cells(linhaDestino, qtdColunas - 1))
+                End If
+            End If
+            copiadas = copiadas + 1
+        End If
+    Next linhaOrigem
+    CopiarDadosDaLoja = copiadas
+End Function
+
+' Titulo de secao (por enquanto so em negrito; o estilo de bloco com a tabela vem na rodada de titulos).
+Private Sub TituloDeSecao(ws As Worksheet, linha As Long, colInicial As Long, colFinal As Long, texto As String)
+    ws.Cells(linha, colInicial).Value = texto
+    ws.Cells(linha, colInicial).Font.Bold = True
+End Sub
+
+' Cobertura (verde a partir de 100%) e evolucao (verde a partir de 0%) levam a cor de status, como
+' nas abas geradas pelo Python; "% da meta do mes atingido" so informa e nao leva cor.
+Private Sub CorDoIndicador(celula As Range, titulo As String)
+    If Left$(titulo, Len(PREFIXO_COBERTURA)) = PREFIXO_COBERTURA Then CorDeStatus celula, 1
+    If Left$(titulo, Len(PREFIXO_EVOLUCAO)) = PREFIXO_EVOLUCAO Then CorDeStatus celula, 0
+End Sub
+
+' Verde a partir do limite (inclusive) e vermelho abaixo dele: as mesmas cores do Python.
+Private Sub CorDeStatus(faixa As Range, limite As Long)
+    Dim regra As FormatCondition
+    faixa.FormatConditions.Delete
+    Set regra = faixa.FormatConditions.Add(Type:=xlCellValue, Operator:=xlGreaterEqual, _
+                                           Formula1:="=" & CStr(limite))
+    regra.Interior.Color = RGB(198, 239, 206)
+    regra.Font.Color = RGB(0, 97, 0)
+    Set regra = faixa.FormatConditions.Add(Type:=xlCellValue, Operator:=xlLess, _
+                                           Formula1:="=" & CStr(limite))
+    regra.Interior.Color = RGB(255, 199, 206)
+    regra.Font.Color = RGB(156, 0, 6)
+End Sub
+
+Private Sub EstiloDestaque(faixa As Range)
+    faixa.Font.Bold = True
+    faixa.Interior.Color = RGB(226, 239, 218)
+End Sub
+
+' Largura (em caracteres) que o maior texto da coluna precisa. Ignora o titulo da aba (linha 1),
+' celulas mescladas e cabecalhos em negrito (eles quebram linha); numeros cabem na largura minima.
+Private Function LarguraDoTexto(ws As Worksheet, coluna As Long, ultimaLinha As Long) As Double
+    Dim linha As Long, maior As Long
+    For linha = 2 To ultimaLinha
+        With ws.Cells(linha, coluna)
+            If VarType(.Value) = vbString And Not .MergeCells And Not .Font.Bold Then
+                If Len(.Value) > maior Then maior = Len(.Value)
+            End If
+        End With
+    Next linha
+    LarguraDoTexto = maior * 1.15 + 2
 End Function
 
 ' A Explicacao (texto longo) ocupa colunas mescladas, com quebra de texto, para nenhuma coluna de
@@ -141,13 +255,19 @@ End Function
 Private Sub AjustarLarguras(ws As Worksheet, colunaExplicacao As Long, primeiraLinhaAlertas As Long, _
                             qtdAlertas As Long)
     Dim coluna As Long, linha As Long, linhas As Long, ultimaCol As Long
+    Dim ultimaLinha As Long, necessaria As Double
     ultimaCol = colunaExplicacao + COLUNAS_DA_EXPLICACAO - 1
     For linha = primeiraLinhaAlertas - 1 To primeiraLinhaAlertas + qtdAlertas - 1
         ws.Range(ws.Cells(linha, colunaExplicacao), ws.Cells(linha, ultimaCol)).Merge
     Next linha
     EstiloCabecalho ws.Range(ws.Cells(primeiraLinhaAlertas - 1, 1), ws.Cells(primeiraLinhaAlertas - 1, ultimaCol))
     ws.UsedRange.Columns.AutoFit
+    ' O AutoFit sozinho cortava textos longos (Tipo e Vendedor dos alertas): a coluna nunca fica
+    ' mais estreita que o maior texto dela.
+    ultimaLinha = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
     For coluna = 1 To ultimaCol
+        necessaria = LarguraDoTexto(ws, coluna, ultimaLinha)
+        If ws.Columns(coluna).ColumnWidth < necessaria Then ws.Columns(coluna).ColumnWidth = necessaria
         If ws.Columns(coluna).ColumnWidth < LARGURA_MINIMA Then ws.Columns(coluna).ColumnWidth = LARGURA_MINIMA
         If ws.Columns(coluna).ColumnWidth > LARGURA_MAXIMA Then ws.Columns(coluna).ColumnWidth = LARGURA_MAXIMA
     Next coluna

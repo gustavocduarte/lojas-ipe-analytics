@@ -289,6 +289,105 @@ def setores(conexao: psycopg.Connection, mes: date, dia: date) -> pd.DataFrame:
     return quadro[["setor", "receita", "participacao", "margem_percentual", "evolucao"]]
 
 
+def produtos_por_loja(conexao: psycopg.Connection, mes: date, dia: date) -> pd.DataFrame:
+    """Os maiores produtos de cada loja no mês até o dia (vendas concluídas), com a participação
+    na receita da loja: cod_loja, posicao, descricao, setor, receita, participacao."""
+    sql = f"""
+    WITH {PARAMETROS_BASE},
+    base AS (
+        SELECT l.cod_loja, p.sku, p.nome_produto, p.setor, SUM(v.receita_liquida) AS receita
+        FROM dw.fato_vendas v
+        JOIN dw.dim_tempo t ON t.sk_tempo = v.sk_tempo
+        JOIN dw.dim_loja l ON l.sk_loja = v.sk_loja
+        JOIN dw.dim_produto p ON p.sk_produto = v.sk_produto
+        CROSS JOIN par
+        WHERE v.status = %(status)s AND t.data BETWEEN par.ini AND par.dia
+        GROUP BY l.cod_loja, p.sku, p.nome_produto, p.setor
+    ),
+    ordenado AS (
+        SELECT b.*, ROW_NUMBER() OVER (PARTITION BY cod_loja ORDER BY receita DESC, sku) AS posicao,
+               receita / NULLIF(SUM(receita) OVER (PARTITION BY cod_loja), 0) AS participacao
+        FROM base b
+    )
+    SELECT cod_loja, posicao, nome_produto AS descricao, setor, receita, participacao
+    FROM ordenado
+    WHERE posicao <= %(maximo)s
+    ORDER BY cod_loja, posicao
+    """
+    parametros_loja = parametros(mes, dia) | {"maximo": config.RELATORIO_TOP_PRODUTOS_LOJA}
+    return _df(conexao, sql, parametros_loja)
+
+
+def destacar_o_melhor(quadro: pd.DataFrame, rotulo: str) -> pd.DataFrame:
+    """Acrescenta a coluna `destaque` com `rotulo` na linha de maior `receita_media` de cada loja
+    (empate: a primeira na ordem recebida); as demais ficam vazias."""
+    quadro = quadro.copy()
+    quadro["destaque"] = None
+    if not quadro.empty:
+        melhores = quadro.groupby("cod_loja")["receita_media"].idxmax()
+        quadro.loc[melhores, "destaque"] = rotulo
+    return quadro
+
+
+def quando_a_loja_vende(conexao: psycopg.Connection, dia: date) -> tuple:
+    """(por dia da semana, por faixa horária): receita média por dia de cada loja nos últimos
+    `RELATORIO_DIAS_QUANDO_A_LOJA_VENDE` dias até `dia` (vendas concluídas), com a participação na
+    receita do período e o melhor dia e a melhor faixa em `destaque`. A média do dia da semana
+    divide pelos dias daquele dia da semana em que a loja vendeu; a da faixa, pelos dias em que
+    a loja vendeu."""
+    base = """
+    WITH base AS (
+        SELECT l.cod_loja, t.data, EXTRACT(ISODOW FROM t.data)::INT AS dia_da_semana_ordem,
+               t.nome_dia_semana, h.faixa_do_dia, h.sk_hora, v.receita_liquida
+        FROM dw.fato_vendas v
+        JOIN dw.dim_tempo t ON t.sk_tempo = v.sk_tempo
+        JOIN dw.dim_loja l ON l.sk_loja = v.sk_loja
+        JOIN dw.dim_hora h ON h.sk_hora = v.sk_hora
+        WHERE v.status = %(status)s
+          AND t.data BETWEEN %(dia)s::DATE - %(janela)s::INT AND %(dia)s::DATE
+    )
+    """
+    parametros_janela = {
+        "dia": dia,
+        "status": config.STATUS_VENDA_VALIDA,
+        "janela": config.RELATORIO_DIAS_QUANDO_A_LOJA_VENDE - 1,
+    }
+    por_dia = _df(
+        conexao,
+        base
+        + """
+    SELECT cod_loja, dia_da_semana_ordem, nome_dia_semana AS dia_da_semana,
+           SUM(receita_liquida) / COUNT(DISTINCT data) AS receita_media,
+           SUM(receita_liquida) / SUM(SUM(receita_liquida)) OVER (PARTITION BY cod_loja)
+               AS participacao
+    FROM base
+    GROUP BY cod_loja, dia_da_semana_ordem, nome_dia_semana
+    ORDER BY cod_loja, dia_da_semana_ordem
+    """,
+        parametros_janela,
+    )
+    por_faixa = _df(
+        conexao,
+        base
+        + """
+    , dias AS (SELECT cod_loja, COUNT(DISTINCT data) AS dias_com_venda FROM base GROUP BY cod_loja)
+    SELECT b.cod_loja, b.faixa_do_dia AS faixa,
+           SUM(b.receita_liquida) / MAX(d.dias_com_venda) AS receita_media,
+           SUM(b.receita_liquida) / SUM(SUM(b.receita_liquida)) OVER (PARTITION BY b.cod_loja)
+               AS participacao
+    FROM base b
+    JOIN dias d ON d.cod_loja = b.cod_loja
+    GROUP BY b.cod_loja, b.faixa_do_dia
+    ORDER BY b.cod_loja, MIN(b.sk_hora)
+    """,
+        parametros_janela,
+    )
+    return (
+        destacar_o_melhor(por_dia.drop(columns="dia_da_semana_ordem"), "Melhor dia"),
+        destacar_o_melhor(por_faixa, "Melhor faixa"),
+    )
+
+
 def alertas_abertos(conexao: psycopg.Connection, dia: date) -> pd.DataFrame:
     """Alertas vigentes e independentes ainda não tratados (novo ou em análise), do mais grave.
 

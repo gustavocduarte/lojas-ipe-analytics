@@ -24,7 +24,7 @@ PROIBIDOS = [
 ]  # fmt: skip
 ABAS_CONHECIDAS = {
     planilha.ABA_RESUMO, planilha.ABA_LOJAS, planilha.ABA_VENDEDORES, planilha.ABA_ALERTAS,
-    planilha.ABA_PREVISAO,
+    planilha.ABA_PREVISAO, planilha.ABA_DADOS_POR_LOJA,
 }  # fmt: skip
 
 
@@ -158,3 +158,67 @@ def test_explicacao_nao_alarga_coluna_de_numeros():
     texto = _ler("ModuloLoja")
     assert ".Merge" in texto  # texto longo em colunas mescladas, não em uma coluna só
     assert "LARGURA_EXPLICACAO" not in texto
+
+
+def _constantes_longas(texto: str) -> dict:
+    return {k: int(v) for k, v in re.findall(r"Const (\w+) As Long = (\d+)", texto)}
+
+
+def test_blocos_da_aba_de_apoio_estao_nas_colunas_que_a_macro_espera(tmp_path):
+    consts = _constantes_longas(_ler("ModuloLoja"))
+    destaque = re.search(r'TITULO_DESTAQUE As String = "([^"]+)"', _ler("ModuloLoja")).group(1)
+    caminho = tmp_path / "f.xlsx"
+    montar_pasta(_dados()).save(caminho)
+    ws = load_workbook(caminho)[planilha.ABA_DADOS_POR_LOJA]
+    assert ws.sheet_state == "hidden"  # a macro lê aba oculta sem problema
+    blocos = {
+        "PRODUTOS": (planilha.COLUNAS_DADOS_PRODUTOS_LOJA, False),
+        "DIA_SEMANA": (planilha.COLUNAS_DADOS_DIA_DA_SEMANA, True),
+        "FAIXA": (planilha.COLUNAS_DADOS_FAIXA, True),
+    }
+    for nome, (colunas, com_destaque) in blocos.items():
+        inicio, quantas = consts[f"COL_{nome}"], consts[f"COLS_{nome}"]
+        assert quantas == len(colunas)
+        assert ws.cell(2, inicio).value == "Loja"  # a macro filtra por esta coluna
+        assert ws.cell(2, inicio + quantas).value is None  # coluna em branco depois do bloco
+        assert (
+            "mês" in ws.cell(1, inicio).value or "Quando a loja vende" in ws.cell(1, inicio).value
+        )
+        assert (ws.cell(2, inicio + quantas - 1).value == destaque) is com_destaque
+
+
+def test_cor_de_status_da_macro_segue_as_regras_das_abas_geradas(tmp_path):
+    texto = _ler("ModuloLoja")
+    cobertura = re.search(r'PREFIXO_COBERTURA As String = "([^"]+)"', texto).group(1)
+    evolucao = re.search(r'PREFIXO_EVOLUCAO As String = "([^"]+)"', texto).group(1)
+    caminho = tmp_path / "f.xlsx"
+    montar_pasta(_dados()).save(caminho)
+    pasta = load_workbook(caminho)
+    for aba, colunas in (
+        (planilha.ABA_LOJAS, planilha.COLUNAS_LOJAS),
+        (planilha.ABA_VENDEDORES, planilha.COLUNAS_VENDEDORES),
+    ):
+        titulos = [t for t, _ in colunas.values()]
+        coloridos = {
+            titulos[openpyxl_coluna(str(regra.sqref)) - 1]
+            for regra in pasta[aba].conditional_formatting
+        }
+        pela_macro = {t for t in titulos if t.startswith((cobertura, evolucao))}
+        assert coloridos == pela_macro, aba
+    # os dois verdes: o 1 (100%) das coberturas e o 0 (0%) da evolução
+    assert "Operator:=xlGreaterEqual" in texto and "RGB(198, 239, 206)" in texto
+    assert "RGB(255, 199, 206)" in texto
+    assert "CorDeStatus celula, 1" in texto and "CorDeStatus celula, 0" in texto
+
+
+def openpyxl_coluna(intervalo: str) -> int:
+    from openpyxl.utils import column_index_from_string
+
+    return column_index_from_string(re.match(r"[A-Z]+", intervalo).group(0))
+
+
+def test_aba_da_loja_inclui_produtos_quando_a_loja_vende_e_larguras_pelo_texto():
+    texto = _ler("ModuloLoja")
+    assert texto.count("= CopiarDadosDaLoja(wsDados") == 3  # produtos, dia da semana e faixa
+    assert "LarguraDoTexto" in texto
+    assert re.search(r"LARGURA_MAXIMA As Double = (\d+)", texto).group(1) == "45"

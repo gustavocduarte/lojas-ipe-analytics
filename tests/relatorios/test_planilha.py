@@ -85,9 +85,31 @@ def _dados(com_previsao: bool = True, com_projecao: bool = True) -> DadosFechame
             "margem_percentual": [0.3, 0.2, 0.4], "evolucao": [0.1, -0.05, None],
         }
     )  # fmt: skip
+    produtos_loja = pd.DataFrame(
+        {
+            "cod_loja": ["L01", "L01", "L02"], "posicao": [1, 2, 1],
+            "descricao": ["Arroz", "Sabão", "Tv"], "setor": ["Alimentos", "Limpeza", "Eletro"],
+            "receita": [8000.0, 1000.0, 6000.0], "participacao": [0.9, 0.1, 1.0],
+        }
+    )  # fmt: skip
+    por_dia_semana = pd.DataFrame(
+        {
+            "cod_loja": ["L01", "L01"], "dia_da_semana": ["Sábado", "Domingo"],
+            "receita_media": [900.0, 400.0], "participacao": [0.7, 0.3],
+            "destaque": ["Melhor dia", None],
+        }
+    )  # fmt: skip
+    por_faixa = pd.DataFrame(
+        {
+            "cod_loja": ["L01", "L01"], "faixa": ["Manhã", "Tarde"],
+            "receita_media": [300.0, 800.0], "participacao": [0.3, 0.7],
+            "destaque": [None, "Melhor faixa"],
+        }
+    )  # fmt: skip
     return DadosFechamento(
         mes=date(2025, 3, 1), dia=date(2025, 3, 15), lojas=lojas, produtos=produtos,
-        setores=setores,
+        produtos_por_loja=produtos_loja, dia_da_semana_por_loja=por_dia_semana,
+        faixa_por_loja=por_faixa, setores=setores,
         indicadores={"receita": 18000.0, "margem": 7200.0, "margem_percentual": 0.4,
                      "cupons": 60, "ticket_medio": 300.0},
         vendas_por_dia=vendas, vendedores=vendedores, alertas=alertas,
@@ -121,11 +143,11 @@ def contexto_do_cartao(ws, rotulo: str) -> str:
     return ws.cell(celula.row + 3, celula.column).value
 
 
-def test_tem_as_oito_abas_na_ordem(pasta):
+def test_tem_as_nove_abas_na_ordem(pasta):
     assert pasta.sheetnames == [
         planilha.ABA_RESUMO, planilha.ABA_DIARIO, planilha.ABA_LOJAS, planilha.ABA_VENDEDORES,
         planilha.ABA_PRODUTOS, planilha.ABA_ALERTAS, planilha.ABA_PREVISAO,
-        planilha.ABA_PREVISAO_DIARIA,
+        planilha.ABA_PREVISAO_DIARIA, planilha.ABA_DADOS_POR_LOJA,
     ]  # fmt: skip
 
 
@@ -353,7 +375,7 @@ def test_usa_pasta_existente_e_remove_as_abas_antigas(tmp_path):
     montar_pasta(_dados(), modelo)
     assert modelo.sheetnames[0] == planilha.ABA_RESUMO and "Lixo" not in modelo.sheetnames
     assert modelo[planilha.ABA_RESUMO]["A1"].value != "antigo"
-    assert len(modelo.sheetnames) == 8
+    assert len(modelo.sheetnames) == 9
 
 
 def test_colunas_de_valores_cabem_r_999_999_99_em_todas_as_abas(pasta):
@@ -528,3 +550,27 @@ def test_previsao_diaria_e_um_bloco_separado_com_faixa_baixa_e_alta(pasta):
     mensal = pasta[planilha.ABA_PREVISAO]
     assert [c.value for c in mensal[1]][-1] == "Erro (WAPE) no backtest da loja"
     assert mensal.max_column == len(planilha.COLUNAS_PREVISAO)  # nada do diário na aba mensal
+
+
+def test_aba_oculta_dados_por_loja_traz_os_tres_blocos_com_titulo_e_cabecalho(pasta):
+    ws = pasta[planilha.ABA_DADOS_POR_LOJA]
+    assert ws.sheet_state == "hidden"
+    inicio = (
+        planilha.COLUNA_DADOS_PRODUTOS, planilha.COLUNA_DADOS_DIA_DA_SEMANA,
+        planilha.COLUNA_DADOS_FAIXA,
+    )  # fmt: skip
+    assert inicio == (1, 8, 14)
+    assert ws.cell(1, inicio[0]).value == "Top 5 produtos da loja no mês (até 15/03/2025)"
+    assert "dia da semana (90 dias até 15/03/2025)" in ws.cell(1, inicio[1]).value
+    assert "faixa horária (90 dias até 15/03/2025)" in ws.cell(1, inicio[2]).value
+    assert [ws.cell(2, inicio[0] + k).value for k in range(6)] == [
+        "Loja", "Posição", "Produto", "Setor", "Receita", "Participação na receita da loja",
+    ]  # fmt: skip
+    assert [ws.cell(3, inicio[0] + k).value for k in range(3)] == ["L01", 1, "Arroz"]
+    assert (
+        ws.cell(3, inicio[1] + 1).value == "Sábado"
+        and ws.cell(3, inicio[1] + 4).value == "Melhor dia"
+    )
+    assert ws.cell(4, inicio[2] + 4).value == "Melhor faixa"
+    assert ws.cell(3, inicio[0] + 4).number_format == planilha.FORMATO_REAL
+    assert ws.cell(3, inicio[1] + 2).number_format == planilha.FORMATO_REAL

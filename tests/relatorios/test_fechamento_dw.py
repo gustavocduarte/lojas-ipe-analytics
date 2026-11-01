@@ -6,10 +6,12 @@ from decimal import Decimal
 import pytest
 from openpyxl import load_workbook
 
+from src import config
 from src.relatorios import fechamento
 from src.relatorios.__main__ import principal
 from src.relatorios.planilha import (
     ABA_ALERTAS,
+    ABA_DADOS_POR_LOJA,
     ABA_DIARIO,
     ABA_LOJAS,
     ABA_PREVISAO,
@@ -328,6 +330,91 @@ class TestProdutos:
         assert setores["Alimentos"][3] == pytest.approx(receita_alimentos / (80 * 120) - 1)
         assert setores["Eletro"][3] is None  # sem venda de Eletro no ano anterior
         assert sum(v[1] for v in setores.values()) == pytest.approx(1.0)
+
+
+def _bloco_da_loja(ws, coluna: int, quantas: int, loja: str = "L01") -> list[dict]:
+    """Linhas da loja num bloco da aba oculta "Dados por loja" (cabeçalho na linha 2)."""
+    titulos = [ws.cell(2, coluna + k).value for k in range(quantas)]
+    return [
+        dict(zip(titulos, [ws.cell(i, coluna + k).value for k in range(quantas)], strict=True))
+        for i in range(3, ws.max_row + 1)
+        if ws.cell(i, coluna).value == loja
+    ]
+
+
+class TestDadosPorLoja:
+    def test_top_5_produtos_da_loja_no_mes_ate_o_dia(self, dw, tmp_path):
+        for k in range(1, 7):  # seis produtos pequenos (10..60) na L01, em 10/03
+            dw.execute(
+                "INSERT INTO dw.dim_produto (sku, nome_produto, marca, setor, categoria,"
+                " custo_unitario, preco_lista) VALUES (%s, %s, 'Marca', 'Limpeza', 'Cat', 1, 2)",
+                (f"Q{k}", f"Produto Q{k}"),
+            )
+            b.item(dw, f"Q{k}", cupom=f"Q{k}", data="2025-03-10", receita=10 * k)
+            dw.execute(
+                "UPDATE dw.fato_vendas SET sk_produto = (SELECT sk_produto FROM dw.dim_produto"
+                " WHERE sku = %s) WHERE id_venda_erp = %s",
+                (f"Q{k}", f"Q{k}"),
+            )
+        dw.commit()
+        caminho, _ = fechamento.gerar(dw, MES, DIA, tmp_path / "t.xlsx", modelo=None)
+        ws = load_workbook(caminho)[ABA_DADOS_POR_LOJA]
+        linhas = _bloco_da_loja(ws, 1, 6)
+        assert [x["Posição"] for x in linhas] == [1, 2, 3, 4, 5]  # só os 5 maiores
+        assert [x["Produto"] for x in linhas] == [
+            "Produto 1", "Produto Q6", "Produto Q5", "Produto Q4", "Produto Q3",
+        ]  # fmt: skip
+        grande = 100 * sum(range(1, 16)) + 60 + 55  # sem os dias 16-20 nem a cancelada
+        assert linhas[0]["Receita"] == pytest.approx(grande)
+        total = grande + sum(10 * k for k in range(1, 7))
+        assert linhas[1]["Participação na receita da loja"] == pytest.approx(60 / total)
+        assert {x["Setor"] for x in linhas[1:]} == {"Limpeza"}
+        assert [x["Loja"] for x in _bloco_da_loja(ws, 1, 6, "L02")] == ["L02"]
+
+    @pytest.fixture
+    def quando_vende(self, dw, tmp_path, monkeypatch):
+        monkeypatch.setattr(config, "RELATORIO_DIAS_QUANDO_A_LOJA_VENDE", 30)  # de 14/02 a 15/03
+        b.item(dw, "NOITE", cupom="NOITE", data="2025-03-15", hora="20:00:00", receita=20000)
+        b.item(dw, "FORA", cupom="FORA", data="2025-02-10", receita=9999)  # antes da janela
+        b.item(dw, "DENTRO", cupom="DENTRO", data="2025-02-20", receita=700)  # quinta, na janela
+        dw.commit()
+        caminho, _ = fechamento.gerar(dw, MES, DIA, tmp_path / "q.xlsx", modelo=None)
+        totais = {date(2025, 3, d): 100.0 * d for d in range(1, 16)}  # a L01, dia a dia
+        totais[date(2025, 3, 7)] += 60
+        totais[date(2025, 3, 8)] += 55
+        totais[date(2025, 3, 15)] += 20000
+        totais[date(2025, 2, 20)] = 700.0
+        return load_workbook(caminho)[ABA_DADOS_POR_LOJA], totais
+
+    def test_receita_media_por_dia_da_semana_na_janela_e_o_melhor_dia(self, quando_vende):
+        ws, totais = quando_vende
+        por_dia: dict[int, list[float]] = {}
+        for dia, valor in totais.items():
+            por_dia.setdefault(dia.weekday(), []).append(valor)
+        linhas = _bloco_da_loja(ws, 8, 5)
+        assert [x["Dia da semana"] for x in linhas] == [b.DIAS[k] for k in sorted(por_dia)]
+        for linha, k in zip(linhas, sorted(por_dia), strict=True):
+            assert linha["Receita média por dia"] == pytest.approx(
+                sum(por_dia[k]) / len(por_dia[k])
+            )
+            assert linha["Participação na receita"] == pytest.approx(
+                sum(por_dia[k]) / sum(totais.values())
+            )
+        melhor = max(por_dia, key=lambda k: sum(por_dia[k]) / len(por_dia[k]))
+        assert [x["Dia da semana"] for x in linhas if x["Destaque"]] == [b.DIAS[melhor]]
+        assert melhor == date(2025, 3, 15).weekday()  # o sábado da venda grande
+        assert "Melhor dia" in {x["Destaque"] for x in linhas}
+
+    def test_receita_media_por_faixa_horaria_e_a_melhor_faixa(self, quando_vende):
+        ws, totais = quando_vende
+        linhas = {x["Faixa horária"]: x for x in _bloco_da_loja(ws, 14, 5)}
+        assert list(linhas) == ["Manhã", "Noite"]  # na ordem do dia
+        dias_com_venda = len(totais)
+        assert linhas["Noite"]["Receita média por dia"] == pytest.approx(20000 / dias_com_venda)
+        manha = sum(totais.values()) - 20000
+        assert linhas["Manhã"]["Receita média por dia"] == pytest.approx(manha / dias_com_venda)
+        assert linhas["Noite"]["Destaque"] == "Melhor faixa" and linhas["Manhã"]["Destaque"] is None
+        assert sum(x["Participação na receita"] for x in linhas.values()) == pytest.approx(1.0)
 
 
 class TestVendedoresAlertasPrevisao:

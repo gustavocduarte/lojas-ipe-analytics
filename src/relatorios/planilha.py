@@ -52,6 +52,7 @@ ABA_PRODUTOS = "Produtos"
 ABA_ALERTAS = "Alertas abertos"
 ABA_PREVISAO = "Previsão"
 ABA_PREVISAO_DIARIA = "Previsão diária"
+ABA_DADOS_POR_LOJA = "Dados por loja"  # oculta: a macro GerarAbaDaLoja lê só o próprio arquivo
 NOME_DATA_POSICAO = "DataPosicao"  # nome definido lido pela macro ExportarResumoPDF
 FONTE_RODAPE = "Fonte: dw lojas_ipe_dw"
 
@@ -135,6 +136,28 @@ COLUNAS_SETORES = {
     "margem_percentual": ("Margem %", FORMATO_PERCENTUAL),
     "evolucao": ("Evolução vs ano anterior", FORMATO_PERCENTUAL),
 }  # fmt: skip
+COLUNAS_DADOS_PRODUTOS_LOJA = {
+    "cod_loja": ("Loja", None), "posicao": ("Posição", FORMATO_INTEIRO),
+    "descricao": ("Produto", None), "setor": ("Setor", None), "receita": ("Receita", FORMATO_REAL),
+    "participacao": ("Participação na receita da loja", FORMATO_PERCENTUAL),
+}  # fmt: skip
+COLUNAS_DADOS_DIA_DA_SEMANA = {
+    "cod_loja": ("Loja", None), "dia_da_semana": ("Dia da semana", None),
+    "receita_media": ("Receita média por dia", FORMATO_REAL),
+    "participacao": ("Participação na receita", FORMATO_PERCENTUAL),
+    "destaque": ("Destaque", None),
+}  # fmt: skip
+COLUNAS_DADOS_FAIXA = {
+    "cod_loja": ("Loja", None), "faixa": ("Faixa horária", None),
+    "receita_media": ("Receita média por dia", FORMATO_REAL),
+    "participacao": ("Participação na receita", FORMATO_PERCENTUAL),
+    "destaque": ("Destaque", None),
+}  # fmt: skip
+# Os três blocos da aba de apoio lado a lado, com uma coluna em branco entre eles; a macro
+# GerarAbaDaLoja repete estas posições (ModuloLoja: COL_*/COLS_*; um teste confere).
+COLUNA_DADOS_PRODUTOS = 1
+COLUNA_DADOS_DIA_DA_SEMANA = COLUNA_DADOS_PRODUTOS + len(COLUNAS_DADOS_PRODUTOS_LOJA) + 1
+COLUNA_DADOS_FAIXA = COLUNA_DADOS_DIA_DA_SEMANA + len(COLUNAS_DADOS_DIA_DA_SEMANA) + 1
 COLUNAS_PREVISAO = {
     "mes": ("Mês", FORMATO_MES), "cod_loja": ("Loja", None), "nome_loja": ("Nome", None),
     "previsto": ("Previsto", FORMATO_REAL), "faixa_baixa": ("Faixa baixa", FORMATO_REAL),
@@ -166,6 +189,15 @@ class DadosFechamento:
     )
     setores: pd.DataFrame = field(
         default_factory=lambda: pd.DataFrame(columns=list(COLUNAS_SETORES))
+    )
+    produtos_por_loja: pd.DataFrame = field(  # alimentam a macro da aba da loja
+        default_factory=lambda: pd.DataFrame(columns=list(COLUNAS_DADOS_PRODUTOS_LOJA))
+    )
+    dia_da_semana_por_loja: pd.DataFrame = field(
+        default_factory=lambda: pd.DataFrame(columns=list(COLUNAS_DADOS_DIA_DA_SEMANA))
+    )
+    faixa_por_loja: pd.DataFrame = field(
+        default_factory=lambda: pd.DataFrame(columns=list(COLUNAS_DADOS_FAIXA))
     )
     projecao_por_dia: pd.DataFrame = field(  # venda prevista da rede, dia a dia, depois da posição
         default_factory=lambda: pd.DataFrame(columns=["dia", "projecao"])
@@ -361,6 +393,26 @@ def _aba_produtos(wb: Workbook, dados: DadosFechamento) -> None:
     rotulos.showPercent = False
     grafico.dataLabels = rotulos
     ws.add_chart(grafico, f"{get_column_letter(len(COLUNAS_SETORES) + 2)}{topo}")
+
+
+def _aba_dados_por_loja(wb: Workbook, dados: DadosFechamento) -> None:
+    """Aba oculta de apoio da macro GerarAbaDaLoja: três blocos com os dados de cada loja. Linha 1 =
+    título do bloco (a macro o copia para a aba da loja), linha 2 = cabeçalho, dados abaixo."""
+    ws = wb.create_sheet(ABA_DADOS_POR_LOJA)
+    janela = f"{config.RELATORIO_DIAS_QUANDO_A_LOJA_VENDE} dias até {dados.dia:%d/%m/%Y}"
+    top = config.RELATORIO_TOP_PRODUTOS_LOJA
+    blocos = [
+        (COLUNA_DADOS_PRODUTOS, dados.produtos_por_loja, COLUNAS_DADOS_PRODUTOS_LOJA,
+         f"Top {top} produtos da loja no mês (até {dados.dia:%d/%m/%Y})"),
+        (COLUNA_DADOS_DIA_DA_SEMANA, dados.dia_da_semana_por_loja, COLUNAS_DADOS_DIA_DA_SEMANA,
+         f"Quando a loja vende: receita média por dia da semana ({janela})"),
+        (COLUNA_DADOS_FAIXA, dados.faixa_por_loja, COLUNAS_DADOS_FAIXA,
+         f"Quando a loja vende: receita média por dia, por faixa horária ({janela})"),
+    ]  # fmt: skip
+    for coluna, quadro, colunas, titulo in blocos:
+        ws.cell(1, coluna, titulo)
+        _escrever_tabela(ws, quadro, colunas, 2, coluna)
+    ws.sheet_state = "hidden"
 
 
 def _brl(valor: float) -> str:
@@ -720,7 +772,8 @@ def _aba_resumo(ws, dados: DadosFechamento, ws_diario, ultima_linha_diario: int)
 
 
 def montar_pasta(dados: DadosFechamento, modelo: Workbook | None = None) -> Workbook:
-    """Cria as oito abas. Com `modelo` (ex.: o .xlsm com as macros), as abas antigas dele saem."""
+    """Cria as nove abas (a última, de apoio às macros, fica oculta). Com `modelo` (ex.: o .xlsm
+    com as macros), as abas antigas dele saem."""
     wb = modelo or Workbook()
     temporaria = wb.create_sheet("_temporaria", 0)
     for aba in [a for a in wb.worksheets if a is not temporaria]:
@@ -734,6 +787,7 @@ def montar_pasta(dados: DadosFechamento, modelo: Workbook | None = None) -> Work
     _aba_alertas(wb, dados)
     _aba_previsao(wb, dados)
     _aba_previsao_diaria(wb, dados)
+    _aba_dados_por_loja(wb, dados)
     wb.remove(temporaria)
     wb.active = 0
     return wb
