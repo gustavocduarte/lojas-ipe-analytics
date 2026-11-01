@@ -48,6 +48,10 @@ muda) · 2 erro de uso · 3 erro de execução (banco, arquivo, memória, outra 
 Durante a carga uma vigia confere a memória livre; se ela ficar abaixo de 0,4 GB por mais de
 alguns segundos seguidos (`src/config.py`), a consulta é cancelada, o dw volta ao que era e o
 comando sai com 3.
+O piso padrão é 0,40 GB (`MEMORIA_LIVRE_MINIMA_GB`). Por causa dos 4 GB de RAM da máquina, a
+variável de ambiente `LOJAS_IPE_PISO_MEMORIA_GB` permite baixá-lo em uma única execução; na
+regeração dos dados com a lotação por setor (gerador e ETL) foi usado 0,25 GB, com a vigia ligada
+e cópia de segurança de `data/raw`. O padrão no código e nos testes continua 0,40 GB.
 O contrato de entrada está em `docs/contrato_de_entrada.md`.
 
 ### Fonte de "outra empresa" (prova de generalidade)

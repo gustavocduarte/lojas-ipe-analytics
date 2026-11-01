@@ -1,5 +1,6 @@
 """Constantes e parâmetros do projeto Lojas Ipê. Nenhum número mágico fora deste arquivo."""
 
+import os
 from datetime import date
 from pathlib import Path
 
@@ -32,7 +33,9 @@ VAR_BD_TESTE_USUARIO = "BD_TESTE_USUARIO"
 VAR_BD_TESTE_SENHA = "BD_TESTE_SENHA"
 
 # --- Memória (computador com ~3,9 GB de RAM) --------------------------------------------------
-MEMORIA_LIVRE_MINIMA_GB = 0.4
+# Piso padrão 0,4 GB; a variável de ambiente só vale para uma execução (nunca grava nada)
+VAR_PISO_MEMORIA_GB = "LOJAS_IPE_PISO_MEMORIA_GB"
+MEMORIA_LIVRE_MINIMA_GB = float(os.getenv(VAR_PISO_MEMORIA_GB) or 0.4)
 INTERVALO_VIGIA_MEMORIA_S = 2.0  # de quanto em quanto tempo a carga confere a memória livre
 TOLERANCIA_PISO_MEMORIA_S = 6.0  # abaixo do piso por mais que isso, seguido: aborta a carga
 BYTES_POR_GB = 1024**3
