@@ -55,6 +55,8 @@ FLUXO_PLANO_ANOMALIAS = 4
 FLUXO_METAS = 5
 FLUXO_QUALIDADE_VENDAS = 6
 FLUXO_QUALIDADE_DESPESAS = 7
+FLUXO_LOTACAO = 9  # lotação por setor, trocas e habilidades
+FLUXO_REATRIBUICAO = 10  # reatribuição dos cupons (um fluxo por mês)
 
 # Nomes dos arquivos gerados em data/raw/
 ARQ_LOJAS = "lojas.csv"
@@ -72,6 +74,9 @@ ARQ_DESPESAS = "despesas.csv"
 ARQ_ORCAMENTO = "orcamento_despesas.csv"
 ARQ_ANOMALIAS = "_anomalias_injetadas.csv"
 ARQ_PROBLEMAS = "_problemas_qualidade.csv"
+ARQ_LOTACAO_SETOR = "lotacao_setor.csv"
+ARQ_HABILIDADE_VERDADEIRA = "_habilidade_verdadeira.csv"  # gabarito (só para testes)
+ARQ_TROCAS_SETOR = "_trocas_setor.csv"  # gabarito (só para testes)
 MODELO_ARQ_VENDAS = "vendas_{ano}-{mes:02d}.csv"
 # Exemplo de fonte de "outra empresa": planilha Excel com as vendas de um mês
 PASTA_OUTRA_EMPRESA = "outra_empresa"
@@ -275,6 +280,26 @@ ATINGIMENTO_MINIMO = 0.70
 
 # --- Gerador: cupons, horários, vendedores, clientes ------------------------------------------
 FLUXO_QUALIDADE_CADASTROS = 8
+
+# --- Gerador: lotação dos vendedores por setor ----------------------------------------------------
+HABILIDADE_FAIXA = (0.7, 1.3)  # fator de desempenho do vendedor em cada setor onde está lotado
+LOTACAO_FRACAO_QUE_TROCA = 0.20  # parte dos vendedores que troca de setor ao menos uma vez
+LOTACAO_FRACAO_TROCA_DUPLA = 0.25  # desses, a parte que troca duas vezes
+LOTACAO_JANELA_TROCAS = (date(2024, 7, 1), date(2025, 6, 30))  # entre meados de 2024 e de 2025
+LOTACAO_DIAS_MINIMOS_ANTES_E_DEPOIS = 90  # cada lotação dura ao menos 3 meses
+LOTACAO_PROB_REATRIBUIR = 0.90  # chance base de o cupom ficar com o vendedor lotado no setor dele
+LOTACAO_SENSIBILIDADE_HABILIDADE = 0.5  # quanto a habilidade (acima/abaixo de 1) move essa chance
+LOTACAO_EXPOENTE_HABILIDADE = 2.0  # peso da habilidade na disputa entre vendedores do mesmo setor
+# Quantos vendedores cada setor pede, em proporção: parte dos cupons cujo item de maior receita é do
+# setor (medida nos dados gerados), para a carga de trabalho ficar parecida entre os setores.
+LOTACAO_PESO_DO_SETOR = {
+    "Alimentos": 0.37, "Bebidas": 0.18, "Casa": 0.17, "Cuidados Pessoais": 0.11,
+    "Eletro": 0.10, "Limpeza": 0.07,
+}  # fmt: skip
+LOTACAO_ALVO_PARTICIPACAO = (0.55, 0.70)  # mediana da receita do vendedor no setor de lotação
+MOTIVO_LOTACAO_INICIAL = "Lotação inicial"
+MOTIVO_ADMISSAO = "Admissão"
+MOTIVO_TROCA_DE_SETOR = "Troca de setor"
 LAMBDA_ITENS_EXTRA_POR_CUPOM = 2.0  # itens por cupom = 1 + Poisson(2) -> média 3
 LIMITE_ITENS_REPARTIDOS = 0.8  # cupons duplicados saem dos primeiros 80% do mês
 PROB_CUPOM_EM_CAMPANHA = 0.70

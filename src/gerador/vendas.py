@@ -7,6 +7,7 @@ import pandas as pd
 
 from src import calendario, config
 from src.gerador.catalogo import SETORES, Catalogo, horario_funcionamento
+from src.gerador.lotacao import Lotacao, Reatribuidor
 from src.gerador.parametros import ParametrosGeracao, rng_para
 from src.gerador.sazonalidade import Sazonalidade
 
@@ -92,7 +93,13 @@ def distribuir_linhas(total: int, pesos_por_mes: list[float]) -> list[int]:
 class GeradorVendas:
     """Gera os cupons do mês. Guarda os cadastros já convertidos em arrays (calculados uma vez)."""
 
-    def __init__(self, params: ParametrosGeracao, cat: Catalogo, sazon: Sazonalidade) -> None:
+    def __init__(
+        self,
+        params: ParametrosGeracao,
+        cat: Catalogo,
+        sazon: Sazonalidade,
+        lotacao: Lotacao | None = None,
+    ) -> None:
         self.params, self.cat, self.sazon = params, cat, sazon
         lojas = cat.lojas
         self.codigos_loja = np.array([lj.cod_loja for lj in lojas])
@@ -128,6 +135,11 @@ class GeradorVendas:
             np.flatnonzero([v.cod_loja == lj.cod_loja for v in vend]) for lj in lojas
         ]
         self.vendedor_cancela_muito = self._escolher_vendedores_cancelamento_alto()
+        self.reatribuidor = (
+            None
+            if lotacao is None
+            else Reatribuidor(cat, lotacao, {v.cod_vendedor: i for i, v in enumerate(vend)})
+        )
 
         self.clientes_da_loja = []
         for loja in lojas:
@@ -196,6 +208,38 @@ class GeradorVendas:
             pesos = self.desempenho[candidatos]
             escolhido[grupo] = rng.choice(candidatos, size=len(grupo), p=pesos / pesos.sum())
         return escolhido
+
+    def _reatribuir_vendedores(
+        self, vendedor, *, ano, mes, dias, dias_np, hora, idx_dia, idx_loja, ic, inicio_cupom,
+        idx_setor, receita, tipo, dup,
+    ):  # fmt: skip
+        """Depois de tudo sorteado, troca o vendedor de parte dos cupons por um da mesma loja lotado
+        no setor do item de maior receita. Não mexe nos cupons duplicados, nos que levam anomalia
+        injetada nem nos de/para os vendedores de cancelamento alto (gabaritos intactos)."""
+        n_c = len(vendedor)
+        ordem_itens = np.lexsort((-receita, ic))  # por cupom, o item de maior receita primeiro
+        setor_do_cupom = idx_setor[ordem_itens[inicio_cupom]]
+        com_anomalia = np.bincount(ic, weights=(tipo != ""), minlength=n_c) > 0
+        elegivel = ~com_anomalia & ~np.isin(np.arange(n_c), dup)
+        elegivel &= ~self.vendedor_cancela_muito[vendedor]
+        classe = (hora >= config.HORA_CORTE_TURNO).astype(int)
+        integral = self.turno == TURNO_INTEGRAL
+        return self.reatribuidor.reatribuir(
+            vendedor=vendedor,
+            dia_do_cupom=idx_dia,
+            loja_do_cupom=idx_loja,
+            classe_do_cupom=classe,
+            setor_do_cupom=setor_do_cupom,
+            elegivel=elegivel,
+            setor_lotado=self.reatribuidor.setores_no_mes(dias),
+            ativo_no_dia=(self.admissao[:, None] <= dias_np[None, :])
+            & (self.desligamento[:, None] > dias_np[None, :]),
+            turno_ok=np.stack([integral | (self.turno == 0), integral | (self.turno == 1)], axis=1),
+            desempenho=self.desempenho,
+            proibido=self.vendedor_cancela_muito,
+            vendedores_da_loja=self.vendedores_da_loja,
+            rng=rng_para(self.params.semente, config.FLUXO_REATRIBUICAO, ano * 100 + mes),
+        )
 
     def _escolher_clientes(self, idx_dia, idx_loja, dias_np, n_lojas, rng) -> np.ndarray:
         """Cliente identificado (ou vazio): só quem já estava cadastrado, fiéis compram mais."""
@@ -431,6 +475,12 @@ class GeradorVendas:
                 f"hora={nova_hora:02d}:{minuto[c]:02d} | horario_loja={abre:02d}-{fecha:02d}"
             )
 
+        if self.reatribuidor is not None:  # só muda o vendedor; o cancelamento já foi sorteado
+            vendedor = self._reatribuir_vendedores(
+                vendedor, ano=ano, mes=mes, dias=dias, dias_np=dias_np, hora=hora, idx_dia=idx_dia,
+                idx_loja=idx_loja, ic=ic, inicio_cupom=inicio_cupom, idx_setor=idx_setor,
+                receita=receita, tipo=tipo, dup=dup,
+            )  # fmt: skip
         total_cupom = np.round(
             np.bincount(ic, weights=receita, minlength=n_c), config.CASAS_DECIMAIS_DINHEIRO
         )

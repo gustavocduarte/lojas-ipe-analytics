@@ -10,6 +10,7 @@ import pandas as pd
 
 from src import calendario, config
 from src.gerador import despesas as mod_despesas
+from src.gerador import lotacao as mod_lotacao
 from src.gerador import outra_empresa, qualidade, vendas
 from src.gerador.catalogo import Catalogo, horario_funcionamento, montar_catalogo
 from src.gerador.escrita import EscritorCsv, RegistroCsv, formatar_dinheiro
@@ -175,6 +176,43 @@ def _gravar_cadastros(
         resumo.linhas_por_arquivo[nome] = _gravar_df(df, saida / nome)
 
 
+def _gravar_lotacao(
+    params: ParametrosGeracao, lotacao: mod_lotacao.Lotacao, resumo: ResumoGeracao
+) -> None:
+    """Lotação por setor (fonte de entrada do ETL) e os dois gabaritos de teste: a habilidade
+    verdadeira de cada vendedor por setor e as datas reais das trocas de setor."""
+    saida, formato = params.diretorio_saida, config.FORMATO_DATA_BR
+    periodos = pd.DataFrame(
+        {
+            "cod_vendedor": [p.cod_vendedor for p in lotacao.periodos],
+            "setor": [p.setor for p in lotacao.periodos],
+            "data_inicio": [p.data_inicio.strftime(formato) for p in lotacao.periodos],
+            "data_fim": [
+                p.data_fim.strftime(formato) if p.data_fim else "" for p in lotacao.periodos
+            ],
+            "motivo": [p.motivo for p in lotacao.periodos],
+        }
+    )
+    habilidade = pd.DataFrame(
+        [(cod, setor, valor) for (cod, setor), valor in sorted(lotacao.habilidade.items())],
+        columns=["cod_vendedor", "setor", "habilidade"],
+    )
+    trocas = pd.DataFrame(
+        {
+            "cod_vendedor": [t.cod_vendedor for t in lotacao.trocas],
+            "data_troca": [t.data_troca.strftime(config.FORMATO_DATA_ISO) for t in lotacao.trocas],
+            "setor_origem": [t.setor_origem for t in lotacao.trocas],
+            "setor_destino": [t.setor_destino for t in lotacao.trocas],
+        }
+    )
+    for nome, df in (
+        (config.ARQ_LOTACAO_SETOR, periodos),
+        (config.ARQ_HABILIDADE_VERDADEIRA, habilidade),
+        (config.ARQ_TROCAS_SETOR, trocas),
+    ):
+        resumo.linhas_por_arquivo[nome] = _gravar_df(df, saida / nome)
+
+
 def _linha_gabarito_venda(df: pd.DataFrame, i: int, arquivo: str) -> tuple:
     """Linha do gabarito para um item/cupom anômalo (i = posição no DataFrame do mês)."""
     linha = df.iloc[i]
@@ -214,7 +252,8 @@ def gerar_dados(
     plano = mod_despesas.montar_plano(
         params, cat, meses, rng_para(params.semente, config.FLUXO_PLANO_ANOMALIAS)
     )
-    gerador_vendas = vendas.GeradorVendas(params, cat, sazon)
+    lotacao = mod_lotacao.montar_lotacao(params, cat) if params.lotacao_por_setor else None
+    gerador_vendas = vendas.GeradorVendas(params, cat, sazon, lotacao)
 
     anomalias: list[tuple] = []
     receita_loja_setor: dict[tuple[str, str, int, int], float] = defaultdict(float)
@@ -224,6 +263,8 @@ def gerar_dados(
 
     with RegistroCsv(saida / config.ARQ_PROBLEMAS, qualidade.COLUNAS_PROBLEMAS) as problemas:
         _gravar_cadastros(params, cat, resumo, problemas)
+        if lotacao is not None:
+            _gravar_lotacao(params, lotacao, resumo)
 
         # ---- vendas: um arquivo por mês --------------------------------------------------
         pesos = {m: vendas.pesos_do_mes(sazon, cat, *m, params) for m in meses}

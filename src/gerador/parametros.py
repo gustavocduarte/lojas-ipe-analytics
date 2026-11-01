@@ -21,6 +21,9 @@ class ParametrosGeracao:
     )
     verificar_memoria: bool = True
     gerar_exemplo_outra_empresa: bool = True  # planilha Excel de outra empresa (um mês)
+    lotacao_por_setor: bool = (
+        True  # lotação por setor e reatribuição dos cupons (sem ela, vendedor sorteado puro)
+    )
 
 
 def rng_para(semente: int, *chaves: int) -> np.random.Generator:
