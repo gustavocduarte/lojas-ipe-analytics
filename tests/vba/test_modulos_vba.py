@@ -122,8 +122,6 @@ def test_modelo_traz_os_modulos_importados():
     with zipfile.ZipFile(MODELO) as pacote:
         projeto = pacote.read("xl/vbaProject.bin")
     for modulo in MODULOS:
-        if modulo == "ModuloVendedor":
-            continue  # novo: entra no modelo quando o usuário o importar no Excel
         assert modulo.encode("utf-16-le") in projeto  # nome do fluxo no arquivo OLE
 
 
