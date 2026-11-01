@@ -128,6 +128,33 @@ def pasta_com_produtos(dw, tmp_path):
     return load_workbook(caminho)
 
 
+@pytest.fixture
+def pasta_com_setor_do_vendedor(dw, tmp_path):
+    """V1 vende Alimentos (produto 1) e um pouco de Eletro; V2 o contrário. Há também Eletro
+    cancelado e depois do dia de posição, que não podem contar."""
+    dw.execute(
+        "INSERT INTO dw.dim_produto (sku, nome_produto, marca, setor, categoria, custo_unitario,"
+        " preco_lista) VALUES ('P2', 'Produto 2', 'Marca', 'Eletro', 'Eletro', 60, 100)"
+    )
+    eletro = "(SELECT sk_produto FROM dw.dim_produto WHERE sku = 'P2')"
+    l02 = "(SELECT sk_loja FROM dw.dim_loja WHERE cod_loja = 'L02')"
+    dw.execute(
+        f"UPDATE dw.fato_vendas SET sk_produto = {eletro} WHERE sk_loja = {l02}"
+        " AND id_venda_erp NOT IN ('A2', 'A4', 'A6')"  # V2: 300 em Alimentos, o resto em Eletro
+    )
+    dw.execute(
+        f"UPDATE dw.fato_vendas SET sk_produto = {eletro} WHERE id_venda_erp IN ('A1', 'A3', 'CANC')"
+    )  # V1: 300 em Eletro dentro da posição, mais uma cancelada
+    dw.execute(  # V1 depois do dia 15: 100 x (16..20) em Eletro
+        f"UPDATE dw.fato_vendas SET sk_produto = {eletro} WHERE sk_tempo > 20250315"
+        " AND sk_tempo < 20250401 AND sk_loja = (SELECT sk_loja FROM dw.dim_loja WHERE cod_loja"
+        " = 'L01')"
+    )
+    dw.commit()
+    caminho, _ = fechamento.gerar(dw, MES, DIA, tmp_path / "sv.xlsx", modelo=None)
+    return load_workbook(caminho)
+
+
 def _escalar(con, sql, *params):
     valor = con.execute(sql, params).fetchone()[0]
     return float(valor) if isinstance(valor, Decimal) else valor
@@ -321,6 +348,17 @@ class TestVendedoresAlertasPrevisao:
             )  # fmt: skip
             assert x[TITULO_COBERTURA_ATE_O_DIA] == pytest.approx(esperado / meta_ate_dia)
         assert linhas[0]["Meta do mês"] == 5000
+
+    def test_setor_principal_do_vendedor_ignora_cancelada_e_dias_depois_da_posicao(
+        self, pasta_com_setor_do_vendedor
+    ):
+        linhas = {x["Vendedor"]: x for x in _tabela(pasta_com_setor_do_vendedor[ABA_VENDEDORES])}
+        total_v1 = 100 * sum(range(1, 16)) + 60 + 55
+        assert linhas["V1"]["Setor principal"] == "Alimentos"
+        assert linhas["V1"]["% no setor principal"] == pytest.approx((total_v1 - 300) / total_v1)
+        total_v2 = 50 * sum(range(1, 16))
+        assert linhas["V2"]["Setor principal"] == "Eletro"
+        assert linhas["V2"]["% no setor principal"] == pytest.approx((total_v2 - 300) / total_v2)
 
     def test_so_alertas_independentes_abertos_e_do_mais_grave_ao_menos(self, dw, pasta):
         esperado = _escalar(

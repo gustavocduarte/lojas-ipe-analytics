@@ -39,6 +39,8 @@ def _dados(com_previsao: bool = True, com_projecao: bool = True) -> DadosFechame
             "acumulado_mes": [12000.0, 6000.0], "meta_acumulada": [5000.0, 8000.0],
             "cobertura_ate_o_dia": [2.4, 0.75], "meta_mes": [10000.0, 9000.0],
             "cobertura_mes": [1.2, 0.6667],
+            "setor_principal": ["Alimentos", "Eletro"],
+            "percentual_setor_principal": [0.8, 0.55],
         }
     )  # fmt: skip
     alertas = pd.DataFrame(
@@ -493,3 +495,12 @@ def test_sem_projecao_a_coluna_projecao_fica_vazia(tmp_path):
     montar_pasta(dados).save(tmp_path / "s.xlsx")
     diario = load_workbook(tmp_path / "s.xlsx")[planilha.ABA_DIARIO]
     assert all(diario.cell(i, 7).value is None for i in range(2, 33))
+
+
+def test_vendedores_trazem_o_setor_principal_e_a_participacao_dele(pasta):
+    ws = pasta[planilha.ABA_VENDEDORES]
+    titulos = [c.value for c in ws[1]]
+    assert titulos[-2:] == ["Setor principal", "% no setor principal"]
+    linha = dict(zip(titulos, [c.value for c in ws[3]], strict=True))
+    assert linha["Setor principal"] == "Eletro" and linha["% no setor principal"] == 0.55
+    assert ws.cell(3, len(titulos)).number_format == planilha.FORMATO_PERCENTUAL

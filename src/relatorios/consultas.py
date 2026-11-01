@@ -168,7 +168,7 @@ def projecao_por_dia(conexao: psycopg.Connection, mes: date, dia: date) -> pd.Da
 
 
 def vendedores(conexao: psycopg.Connection, mes: date, dia: date) -> pd.DataFrame:
-    """Ranking de vendedores pela receita do mês até o dia, com meta e cobertura."""
+    """Ranking de vendedores pela receita do mês até o dia: meta, cobertura e setor principal."""
     sql = f"""
     WITH {PARAMETROS_BASE},
     venda AS (
@@ -190,6 +190,20 @@ def vendedores(conexao: psycopg.Connection, mes: date, dia: date) -> pd.DataFram
         CROSS JOIN par
         WHERE m.data BETWEEN par.ini AND par.dia
         GROUP BY m.sk_vendedor
+    ),
+    setor_do_vendedor AS (
+        SELECT v.sk_vendedor, p.setor, SUM(v.receita_liquida) AS receita
+        FROM dw.fato_vendas v
+        JOIN dw.dim_tempo t ON t.sk_tempo = v.sk_tempo
+        JOIN dw.dim_produto p ON p.sk_produto = v.sk_produto
+        CROSS JOIN par
+        WHERE v.status = %(status)s AND t.data BETWEEN par.ini AND par.dia
+        GROUP BY v.sk_vendedor, p.setor
+    ),
+    principal AS (  -- o setor de maior receita do vendedor (empate: ordem alfabética)
+        SELECT DISTINCT ON (sk_vendedor) sk_vendedor, setor, receita
+        FROM setor_do_vendedor
+        ORDER BY sk_vendedor, receita DESC, setor
     )
     SELECT RANK() OVER (ORDER BY COALESCE(v.acumulado, 0) DESC) AS posicao,
            d.cod_vendedor, d.nome_vendedor, l.cod_loja, l.nome_loja,
@@ -197,12 +211,15 @@ def vendedores(conexao: psycopg.Connection, mes: date, dia: date) -> pd.DataFram
            md.meta_acumulada,
            COALESCE(v.acumulado, 0) / NULLIF(md.meta_acumulada, 0) AS cobertura_ate_o_dia,
            m.valor_meta AS meta_mes,
-           COALESCE(v.acumulado, 0) / NULLIF(m.valor_meta, 0) AS cobertura_mes
+           COALESCE(v.acumulado, 0) / NULLIF(m.valor_meta, 0) AS cobertura_mes,
+           pr.setor AS setor_principal,
+           pr.receita / NULLIF(v.acumulado, 0) AS percentual_setor_principal
     FROM dw.dim_vendedor d
     JOIN dw.dim_loja l ON l.sk_loja = d.sk_loja
     LEFT JOIN venda v ON v.sk_vendedor = d.sk_vendedor
     LEFT JOIN meta m ON m.sk_vendedor = d.sk_vendedor
     LEFT JOIN meta_dia md ON md.sk_vendedor = d.sk_vendedor
+    LEFT JOIN principal pr ON pr.sk_vendedor = d.sk_vendedor
     WHERE v.sk_vendedor IS NOT NULL OR m.sk_vendedor IS NOT NULL
     ORDER BY posicao, d.cod_vendedor
     """

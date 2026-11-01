@@ -103,6 +103,8 @@ COLUNAS_VENDEDORES = {
     "cobertura_ate_o_dia": (TITULO_COBERTURA_ATE_O_DIA, FORMATO_PERCENTUAL),
     "meta_mes": ("Meta do mês", FORMATO_REAL),
     "cobertura_mes": (TITULO_META_DO_MES_ATINGIDO, FORMATO_PERCENTUAL),
+    "setor_principal": ("Setor principal", None),
+    "percentual_setor_principal": ("% no setor principal", FORMATO_PERCENTUAL),
 }  # fmt: skip
 COLUNAS_ALERTAS = {
     "severidade": ("Severidade", None), "tipo": ("Tipo", None), "data": ("Data", FORMATO_DATA),
