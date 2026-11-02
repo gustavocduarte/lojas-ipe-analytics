@@ -15,8 +15,9 @@ DECLARE
     v_q NUMERIC := etl.parametro('simulador_percentil_fatia');
     v_alta INT := etl.parametro('simulador_semanas_confianca_alta')::INT;
     v_media INT := etl.parametro('simulador_semanas_confianca_media')::INT;
+    v_dilui BOOLEAN := etl.parametro('simulador_aplica_diluicao') = 1;
 BEGIN
-    DROP TABLE IF EXISTS _f_total, _f_vend, _f_obs, _f_prop, _f_loja, _f_rede;
+    DROP TABLE IF EXISTS _f_total, _f_vend, _f_obs, _f_prop, _f_loja, _f_rede, _f_lot;
 
     CREATE TEMP TABLE _f_total ON COMMIT DROP AS
     SELECT sk_loja, setor, semana, total FROM (
@@ -61,6 +62,14 @@ BEGIN
            percentile_cont(v_q::DOUBLE PRECISION) WITHIN GROUP (ORDER BY fatia)::NUMERIC AS pq
     FROM _f_obs GROUP BY setor;
 
+    -- equipe atual: vendedores ativos lotados no setor na data de referência, por loja
+    CREATE TEMP TABLE _f_lot ON COMMIT DROP AS
+    SELECT d.sk_loja, h.setor, count(*) AS c
+    FROM dw.vendedor_setor_historico h JOIN dw.dim_vendedor d ON d.sk_vendedor = h.sk_vendedor
+    WHERE v_ref BETWEEN h.data_inicio AND COALESCE(h.data_fim, DATE 'infinity')
+      AND d.data_admissao <= v_ref AND (d.data_desligamento IS NULL OR d.data_desligamento > v_ref)
+    GROUP BY d.sk_loja, h.setor;
+
     UPDATE dw.desempenho_vendedor_setor d
     SET fatia_semanas = x.n,
         fatia_propria = round(x.propria, 6),
@@ -71,6 +80,10 @@ BEGIN
         fatia_conservadora = round(CASE WHEN x.n = 0 THEN x.pq_outros
                                         ELSE (x.n * x.pq_propria + v_k * x.media_outros) / (x.n + v_k)
                                    END, 6),
+        lotados_no_setor = x.outros_lotados,
+        -- quem entra no setor divide a venda com a equipe: n / (n + 1); quem já está lá, não
+        fator_diluicao = CASE WHEN NOT v_dilui OR x.ja_lotado OR x.outros_lotados = 0 THEN 1
+                              ELSE x.outros_lotados::NUMERIC / (x.outros_lotados + 1) END,
         k_encolhimento = v_k,
         percentil_fatia = v_q,
         confianca_fatia = CASE WHEN x.media_outros IS NULL THEN 'sem_base'
@@ -79,7 +92,9 @@ BEGIN
                                WHEN x.nivel = 'rede' THEN 'muito_baixa'
                                ELSE 'baixa' END
     FROM (
-        SELECT b.sk_vendedor, b.setor, COALESCE(p.n, 0) AS n, p.media AS propria, p.pq AS pq_propria,
+        SELECT b.sk_vendedor, b.setor, b.lotado_na_referencia AS ja_lotado,
+               COALESCE(lo.c, 0) - CASE WHEN b.lotado_na_referencia THEN 1 ELSE 0 END AS outros_lotados,
+               COALESCE(p.n, 0) AS n, p.media AS propria, p.pq AS pq_propria,
                CASE WHEN l.c - COALESCE(p.n, 0) > 0 THEN 'loja'
                     WHEN r.c - COALESCE(p.n, 0) > 0 THEN 'rede' END AS nivel,
                COALESCE(CASE WHEN l.c - COALESCE(p.n, 0) > 0
@@ -92,6 +107,7 @@ BEGIN
         LEFT JOIN _f_prop p ON p.sk_vendedor = b.sk_vendedor AND p.setor = b.setor
         LEFT JOIN _f_loja l ON l.sk_loja = b.sk_loja AND l.setor = b.setor
         LEFT JOIN _f_rede r ON r.setor = b.setor
+        LEFT JOIN _f_lot lo ON lo.sk_loja = b.sk_loja AND lo.setor = b.setor
         WHERE b.data_referencia = v_ref) x
     WHERE d.data_referencia = v_ref AND d.sk_vendedor = x.sk_vendedor AND d.setor = x.setor;
 END $$;

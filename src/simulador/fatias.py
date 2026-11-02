@@ -106,6 +106,27 @@ def _semanas(valores: np.ndarray) -> np.ndarray:
     return valores.reshape(-1, config.SIMULADOR_DIAS_POR_SEMANA).sum(axis=1)
 
 
+def lotados_no_setor(h: Historico, sk_loja: int, setor: str, dia: date, excluir: int) -> int:
+    """Quantos outros vendedores ativos da loja estão lotados no setor no dia."""
+    momento = pd.Timestamp(dia)
+    total = 0
+    for v in h.vendedores_da_loja.get(sk_loja, []):
+        if v == excluir:
+            continue
+        c = h.cadastro.loc[v]
+        deslig = c["data_desligamento"]
+        if c["data_admissao"] > dia or (deslig is not None and deslig <= dia):
+            continue
+        total += any(ini <= momento <= fim for ini, fim in h.periodos.get((v, setor), []))
+    return total
+
+
+def fator_diluicao(lotados: int, ja_lotado: bool) -> float:
+    """Quem entra no setor divide a venda com a equipe: n / (n + 1). Quem já está lá, ou setor
+    sem ninguém lotado, não muda."""
+    return 1.0 if ja_lotado or lotados == 0 else lotados / (lotados + 1)
+
+
 def preparar(h: Historico, sem: Semanal) -> list[dict]:
     """Para cada evento avaliável: o que o v2 e a referência precisam (uma vez só)."""
     maior = max(config.SIMULADOR_HORIZONTES_DIAS)
@@ -137,8 +158,15 @@ def preparar(h: Historico, sem: Semanal) -> list[dict]:
             "proprias": sem.observacoes(e.sk_vendedor, e.setor_destino, e.origem),
             "conjunto": sem.conjunto(e.sk_loja, e.setor_destino, e.origem, e.sk_vendedor),
             "referencia": v1.projetar(h, e, previsto, maior),
+            "fator_diluicao": _fator_do_evento(h, e),
         })  # fmt: skip
     return saida
+
+
+def _fator_do_evento(h: Historico, e) -> float:
+    outros = lotados_no_setor(h, e.sk_loja, e.setor_destino, e.origem, e.sk_vendedor)
+    com_ele = lotados_no_setor(h, e.sk_loja, e.setor_destino, e.origem, -1)
+    return fator_diluicao(outros, com_ele > outros)  # mais um quando ele mesmo já está lotado
 
 
 def metricas(real: np.ndarray, proj: np.ndarray) -> dict:
@@ -149,25 +177,28 @@ def metricas(real: np.ndarray, proj: np.ndarray) -> dict:
     }
 
 
-def projetar_v2(item: dict, k: float, percentil: float, horizonte: int):
+def projetar_v2(item: dict, k: float, percentil: float, horizonte: int, diluir: bool = True):
     """Projeção semanal (central, conservadora) do v2 para o horizonte, ou None sem base."""
     fatias = estimar(item["proprias"], item["conjunto"], k, percentil)
     if fatias is None:
         return None
     semanas = horizonte // config.SIMULADOR_DIAS_POR_SEMANA
     previsto = item["previsto_semana"][:semanas]
-    return fatias[0] * previsto, fatias[1] * previsto
+    fator = item["fator_diluicao"] if diluir else 1.0
+    return fatias[0] * fator * previsto, fatias[1] * fator * previsto
 
 
-def _agregar(itens: list[dict], funcao, horizonte: int) -> dict | None:
+def _agregar(itens: list[dict], funcao, horizonte: int, total: bool = False) -> dict | None:
+    """Métricas semana a semana ou, com `total`, sobre a soma do horizonte de cada evento."""
     reais, projs, eventos = [], [], 0
     semanas = horizonte // config.SIMULADOR_DIAS_POR_SEMANA
     for item in itens:
         proj = funcao(item, horizonte)
         if proj is None:
             continue
-        reais.append(item["real_semana"][:semanas])
-        projs.append(proj)
+        real = item["real_semana"][:semanas]
+        reais.append(np.array([real.sum()]) if total else real)
+        projs.append(np.array([proj.sum()]) if total else proj)
         eventos += 1
     if not eventos:
         return None
@@ -175,14 +206,14 @@ def _agregar(itens: list[dict], funcao, horizonte: int) -> dict | None:
     return {"eventos": eventos, "semanas": len(real), **metricas(real, proj)}
 
 
-def escolher_k(itens: list[dict], percentil: float = 0.5) -> pd.DataFrame:
+def escolher_k(itens: list[dict], percentil: float = 0.5, diluir: bool = True) -> pd.DataFrame:
     """WAPE do v2 central por k, por grupo e juntos (maior horizonte). Sem gabarito."""
     horizonte = max(config.SIMULADOR_HORIZONTES_DIAS)
     linhas = []
     for k in config.SIMULADOR_K_GRADE:
 
         def central(item, hz, k=k):
-            proj = projetar_v2(item, k, percentil, hz)
+            proj = projetar_v2(item, k, percentil, hz, diluir)
             return None if proj is None else proj[0]
 
         linha = {"k": k}
@@ -194,7 +225,7 @@ def escolher_k(itens: list[dict], percentil: float = 0.5) -> pd.DataFrame:
     return pd.DataFrame(linhas)
 
 
-def curva_percentil(itens: list[dict], k: float) -> pd.DataFrame:
+def curva_percentil(itens: list[dict], k: float, diluir: bool = True) -> pd.DataFrame:
     """Cobertura, WAPE e viés da fatia conservadora para cada percentil, por grupo e horizonte."""
     linhas = []
     for q in config.SIMULADOR_PERCENTIS_CURVA:
@@ -203,7 +234,7 @@ def curva_percentil(itens: list[dict], k: float) -> pd.DataFrame:
                 sel = [i for i in itens if i["evento"].grupo == grupo]
                 r = _agregar(
                     sel,
-                    lambda i, hz, q=q: (lambda p: p[1] if p else None)(projetar_v2(i, k, q, hz)),
+                    lambda i, hz, q=q: _parte(i, k, q, hz, 1, diluir),
                     horizonte,
                 )
                 if r:
@@ -225,28 +256,34 @@ def escolher_percentil(curva: pd.DataFrame) -> float:
     )
 
 
-def tabela_final(itens: list[dict], k: float, percentil: float) -> pd.DataFrame:
-    """v2 central e conservador, o p25 diário atual e o ingênuo, por grupo e horizonte."""
+def _parte(item: dict, k: float, percentil: float, horizonte: int, qual: int, diluir: bool):
+    proj = projetar_v2(item, k, percentil, horizonte, diluir)
+    return None if proj is None else proj[qual]
+
+
+def tabela_final(
+    itens: list[dict], k: float, percentil: float, diluir: bool = True
+) -> pd.DataFrame:
+    """v2 central e conservador (p5 e p10), o p25 diário atual e o ingênuo, por grupo, horizonte
+    e escala: semana a semana ou sobre o total do horizonte de cada troca."""
+    alternativo = config.SIMULADOR_PERCENTIL_ALTERNATIVO
     metodos = {
-        "v2_central": lambda i, hz: (lambda p: p[0] if p else None)(
-            projetar_v2(i, k, percentil, hz)
-        ),
-        "v2_conservador": lambda i, hz: (lambda p: p[1] if p else None)(
-            projetar_v2(i, k, percentil, hz)
-        ),
+        "v2_central": lambda i, hz: _parte(i, k, percentil, hz, 0, diluir),
+        "v2_conservador": lambda i, hz: _parte(i, k, percentil, hz, 1, diluir),
+        "v2_conservador_p10": lambda i, hz: _parte(i, k, alternativo, hz, 1, diluir),
         "completo_p25_diario": lambda i, hz: _referencia(i, "completo", hz),
         "ingenuo": lambda i, hz: _referencia(i, "ingenuo", hz),
     }
     linhas = []
-    for grupo in v1.GRUPOS:
-        for nome, funcao in metodos.items():
-            for horizonte in config.SIMULADOR_HORIZONTES_DIAS:
-                sel = [i for i in itens if i["evento"].grupo == grupo]
-                r = _agregar(sel, funcao, horizonte)
-                if r:
-                    linhas.append(
-                        {"grupo": grupo, "metodo": nome, "horizonte_dias": horizonte, **r}
-                    )
+    for escala in ("semanal", "total"):
+        for grupo in v1.GRUPOS:
+            for nome, funcao in metodos.items():
+                for horizonte in config.SIMULADOR_HORIZONTES_DIAS:
+                    sel = [i for i in itens if i["evento"].grupo == grupo]
+                    r = _agregar(sel, funcao, horizonte, total=escala == "total")
+                    if r:
+                        linhas.append({"escala": escala, "grupo": grupo, "metodo": nome,
+                                       "horizonte_dias": horizonte, **r})  # fmt: skip
     return pd.DataFrame(linhas)
 
 
@@ -300,6 +337,7 @@ def gravar(
     curva: pd.DataFrame,
     k: float,
     percentil: float,
+    diluir: bool = True,
 ) -> int:
     """Substitui as linhas v2 de dw.simulador_backtest e a curva (idempotente)."""
     conexao.execute("DELETE FROM dw.simulador_backtest WHERE versao = 'v2'")
@@ -307,13 +345,15 @@ def gravar(
     with conexao.cursor() as cur:
         cur.executemany(
             "INSERT INTO dw.simulador_backtest (versao, grupo, metodo, horizonte_dias, eventos,"
-            " semanas, cobertura_conservadora, wape, vies, k, percentil)"
-            " VALUES ('v2', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            " semanas, cobertura_conservadora, wape, vies, k, percentil, escala, diluicao)"
+            " VALUES ('v2', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             [
                 (r.grupo, r.metodo, int(r.horizonte_dias), int(r.eventos), int(r.semanas),
                  round(r.cobertura_conservadora, 4), round(r.wape, 4), round(r.vies, 4),
                  k if r.metodo.startswith("v2") else None,
-                 percentil if r.metodo == "v2_conservador" else None)
+                 {"v2_conservador": percentil,
+                  "v2_conservador_p10": config.SIMULADOR_PERCENTIL_ALTERNATIVO}.get(r.metodo),
+                 r.escala, diluir and r.metodo.startswith("v2"))
                 for r in tabela.itertuples()
             ],
         )  # fmt: skip
@@ -330,3 +370,17 @@ def gravar(
         )  # fmt: skip
     conexao.commit()
     return len(tabela)
+
+
+def diluicao_ajuda(antes: pd.DataFrame, depois: pd.DataFrame) -> bool:
+    """Adota o ajuste se não piora o placebo (WAPE do central) e reduz o viés nas trocas."""
+
+    def central(tabela, grupo):
+        t = tabela[
+            (tabela.escala == "semanal") & (tabela.grupo == grupo) & (tabela.metodo == "v2_central")
+        ]
+        return t.set_index("horizonte_dias")
+
+    placebo_ok = (central(depois, "placebo").wape <= central(antes, "placebo").wape + 1e-9).all()
+    trocas_ok = (central(depois, "trocas").vies.abs() < central(antes, "trocas").vies.abs()).all()
+    return bool(placebo_ok and trocas_ok)

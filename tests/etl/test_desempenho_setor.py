@@ -157,6 +157,14 @@ def test_fatia_do_dw_bate_com_o_estimador_independente_em_python(banco_carregado
             continue
         assert float(linha.fatia_central) == pytest.approx(esperado[0], abs=2e-6)
         assert float(linha.fatia_conservadora) == pytest.approx(esperado[1], abs=2e-6)
+        outros = fatias.lotados_no_setor(
+            historico, linha.sk_loja, linha.setor, ref, linha.sk_vendedor
+        )
+        assert linha.lotados_no_setor == outros
+        fator = fatias.fator_diluicao(outros, linha.lotado_na_referencia)
+        assert float(linha.fator_diluicao) == pytest.approx(fator, abs=1e-4)
+        if linha.lotado_na_referencia or outros == 0:
+            assert float(linha.fator_diluicao) == 1
         conferidos["proprio" if len(proprias) else "sem_historico"] += 1
         if min(conferidos.values()) >= 25:
             break
@@ -186,8 +194,13 @@ def test_view_do_simulador_e_semanal_e_projeta_fatia_vezes_a_demanda_do_setor(ba
     assert len(v) > 0 and set(v.setor_destino) == {alvo.setor} and set(v.semana) == {1}
     assert (v.demanda_prevista_semana.astype(float) == 700).all()  # só a semana completa
     assert (v.semana_inicio == ref + pd.Timedelta(days=1)).all()
-    esperado = v.fatia_central.astype(float) * 700
+    fator = v.fator_diluicao.astype(float)
+    esperado = v.fatia_central.astype(float) * fator * 700
     assert np.allclose(v.projecao_central.astype(float), esperado, atol=1e-3)
+    esperado = v.fatia_conservadora.astype(float) * fator * 700
+    assert np.allclose(v.projecao_conservadora.astype(float), esperado, atol=1e-3)
+    assert ((fator > 0) & (fator <= 1)).all() and (fator < 1).any()
+    assert (fator[v.eh_o_setor_atual] == 1).all()  # quem já está lotado não é diluído
     assert (v.projecao_conservadora.astype(float) <= v.projecao_central.astype(float) + 1e-3).all()
     assert v.confianca_fatia.notna().all() and (v.projecao_central.astype(float) >= 0).all()
 

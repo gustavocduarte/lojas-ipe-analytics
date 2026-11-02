@@ -179,29 +179,45 @@ semanas (segunda a domingo) em que ele esteve lotado a semana inteira. A fatia �
 dos outros lotados no setor, `(n × própria + k × média) ÷ (n + k)`, com n = semanas de histórico e
 k = 4 (maior k dentro de 0,5 p.p. do menor WAPE no backtest). Projeção semanal = fatia × venda prevista
 do setor na loja na semana (a previsão já traz sazonalidade e limita a demanda). O *conservador* é o
-percentil 5% da distribuição das fatias semanais (escolhido pela curva do backtest, cobertura ≈ 75%).
-Sem histórico no setor, vale a fatia média dos lotados (loja; senão rede), com confiança baixa.
+percentil 5% da distribuição das fatias semanais (o p10 também é reportado). Sem histórico no setor, vale
+a fatia média dos lotados (loja; senão rede), com confiança baixa.
+
+**Diluição:** quem entra num setor divide a venda com a equipe que já está lá, então a fatia média dos
+lotados superestima o recém-chegado (viés de +45% nas trocas). A fatia de quem ainda não está lotado no
+destino é multiplicada por `n ÷ (n + 1)`, com n = outros vendedores ativos lotados no setor na loja
+(`fator_diluicao`; 1 para quem já está lá ou se ninguém está lotado). O ajuste foi adotado porque não mexe
+no placebo (todos já estão lotados) e reduz o viés das trocas. Uma renormalização completa das fatias da
+equipe (somando 1) exigiria estimar a fatia de todos juntos; `n ÷ (n + 1)` é a mesma ideia, mais simples.
 
 **Backtest** (46 trocas reais e 44 vendedores sem troca em datas sorteadas; projeta 4 e 8 semanas a
-partir do dia anterior à troca, usando só o que se sabia ali; cobertura = semanas em que o real ficou
-igual ou acima do projetado):
+partir do dia anterior à troca, usando só o que se sabia ali). Cobertura = parcela em que o real ficou
+igual ou acima do projetado; "total" compara a soma das 4 ou 8 semanas de cada troca (1 número por troca),
+"semanal" compara semana a semana.
 
-| Grupo, 56 dias | Cobertura | WAPE | Viés |
+| Trocas, 56 dias | Cobertura | WAPE | Viés |
 |---|---|---|---|
-| Trocas: v2 central | 27,7% | 92,5% | +45,4% |
-| Trocas: v2 conservador | 74,2% | 78,9% | -47,4% |
-| Trocas: p25 diário (v1) | 94,6% | 98,0% | -96,8% |
-| Trocas: ingênuo (média no setor de origem) | 41,0% | 105,6% | -6,9% |
-| Placebo: v2 central | 45,7% | 65,1% | +5,0% |
-| Placebo: v2 conservador | 81,3% | 66,7% | -46,4% |
-| Placebo: ingênuo | 40,1% | 72,2% | +16,4% |
+| Semanal: central, antes da diluição | 27,7% | 92,5% | +45,4% |
+| Semanal: central, depois | 49,2% | 71,2% | -15,8% |
+| Semanal: conservador p5, depois | 84,2% | 81,9% | -72,2% |
+| Semanal: conservador p10, depois | 75,8% | 77,4% | -61,5% |
+| Semanal: ingênuo | 41,0% | 105,6% | -6,9% |
+| Total das 8 semanas: central, antes | 28,3% | 67,5% | +45,4% |
+| Total das 8 semanas: central, depois | 56,5% | 52,5% | -15,8% |
+| Total das 8 semanas: conservador p5 / p10, depois | 93,5% / 89,1% | 73,4% / 65,7% | -72,2% / -61,5% |
+| Total das 8 semanas: ingênuo | 45,7% | 98,8% | -6,9% |
 
-O v2 central tem WAPE menor que o ingênuo em todos os grupos e horizontes, por isso foi adotado. A
-margem é pequena: a venda semanal de um vendedor em um setor é muito volátil, e quem entra no setor
-dilui a fatia dos colegas (o central das trocas superestima em 45%). Use o central e o conservador como
-uma faixa, não como previsão pontual. O gabarito de habilidade (`_habilidade_verdadeira.csv`) só entra
-na análise: a correlação entre a fatia estimada (relativa à dos colegas) e a habilidade verdadeira é
-0,29 (Pearson) e 0,35 (Spearman) com 149 pares de 13 semanas ou mais (o p25 diário dava 0,22 e 0,19).
+No placebo o ajuste não muda nada (central 65,5% de WAPE e +4,8% de viés em 56 dias, semanal; o
+ingênuo tem 72,2% e +16,4%). O p25 diário (v1) segue em 95% de cobertura com viés de -97%. Os números de
+28 dias estão em `dw.simulador_backtest` (colunas `escala` e `diluicao`) e a curva do percentil em
+`dw.simulador_backtest_curva`.
+
+**Como usar no Power BI:** mostrar sempre a faixa conservador–central e a confiança
+(`confianca_fatia`, `semanas_de_historico`), nunca um número único. A venda semanal de um vendedor num
+setor é muito volátil (WAPE de 50% a 70% mesmo no melhor método); o central é uma expectativa e o
+conservador um piso (o p5 é bem pessimista, o p10 chega a ~75% de cobertura). O gabarito de habilidade
+(`_habilidade_verdadeira.csv`) só entra na análise: a correlação entre a fatia estimada (relativa à dos
+colegas) e a habilidade verdadeira é 0,29 (Pearson) e 0,35 (Spearman) com 149 pares de 13 semanas ou mais
+(o p25 diário dava 0,22 e 0,19).
 
 ## Relatório Excel e macros (Fase 4)
 ```

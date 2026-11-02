@@ -52,6 +52,7 @@ def _formatar(resultado: pd.DataFrame) -> str:
         vies=(resultado.vies * 100).round(1).astype(str) + "%",
     )
     colunas = [
+        *(["escala"] if "escala" in resultado else []),
         "grupo",
         "metodo",
         "horizonte_dias",
@@ -82,19 +83,30 @@ def _backtest_v2(conexao: psycopg.Connection, args) -> int:
     historico = backtest.Historico(conexao)
     semanal = fatias.Semanal(historico)
     itens = fatias.preparar(historico, semanal)
-    tabela_k = fatias.escolher_k(itens)
+    tabela_k = fatias.escolher_k(itens, diluir=False)
     k = fatias.k_escolhido(tabela_k)
-    curva = fatias.curva_percentil(itens, k)
+    curva = fatias.curva_percentil(itens, k, diluir=False)
     percentil = fatias.escolher_percentil(curva)
-    tabela = fatias.tabela_final(itens, k, percentil)
-    print("WAPE do v2 central por k (56 dias):")
+    antes = fatias.tabela_final(itens, k, percentil, diluir=False)
+    depois = fatias.tabela_final(itens, k, percentil, diluir=True)
+    print("WAPE do v2 central por k (56 dias, sem diluição):")
     print(tabela_k.round(4).to_string(index=False))
     print(f"k escolhido: {k:g}; percentil do conservador: {percentil:g}")
-    print("curva do percentil:")
+    print("ANTES do ajuste de diluição:")
+    print(_formatar(antes))
+    print("DEPOIS (fatia x n/(n+1) para quem não está lotado no destino):")
+    print(_formatar(depois))
+    adotar = fatias.diluicao_ajuda(antes, depois)
+    print(
+        "ajuste de diluição:",
+        "adotado" if adotar else "NÃO adotado (piora o placebo ou não reduz o viés)",
+    )
+    curva = fatias.curva_percentil(itens, k, diluir=adotar)
+    print("curva do percentil (com a decisão acima):")
     print(curva.round(4).to_string(index=False))
-    print(_formatar(tabela))
     if args.gravar:
-        print(f"gravado: {fatias.gravar(conexao, tabela, curva, k, percentil)} linhas")
+        gravadas = fatias.gravar(conexao, depois if adotar else antes, curva, k, percentil, adotar)
+        print(f"gravado: {gravadas} linhas")
     if args.habilidade_verdadeira:
         gabarito = pd.read_csv(args.habilidade_verdadeira, sep=";", dtype={"habilidade": float})
         print(
