@@ -264,13 +264,13 @@ def _parte(item: dict, k: float, percentil: float, horizonte: int, qual: int, di
 def tabela_final(
     itens: list[dict], k: float, percentil: float, diluir: bool = True
 ) -> pd.DataFrame:
-    """v2 central e conservador (p5 e p10), o p25 diário atual e o ingênuo, por grupo, horizonte
+    """v2 central e conservador (oficial e p5), o p25 diário atual e o ingênuo, por grupo, horizonte
     e escala: semana a semana ou sobre o total do horizonte de cada troca."""
     alternativo = config.SIMULADOR_PERCENTIL_ALTERNATIVO
     metodos = {
         "v2_central": lambda i, hz: _parte(i, k, percentil, hz, 0, diluir),
         "v2_conservador": lambda i, hz: _parte(i, k, percentil, hz, 1, diluir),
-        "v2_conservador_p10": lambda i, hz: _parte(i, k, alternativo, hz, 1, diluir),
+        "v2_conservador_p5": lambda i, hz: _parte(i, k, alternativo, hz, 1, diluir),
         "completo_p25_diario": lambda i, hz: _referencia(i, "completo", hz),
         "ingenuo": lambda i, hz: _referencia(i, "ingenuo", hz),
     }
@@ -352,7 +352,7 @@ def gravar(
                  round(r.cobertura_conservadora, 4), round(r.wape, 4), round(r.vies, 4),
                  k if r.metodo.startswith("v2") else None,
                  {"v2_conservador": percentil,
-                  "v2_conservador_p10": config.SIMULADOR_PERCENTIL_ALTERNATIVO}.get(r.metodo),
+                  "v2_conservador_p5": config.SIMULADOR_PERCENTIL_ALTERNATIVO}.get(r.metodo),
                  r.escala, diluir and r.metodo.startswith("v2"))
                 for r in tabela.itertuples()
             ],

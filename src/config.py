@@ -513,4 +513,5 @@ SIMULADOR_SEMANAS_CORRELACAO = 13  # correlação com a habilidade: mínimo de s
 SIMULADOR_TOLERANCIA_K = (
     0.005  # k: o maior cujo WAPE fica até 0,5 p.p. do menor (protege n pequeno)
 )
-SIMULADOR_PERCENTIL_ALTERNATIVO = 0.10  # conservador menos pessimista, ao lado do p5
+SIMULADOR_PERCENTIL_OFICIAL = 0.10  # conservador oficial (dw: simulador_percentil_fatia)
+SIMULADOR_PERCENTIL_ALTERNATIVO = 0.05  # conservador mais pessimista, reportado ao lado

@@ -141,6 +141,7 @@ def test_fatia_do_dw_bate_com_o_estimador_independente_em_python(banco_carregado
     ref = _gravar(con)
     k = float(con.execute("SELECT etl.parametro('simulador_k_encolhimento')").fetchone()[0])
     q = float(con.execute("SELECT etl.parametro('simulador_percentil_fatia')").fetchone()[0])
+    assert q == config.SIMULADOR_PERCENTIL_OFICIAL  # o dw e o código concordam no conservador
     historico = fatias.Historico(con)
     assert historico.fim == ref
     semanal = fatias.Semanal(historico)
