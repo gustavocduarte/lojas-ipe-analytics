@@ -133,32 +133,63 @@ def test_pouco_historico_usa_o_fallback_e_a_confianca_acompanha_os_dias(banco_ca
     assert (fallback.nivel_fallback.dropna().isin(["loja", "rede"])).all()
 
 
-def test_view_do_simulador_respeita_a_demanda_do_setor_e_so_projeta_dias_futuros(banco_carregado):
+def test_fatia_do_dw_bate_com_o_estimador_independente_em_python(banco_carregado):
+    from src import config
+    from src.simulador import fatias
+
     con = banco_carregado
     ref = _gravar(con)
-    base = _consulta(
+    k = float(con.execute("SELECT etl.parametro('simulador_k_encolhimento')").fetchone()[0])
+    q = float(con.execute("SELECT etl.parametro('simulador_percentil_fatia')").fetchone()[0])
+    historico = fatias.Historico(con)
+    assert historico.fim == ref
+    semanal = fatias.Semanal(historico)
+    d = _consulta(con, "SELECT * FROM dw.desempenho_vendedor_setor")
+    assert (d.k_encolhimento.astype(float) == k).all() and d.fatia_central.notna().all()
+    assert (d.fatia_semanas > 0).sum() > 10
+    conferidos = {"proprio": 0, "sem_historico": 0}
+    for linha in d.sort_values(["sk_vendedor", "setor"]).itertuples():
+        proprias = semanal.observacoes(linha.sk_vendedor, linha.setor, ref)
+        conjunto = semanal.conjunto(linha.sk_loja, linha.setor, ref, linha.sk_vendedor)
+        assert linha.fatia_semanas == len(proprias)
+        esperado = fatias.estimar(proprias, conjunto, k, q)
+        if esperado is None:
+            continue
+        assert float(linha.fatia_central) == pytest.approx(esperado[0], abs=2e-6)
+        assert float(linha.fatia_conservadora) == pytest.approx(esperado[1], abs=2e-6)
+        conferidos["proprio" if len(proprias) else "sem_historico"] += 1
+        if min(conferidos.values()) >= 25:
+            break
+    assert conferidos["proprio"] > 0 and conferidos["sem_historico"] > 0
+    assert (
+        d.confianca_fatia[d.fatia_semanas >= config.SIMULADOR_SEMANAS_CORRELACAO] == "alta"
+    ).all()
+
+
+def test_view_do_simulador_e_semanal_e_projeta_fatia_vezes_a_demanda_do_setor(banco_carregado):
+    con = banco_carregado
+    ref = _gravar(con)
+    alvo = _consulta(
         con,
-        "SELECT sk_loja, setor, media_loja_setor FROM dw.desempenho_vendedor_setor"
-        " WHERE media_loja_setor > 0 LIMIT 1",
+        "SELECT sk_loja, setor FROM dw.desempenho_vendedor_setor WHERE fatia_central IS NOT NULL"
+        " LIMIT 1",
     ).iloc[0]
-    for k, fator in enumerate((1.0, 0.1), start=1):  # um dia normal e um de demanda muito baixa
+    for dia in range(1, 11):  # uma semana inteira (1..7) e uma incompleta (8..10)
         con.execute(
             "INSERT INTO dw.previsao_vendas (granularidade, data, sk_loja, setor, valor_previsto,"
             " valor_baixo, valor_alto, versao_modelo, treino_ate, nivel) VALUES"
-            " ('dia', %s + %s, %s, %s, %s, 0, %s, 'teste@1', %s, 'loja_setor')",
-            (ref, k, int(base.sk_loja), base.setor, float(base.media_loja_setor) * fator,
-             float(base.media_loja_setor) * 2, ref),
-        )  # fmt: skip
+            " ('dia', %s + %s, %s, %s, 100, 0, 200, 'teste@1', %s, 'loja_setor')",
+            (ref, dia, int(alvo.sk_loja), alvo.setor, ref),
+        )
     con.commit()
     v = _consulta(con, "SELECT * FROM dw.vw_simulador_troca")
-    assert len(v) > 0 and (v.dia > ref).all()
-    assert set(v.setor_destino) == {base.setor} and (v.dia.nunique() == 2)
-    v["teto"] = v.demanda_restante.astype(float)
-    cheia = v.base_conservadora.astype(float) * v.fator_sazonal.astype(float)
-    assert (v.projecao_dia.astype(float) <= v.teto + 1e-6).all()
-    assert (v.projecao_dia.astype(float) <= cheia + 1e-6).all()
-    assert (v.projecao_dia.astype(float) >= 0).all()
-    assert (v.demanda_restante.astype(float) <= v.demanda_prevista.astype(float) + 1e-6).all()
+    assert len(v) > 0 and set(v.setor_destino) == {alvo.setor} and set(v.semana) == {1}
+    assert (v.demanda_prevista_semana.astype(float) == 700).all()  # só a semana completa
+    assert (v.semana_inicio == ref + pd.Timedelta(days=1)).all()
+    esperado = v.fatia_central.astype(float) * 700
+    assert np.allclose(v.projecao_central.astype(float), esperado, atol=1e-3)
+    assert (v.projecao_conservadora.astype(float) <= v.projecao_central.astype(float) + 1e-3).all()
+    assert v.confianca_fatia.notna().all() and (v.projecao_central.astype(float) >= 0).all()
 
 
 def test_backtest_do_simulador_avalia_trocas_e_placebo_e_grava_de_forma_idempotente(

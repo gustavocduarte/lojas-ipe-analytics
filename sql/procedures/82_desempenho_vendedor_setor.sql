@@ -93,6 +93,8 @@ BEGIN
     LEFT JOIN _rede r ON r.setor = s.setor
     LEFT JOIN _loja_setor ls ON ls.sk_loja = d.sk_loja AND ls.setor = s.setor
     WHERE d.data_admissao <= v_ref AND (d.data_desligamento IS NULL OR d.data_desligamento > v_ref);
+
+    CALL dw.gravar_fatia_vendedor_setor(v_ref);  -- simulador v2: fatia semanal encolhida
 END $$;
 
 COMMENT ON PROCEDURE dw.gravar_desempenho_vendedor_setor(DATE) IS 'Recalcula dw.desempenho_vendedor_setor para a data de referência (padrão: último dia com venda).';

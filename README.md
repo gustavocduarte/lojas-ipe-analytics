@@ -86,8 +86,9 @@ python -m src.previsao backtest                    # compara as abordagens (trei
 python -m src.previsao gerar --gravar              # 3 meses depois do último dia com venda
 python -m src.previsao gerar --corte 2025-12-15 --ate 2025-12-31 --gravar   # corte simulado
 # Lotação por setor (preparação do simulador de troca de setor): desempenho e backtest
-# CALL dw.gravar_desempenho_vendedor_setor();  -- p25 da venda diária nos dias lotado (zeros incluídos)
-python -m src.simulador backtest --gravar            # trocas reais e placebo, 4 e 8 semanas
+# CALL dw.gravar_desempenho_vendedor_setor();  -- fatia semanal encolhida (v2) e p25 diário (v1, referência)
+python -m src.simulador backtest --gravar            # v1: p25 diário, trocas reais e placebo
+python -m src.simulador backtest-v2 --gravar         # v2: fatia semanal encolhida, curva do percentil
 ```
 **Modelos** (só numpy/pandas, leves): `ingenua` (mesmo dia da semana um ano antes), `decomposicao`
 (nível recente x dia da semana x feriado x **janela pré-Natal (15 a 24/12)** x mês x tendência amortecida;
@@ -163,6 +164,44 @@ fim da `dim_tempo`.
   do dia da semana e do feriado (os mesmos de `src/config.py`); a soma dos dias bate com a meta do mês (o
   último dia absorve o resto do arredondamento).
 * **Evolução** (relatório) = acumulado do mês / acumulado do mesmo período do ano anterior - 1.
+
+## Simulador de troca de setor (preparação da Fase 5)
+Dado um vendedor e um setor de destino, quanto ele venderia por semana? O gerador lota cada vendedor
+em um setor (`dw.vendedor_setor_historico`, com início, fim e motivo) e reatribui parte dos cupons para
+quem está lotado no setor do item de maior receita; cerca de 20% dos vendedores trocam de setor entre
+07/2024 e 06/2025. Os totais por loja × setor × dia não mudam, só o vendedor do cupom.
+
+**v1 (referência, não adotado):** percentil 25 da venda diária nos dias lotado, com os dias sem venda
+contando zero. Em 83% dos pares o p25 é zero: a projeção sai quase nula (viés -97%).
+
+**v2 (adotado):** *fatia* semanal = venda do vendedor no setor ÷ venda total do setor na loja, nas
+semanas (segunda a domingo) em que ele esteve lotado a semana inteira. A fatia é encolhida para a média
+dos outros lotados no setor, `(n × própria + k × média) ÷ (n + k)`, com n = semanas de histórico e
+k = 4 (maior k dentro de 0,5 p.p. do menor WAPE no backtest). Projeção semanal = fatia × venda prevista
+do setor na loja na semana (a previsão já traz sazonalidade e limita a demanda). O *conservador* é o
+percentil 5% da distribuição das fatias semanais (escolhido pela curva do backtest, cobertura ≈ 75%).
+Sem histórico no setor, vale a fatia média dos lotados (loja; senão rede), com confiança baixa.
+
+**Backtest** (46 trocas reais e 44 vendedores sem troca em datas sorteadas; projeta 4 e 8 semanas a
+partir do dia anterior à troca, usando só o que se sabia ali; cobertura = semanas em que o real ficou
+igual ou acima do projetado):
+
+| Grupo, 56 dias | Cobertura | WAPE | Viés |
+|---|---|---|---|
+| Trocas: v2 central | 27,7% | 92,5% | +45,4% |
+| Trocas: v2 conservador | 74,2% | 78,9% | -47,4% |
+| Trocas: p25 diário (v1) | 94,6% | 98,0% | -96,8% |
+| Trocas: ingênuo (média no setor de origem) | 41,0% | 105,6% | -6,9% |
+| Placebo: v2 central | 45,7% | 65,1% | +5,0% |
+| Placebo: v2 conservador | 81,3% | 66,7% | -46,4% |
+| Placebo: ingênuo | 40,1% | 72,2% | +16,4% |
+
+O v2 central tem WAPE menor que o ingênuo em todos os grupos e horizontes, por isso foi adotado. A
+margem é pequena: a venda semanal de um vendedor em um setor é muito volátil, e quem entra no setor
+dilui a fatia dos colegas (o central das trocas superestima em 45%). Use o central e o conservador como
+uma faixa, não como previsão pontual. O gabarito de habilidade (`_habilidade_verdadeira.csv`) só entra
+na análise: a correlação entre a fatia estimada (relativa à dos colegas) e a habilidade verdadeira é
+0,29 (Pearson) e 0,35 (Spearman) com 149 pares de 13 semanas ou mais (o p25 diário dava 0,22 e 0,19).
 
 ## Relatório Excel e macros (Fase 4)
 ```

@@ -1,44 +1,40 @@
--- Simulador de troca de setor: projeção diária de cada vendedor ativo em cada setor de destino,
--- para os dias previstos depois da referência. Base conservadora do vendedor (percentil 25 dos dias
--- lotado, ou o fallback da loja/rede se tiver pouco histórico), ajustada pela sazonalidade da
--- previsão (previsto do dia ÷ média diária recente do setor na loja) e limitada pela demanda
--- prevista do setor na loja que sobra depois dos outros vendedores lotados nele.
--- O Power BI filtra por vendedor e setor de destino e soma os dias do mês.
+-- Simulador de troca de setor (v2): projeção semanal de cada vendedor ativo em cada setor de destino,
+-- para as semanas inteiras (7 dias contados a partir do dia seguinte à referência) previstas.
+-- Projeção = fatia semanal do vendedor no setor x venda prevista do setor na loja na semana:
+-- a previsão (decomposição) já traz a sazonalidade e limita a demanda do setor.
+--   projecao_central       = fatia encolhida (média esperada)
+--   projecao_conservadora  = percentil baixo da distribuição das fatias semanais
+-- confianca_fatia: alta (13 semanas ou mais lotado no setor), media (5 ou mais), baixa (poucas
+-- semanas ou só a média da loja), muito_baixa (só a média da rede) ou sem_base.
+-- O Power BI filtra por vendedor e setor de destino e soma as semanas do período.
 
-CREATE OR REPLACE VIEW dw.vw_simulador_troca AS
+DROP VIEW IF EXISTS dw.vw_simulador_troca;
+
+CREATE VIEW dw.vw_simulador_troca AS
 WITH ref AS (SELECT max(data_referencia) AS data_referencia FROM dw.desempenho_vendedor_setor),
 ultima AS (
     SELECT versao_modelo, treino_ate FROM dw.previsao_vendas
     WHERE nivel = 'loja_setor' AND granularidade = 'dia'
     ORDER BY treino_ate DESC, gerado_em DESC LIMIT 1),
-prev AS (
-    SELECT p.sk_loja, p.setor, p.data, p.valor_previsto
+semanal AS (
+    SELECT p.sk_loja, p.setor, (p.data - r.data_referencia - 1) / 7 + 1 AS semana,
+           min(p.data) AS semana_inicio, sum(p.valor_previsto) AS demanda_prevista
     FROM dw.previsao_vendas p JOIN ultima u USING (versao_modelo, treino_ate)
-    WHERE p.nivel = 'loja_setor' AND p.granularidade = 'dia'),
-base AS (
-    SELECT d.* FROM dw.desempenho_vendedor_setor d JOIN ref USING (data_referencia)),
-colegas AS (  -- o que os outros vendedores lotados no setor, na loja, costumam vender por dia
-    SELECT b.sk_loja, b.setor, b.sk_vendedor,
-           COALESCE(sum(o.media_diaria) FILTER (WHERE o.sk_vendedor <> b.sk_vendedor), 0) AS media_dos_outros
-    FROM base b
-    LEFT JOIN base o ON o.sk_loja = b.sk_loja AND o.setor = b.setor AND o.lotado_na_referencia
-    GROUP BY b.sk_loja, b.setor, b.sk_vendedor),
-projetado AS (
-    SELECT b.*, p.data AS dia, p.valor_previsto,
-           p.valor_previsto / NULLIF(b.media_loja_setor, 0) AS fator_sazonal,
-           c.media_dos_outros
-    FROM base b
-    JOIN colegas c ON c.sk_vendedor = b.sk_vendedor AND c.setor = b.setor
-    JOIN prev p ON p.sk_loja = b.sk_loja AND p.setor = b.setor AND p.data > b.data_referencia
-    WHERE b.valor_conservador IS NOT NULL AND b.media_loja_setor > 0)
-SELECT pr.data_referencia, pr.sk_vendedor, v.cod_vendedor, v.nome_vendedor, pr.sk_loja,
-       pr.setor AS setor_destino, pr.lotado_na_referencia AS eh_o_setor_atual, pr.dias_lotado,
-       pr.usa_fallback, pr.nivel_fallback, pr.confianca, pr.valor_conservador AS base_conservadora,
-       pr.dia, pr.valor_previsto AS demanda_prevista, pr.fator_sazonal,
-       GREATEST(pr.valor_previsto - pr.media_dos_outros * pr.fator_sazonal, 0) AS demanda_restante,
-       LEAST(pr.valor_conservador * pr.fator_sazonal,
-             GREATEST(pr.valor_previsto - pr.media_dos_outros * pr.fator_sazonal, 0)) AS projecao_dia
-FROM projetado pr
-JOIN dw.dim_vendedor v ON v.sk_vendedor = pr.sk_vendedor;
+    CROSS JOIN ref r
+    WHERE p.nivel = 'loja_setor' AND p.granularidade = 'dia' AND p.data > r.data_referencia
+    GROUP BY p.sk_loja, p.setor, (p.data - r.data_referencia - 1) / 7 + 1
+    HAVING count(*) = 7)
+SELECT d.data_referencia, d.sk_vendedor, v.cod_vendedor, v.nome_vendedor, d.sk_loja,
+       d.setor AS setor_destino, d.lotado_na_referencia AS eh_o_setor_atual,
+       d.fatia_semanas AS semanas_de_historico, d.nivel_fatia, d.confianca_fatia,
+       d.fatia_central, d.fatia_conservadora, s.semana, s.semana_inicio,
+       s.demanda_prevista AS demanda_prevista_semana,
+       d.fatia_central * s.demanda_prevista AS projecao_central,
+       d.fatia_conservadora * s.demanda_prevista AS projecao_conservadora
+FROM dw.desempenho_vendedor_setor d
+JOIN ref ON ref.data_referencia = d.data_referencia
+JOIN semanal s ON s.sk_loja = d.sk_loja AND s.setor = d.setor
+JOIN dw.dim_vendedor v ON v.sk_vendedor = d.sk_vendedor
+WHERE d.fatia_central IS NOT NULL;
 
-COMMENT ON VIEW dw.vw_simulador_troca IS 'Projeção diária conservadora de cada vendedor em cada setor de destino (base, sazonalidade e teto de demanda).';
+COMMENT ON VIEW dw.vw_simulador_troca IS 'Projeção semanal do vendedor em cada setor de destino: fatia (central e conservadora) x venda prevista do setor na loja.';
