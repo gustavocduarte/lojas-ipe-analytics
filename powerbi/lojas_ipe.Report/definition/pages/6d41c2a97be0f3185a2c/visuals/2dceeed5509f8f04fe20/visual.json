@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
-  "name": "c5c6175fb8ad21c5e73a",
+  "name": "2dceeed5509f8f04fe20",
   "position": {
-    "x": 972.0,
-    "y": 18.0,
-    "z": 3,
-    "height": 138.0,
-    "width": 450.0,
-    "tabOrder": 3
+    "x": 780,
+    "y": 112,
+    "z": 4,
+    "height": 132,
+    "width": 360,
+    "tabOrder": 4
   },
   "visual": {
     "visualType": "cardVisual",
@@ -23,11 +23,11 @@
                       "Entity": "Medidas"
                     }
                   },
-                  "Property": "Cobertura da meta até o dia"
+                  "Property": "Projeção de fechamento"
                 }
               },
-              "queryRef": "Medidas.Cobertura da meta até o dia",
-              "nativeQueryRef": "Cobertura da meta até o dia"
+              "queryRef": "Medidas.Projeção de fechamento",
+              "nativeQueryRef": "Projeção de fechamento"
             }
           ]
         }
@@ -40,7 +40,7 @@
             "fontSize": {
               "expr": {
                 "Literal": {
-                  "Value": "26D"
+                  "Value": "28D"
                 }
               }
             },
@@ -51,31 +51,22 @@
                 }
               }
             },
-            "fontColor": {
-              "solid": {
-                "color": {
-                  "expr": {
-                    "Measure": {
-                      "Expression": {
-                        "SourceRef": {
-                          "Entity": "Medidas"
-                        }
-                      },
-                      "Property": "Cor da cobertura"
-                    }
-                  }
+            "labelPrecision": {
+              "expr": {
+                "Literal": {
+                  "Value": "2L"
                 }
               }
             }
           },
           "selector": {
-            "id": "default"
+            "metadata": "Medidas.Projeção de fechamento"
           }
         }
       ]
     },
     "visualContainerObjects": {
-      "subTitle": [
+      "title": [
         {
           "properties": {
             "show": {
@@ -88,13 +79,25 @@
           }
         }
       ],
-      "title": [
+      "subTitle": [
         {
           "properties": {
             "show": {
               "expr": {
                 "Literal": {
-                  "Value": "false"
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Contexto da projeção"
                 }
               }
             }

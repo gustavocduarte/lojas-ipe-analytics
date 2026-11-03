@@ -66,3 +66,15 @@ relationship 'Metas vendedores diária_sk_vendedor_Vendedores_sk_vendedor'
 	fromColumn: 'Metas vendedores diária'.sk_vendedor
 	toColumn: Vendedores.sk_vendedor
 
+relationship Previsão_sk_tempo_Calendário_sk_tempo
+	fromColumn: Previsão.sk_tempo
+	toColumn: Calendário.sk_tempo
+
+relationship Previsão_sk_loja_Lojas_sk_loja
+	fromColumn: Previsão.sk_loja
+	toColumn: Lojas.sk_loja
+
+relationship Previsão_setor_Setores_setor
+	fromColumn: Previsão.setor
+	toColumn: Setores.setor
+

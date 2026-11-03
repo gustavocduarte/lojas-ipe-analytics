@@ -1,37 +1,19 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
-  "name": "c2ed341db3f1cda55f68",
+  "name": "b38e524349c73ed37290",
   "position": {
-    "x": 1218.0,
-    "y": 174.0,
-    "z": 5,
-    "height": 510.0,
-    "width": 678.0,
-    "tabOrder": 5
+    "x": 402,
+    "y": 112,
+    "z": 3,
+    "height": 132,
+    "width": 360,
+    "tabOrder": 3
   },
   "visual": {
-    "visualType": "barChart",
+    "visualType": "cardVisual",
     "query": {
       "queryState": {
-        "Category": {
-          "projections": [
-            {
-              "field": {
-                "Column": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Lojas"
-                    }
-                  },
-                  "Property": "nome_loja"
-                }
-              },
-              "queryRef": "Lojas.nome_loja",
-              "nativeQueryRef": "nome_loja"
-            }
-          ]
-        },
-        "Y": {
+        "Data": {
           "projections": [
             {
               "field": {
@@ -49,43 +31,27 @@
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Measure": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "Medidas"
-                  }
-                },
-                "Property": "Cobertura da meta até o dia"
-              }
-            },
-            "direction": "Descending"
-          }
-        ]
       }
     },
     "objects": {
-      "legend": [
+      "value": [
         {
           "properties": {
-            "show": {
+            "fontSize": {
               "expr": {
                 "Literal": {
-                  "Value": "false"
+                  "Value": "28D"
                 }
               }
-            }
-          }
-        }
-      ],
-      "dataPoint": [
-        {
-          "properties": {
-            "fill": {
+            },
+            "labelDisplayUnits": {
+              "expr": {
+                "Literal": {
+                  "Value": "1D"
+                }
+              }
+            },
+            "fontColor": {
               "solid": {
                 "color": {
                   "expr": {
@@ -103,19 +69,13 @@
             }
           },
           "selector": {
-            "data": [
-              {
-                "dataViewWildcard": {
-                  "matchingOption": 1
-                }
-              }
-            ]
+            "id": "default"
           }
         }
       ]
     },
     "visualContainerObjects": {
-      "subTitle": [
+      "title": [
         {
           "properties": {
             "show": {
@@ -128,7 +88,7 @@
           }
         }
       ],
-      "title": [
+      "subTitle": [
         {
           "properties": {
             "show": {
@@ -141,14 +101,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Cobertura da meta até o dia por loja'"
-                }
-              }
-            },
-            "fontSize": {
-              "expr": {
-                "Literal": {
-                  "Value": "12D"
+                  "Value": "'Receita ÷ meta acumulada até o dia'"
                 }
               }
             }

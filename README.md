@@ -16,7 +16,7 @@ se comparam ao orçado e à previsão por centro de custo, e quais lançamentos 
 | 2 | ETL com validações de qualidade e carga via procedures | feita (aguarda revisão) |
 | 3 | Regras de anomalia em SQL e tabela de alertas | feita (aguarda revisão) |
 | 4 | Previsão de vendas, relatório Excel e macro VBA | feita (aguarda revisão) |
-| 5 | Dashboard Power BI (4 páginas) | a fazer |
+| 5 | Dashboard Power BI (projeto `.pbip`) | em andamento: página "Vendas vs Meta" aprovada |
 | 6 | Documentação final | a fazer |
 
 ## Como rodar
@@ -164,6 +164,25 @@ fim da `dim_tempo`.
   do dia da semana e do feriado (os mesmos de `src/config.py`); a soma dos dias bate com a meta do mês (o
   último dia absorve o resto do arredondamento).
 * **Evolução** (relatório) = acumulado do mês / acumulado do mesmo período do ano anterior - 1.
+
+## Dashboard Power BI (Fase 5)
+O relatório é um **projeto `.pbip`** em `powerbi/`, versionado em texto: `lojas_ipe.Report` (páginas e visuais em PBIR/JSON) e `lojas_ipe.SemanticModel` (tabelas, relações e medidas em TMDL). O cache dos dados (`.pbi/`, `cache.abf`) fica fora do git.
+
+**Como abrir e atualizar:** abra `powerbi/lojas_ipe.pbip` no Power BI Desktop e clique em **Atualizar**. A fonte é o PostgreSQL local (`PostgreSQL.Database("localhost","lojas_ipe_dw")`); a senha do usuário `lojas_ipe` é pedida uma vez e fica guardada **só no Windows** (credenciais do Power BI), nunca no projeto.
+
+**Tema:** `powerbi/lojas_ipe.Report/StaticResources/RegisteredResources/tema_lojas_ipe.json` (fundo `#F3F5F8`, visuais brancos com borda `#E3E7ED`, azul `#2F6DB5` realizado, laranja `#C55A11` meta, cinza `#9AA5B1` projeção, verde/vermelho só para status; Segoe UI).
+
+**Medidas** (tabela `Medidas`, por pasta):
+* **1. Vendas:** Receita, Custo, Margem, Margem %, Quantidade, Cupons, Ticket médio, Itens por cupom, Desconto, Taxa de cancelamento.
+* **2. Tempo:** Receita ano anterior, Evolução vs ano anterior, Receita acumulada no mês, Receita acumulada no ano.
+* **3. Metas:** Meta do período, Meta do mês, Meta acumulada até o dia, Cobertura do período, Cobertura da meta até o dia, % da meta do mês atingido, Diferença para a meta do dia % e as versões "(vendedor)".
+* **4. Formatação:** Cor da cobertura, Cor da cobertura do período, Cor da evolução, Cor da diferença (devolvem `#RRGGBB`).
+* **5. Projeção:** Posição, Receita realizada até a posição, Meta do mês da posição, Previsto restante do mês, Projeção de fechamento, Cobertura projetada, Ritmo necessário por dia, Receita/Meta/Projeção/Cobertura acumulada (linha).
+* **6. Textos:** Contexto da receita, da projeção e do ritmo (subtítulos dos cartões).
+
+**Fórmulas:** *cobertura* = receita ÷ meta do período; *projeção de fechamento* = realizado até a posição + previsão restante de `dw.previsao_vendas` (corte igual à posição); *ritmo necessário por dia* = (meta do mês − realizado) ÷ dias médios restantes (meta restante ÷ meta de um dia médio, como no Excel); *diferença para a meta do dia* = (receita − meta) ÷ meta.
+
+**Método para o que o Power BI não documenta:** editar o PBIR em texto com o Power BI fechado; para uma propriedade incerta, aplicá-la **à mão uma vez** no Power BI, salvar, ler o `visual.json` gravado e copiar o padrão. Os padrões confirmados estão em `docs/powerbi_padroes.md`.
 
 ## Simulador de troca de setor (preparação da Fase 5)
 Dado um vendedor e um setor de destino, quanto ele venderia por semana? O gerador lota cada vendedor

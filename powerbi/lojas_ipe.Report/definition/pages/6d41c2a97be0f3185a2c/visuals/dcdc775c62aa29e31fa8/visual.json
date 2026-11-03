@@ -1,16 +1,16 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
-  "name": "4fb6665e0941a4662b02",
+  "name": "dcdc775c62aa29e31fa8",
   "position": {
-    "x": 24.0,
-    "y": 174.0,
-    "z": 4,
-    "height": 510.0,
-    "width": 1170.0,
-    "tabOrder": 4
+    "x": 1275.8709677419354,
+    "y": 260.12903225806451,
+    "z": 8,
+    "height": 435.61290322580646,
+    "width": 619.35483870967744,
+    "tabOrder": 8
   },
   "visual": {
-    "visualType": "lineClusteredColumnComboChart",
+    "visualType": "barChart",
     "query": {
       "queryState": {
         "Category": {
@@ -20,14 +20,47 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "Calendário"
+                      "Entity": "Lojas"
                     }
                   },
-                  "Property": "data"
+                  "Property": "nome_loja"
                 }
               },
-              "queryRef": "Calendário.data",
-              "nativeQueryRef": "data"
+              "queryRef": "Lojas.nome_loja",
+              "nativeQueryRef": "nome_loja",
+              "active": true
+            }
+          ]
+        },
+        "Tooltips": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Receita acumulada no mês"
+                }
+              },
+              "queryRef": "Medidas.Receita acumulada no mês",
+              "nativeQueryRef": "Receita acumulada no mês"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Meta acumulada até o dia"
+                }
+              },
+              "queryRef": "Medidas.Meta acumulada até o dia",
+              "nativeQueryRef": "Meta acumulada até o dia"
             }
           ]
         },
@@ -41,29 +74,11 @@
                       "Entity": "Medidas"
                     }
                   },
-                  "Property": "Receita"
+                  "Property": "Cobertura da meta até o dia"
                 }
               },
-              "queryRef": "Medidas.Receita",
-              "nativeQueryRef": "Receita"
-            }
-          ]
-        },
-        "Y2": {
-          "projections": [
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Medidas"
-                    }
-                  },
-                  "Property": "Meta do período"
-                }
-              },
-              "queryRef": "Medidas.Meta do período",
-              "nativeQueryRef": "Meta do período"
+              "queryRef": "Medidas.Cobertura da meta até o dia",
+              "nativeQueryRef": "Cobertura da meta até o dia"
             }
           ]
         }
@@ -72,16 +87,16 @@
         "sort": [
           {
             "field": {
-              "Column": {
+              "Measure": {
                 "Expression": {
                   "SourceRef": {
-                    "Entity": "Calendário"
+                    "Entity": "Medidas"
                   }
                 },
-                "Property": "data"
+                "Property": "Cobertura da meta até o dia"
               }
             },
-            "direction": "Ascending"
+            "direction": "Descending"
           }
         ]
       }
@@ -100,13 +115,20 @@
           }
         }
       ],
-      "lineStyles": [
+      "labels": [
         {
           "properties": {
-            "lineChartType": {
+            "show": {
               "expr": {
                 "Literal": {
-                  "Value": "'normal'"
+                  "Value": "true"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
                 }
               }
             }
@@ -126,7 +148,7 @@
                           "Entity": "Medidas"
                         }
                       },
-                      "Property": "Cor da cobertura do período"
+                      "Property": "Cor da cobertura"
                     }
                   }
                 }
@@ -143,22 +165,22 @@
             ]
           }
         }
-      ]
-    },
-    "visualContainerObjects": {
-      "subTitle": [
+      ],
+      "categoryAxis": [
         {
           "properties": {
-            "show": {
+            "fontSize": {
               "expr": {
                 "Literal": {
-                  "Value": "false"
+                  "Value": "11D"
                 }
               }
             }
           }
         }
-      ],
+      ]
+    },
+    "visualContainerObjects": {
       "title": [
         {
           "properties": {
@@ -172,14 +194,27 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Receita diária vs meta do período'"
+                  "Value": "'Lojas: cobertura da meta até o dia'"
                 }
               }
             },
             "fontSize": {
               "expr": {
                 "Literal": {
-                  "Value": "12D"
+                  "Value": "14D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
                 }
               }
             }

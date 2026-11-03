@@ -183,6 +183,179 @@ table Medidas
 		displayFolder: 4. Formatação
 		lineageTag: 84f83e3f-a687-4f41-a95d-60a1ffe0131b
 
+	/// Diferença percentual da receita do dia para a meta do dia: (receita − meta) ÷ meta. Positivo = bateu a meta.
+	measure 'Diferença para a meta do dia %' = DIVIDE([Receita] - [Meta do período], [Meta do período])
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: 3. Metas
+		lineageTag: 89bdfec0-620e-43bf-91ac-37dbf47a839e
+
+	/// Verde se a diferença para a meta do dia é ≥ 0, vermelho se < 0 (barras divergentes).
+	measure 'Cor da diferença' = IF(ISBLANK([Diferença para a meta do dia %]), BLANK(), IF([Diferença para a meta do dia %] >= 0, "#2E7D32", "#C62828"))
+		displayFolder: 4. Formatação
+		lineageTag: d5cf881e-495f-4f13-8fd5-4b8cd156d291
+
+	/// Último dia com venda concluída no contexto de data (segmentação), ignorando loja, setor e vendedor. É a posição do relatório (no dw: dw.data_referencia() com o corte da segmentação).
+	measure Posição =
+			VAR ultimo =
+			    CALCULATE(MAX('Vendas'[sk_tempo]), 'Vendas'[status] = "Concluída", REMOVEFILTERS(Lojas), REMOVEFILTERS(Produtos), REMOVEFILTERS(Setores), REMOVEFILTERS(Vendedores))
+			RETURN
+			    IF(NOT ISBLANK(ultimo), DATE(INT(ultimo / 10000), MOD(INT(ultimo / 100), 100), MOD(ultimo, 100)))
+		formatString: dd/mm/yyyy
+		displayFolder: 5. Projeção
+		lineageTag: aba1efd7-33d7-4abe-a258-485226dd32a3
+
+	/// Receita do início do mês da posição até a posição, ignorando o corte da segmentação no início do período.
+	measure 'Receita realizada até a posição' =
+			VAR pos = [Posição]
+			VAR ini = DATE(YEAR(pos), MONTH(pos), 1)
+			VAR fim = EOMONTH(pos, 0)
+			RETURN
+			    IF(NOT ISBLANK(pos), CALCULATE([Receita], REMOVEFILTERS('Calendário'), 'Calendário'[data] >= ini, 'Calendário'[data] <= pos))
+		formatString: "R$" #,0.00
+		displayFolder: 5. Projeção
+		lineageTag: 9908c4d7-2866-4613-bb41-896e6559b304
+
+	/// Meta mensal (loja x setor) do mês da posição, independente do corte da segmentação.
+	measure 'Meta do mês da posição' =
+			VAR pos = [Posição]
+			RETURN
+			    IF(
+			        NOT ISBLANK(pos),
+			        CALCULATE(SUM('Metas lojas'[valor_meta]), REMOVEFILTERS('Calendário'), 'Calendário'[ano_mes_num] = YEAR(pos) * 100 + MONTH(pos))
+			    )
+		formatString: "R$" #,0.00
+		displayFolder: 5. Projeção
+		lineageTag: 1d2b0517-d125-4843-a738-99b1af8c4df4
+
+	/// Soma da previsão diária (dw.previsao_vendas, corte = posição) dos dias depois da posição até o fim do mês. Vazio quando não há previsão gerada para essa posição.
+	measure 'Previsto restante do mês' =
+			VAR pos = [Posição]
+			VAR ini = DATE(YEAR(pos), MONTH(pos), 1)
+			VAR fim = EOMONTH(pos, 0)
+			RETURN
+			    IF(
+			        NOT ISBLANK(pos),
+			        CALCULATE(
+			            SUM('Previsão'[valor_previsto]),
+			            REMOVEFILTERS('Calendário'),
+			            'Previsão'[treino_ate] = pos,
+			            'Previsão'[data] > pos,
+			            'Previsão'[data] <= fim
+			        )
+			    )
+		formatString: "R$" #,0.00
+		displayFolder: 5. Projeção
+		lineageTag: adec3c83-39d3-4fca-8074-bbec19972a3a
+
+	/// Receita realizada até a posição + previsto dos dias restantes do mês (mesma conta de dw.fn_projecao_fechamento_mes). Vazio se faltar previsão para a posição.
+	measure 'Projeção de fechamento' =
+			VAR pos = [Posição]
+			VAR ini = DATE(YEAR(pos), MONTH(pos), 1)
+			VAR fim = EOMONTH(pos, 0)
+			VAR real = [Receita realizada até a posição]
+			VAR resto = [Previsto restante do mês]
+			RETURN
+			    IF(
+			        ISBLANK(pos), BLANK(),
+			        IF(pos >= fim, real, IF(ISBLANK(resto), BLANK(), real + resto))
+			    )
+		formatString: "R$" #,0.00
+		displayFolder: 5. Projeção
+		lineageTag: d212b501-1386-4589-af32-e8181ca5729c
+
+	/// Projeção de fechamento ÷ meta do mês.
+	measure 'Cobertura projetada' = DIVIDE([Projeção de fechamento], [Meta do mês da posição])
+		formatString: 0.0%
+		displayFolder: 5. Projeção
+		lineageTag: 16edb5d4-03db-45b1-a1bc-f446b8c5d954
+
+	/// O que falta da meta do mês ÷ dias restantes, contados em dias médios (meta dos dias restantes ÷ meta de um dia médio do mês), igual ao relatório Excel.
+	measure 'Ritmo necessário por dia' =
+			VAR pos = [Posição]
+			VAR ini = DATE(YEAR(pos), MONTH(pos), 1)
+			VAR fim = EOMONTH(pos, 0)
+			VAR meta = [Meta do mês da posição]
+			VAR falta = MAX(meta - [Receita realizada até a posição], 0)
+			VAR metaRestante =
+			    CALCULATE([Meta do período], REMOVEFILTERS('Calendário'), 'Calendário'[data] > pos, 'Calendário'[data] <= fim)
+			VAR diasMedios = DIVIDE(metaRestante, DIVIDE(meta, DAY(fim)))
+			RETURN
+			    IF(NOT ISBLANK(pos), DIVIDE(falta, diasMedios))
+		formatString: "R$" #,0.00
+		displayFolder: 5. Projeção
+		lineageTag: 7f40c619-dc28-47a8-9cb8-cd4cca02ad65
+
+	/// Para o gráfico de acumulado (eixo 'Eixo do mês'[dia]): receita do início do mês até o dia do eixo, só até a posição.
+	measure 'Receita acumulada (linha)' =
+			VAR pos = [Posição]
+			VAR ini = DATE(YEAR(pos), MONTH(pos), 1)
+			VAR fim = EOMONTH(pos, 0)
+			VAR d = MAX('Eixo do mês'[dia])
+			RETURN
+			    IF(
+			        NOT ISBLANK(pos) && d >= ini && d <= pos,
+			        CALCULATE([Receita], REMOVEFILTERS('Calendário'), 'Calendário'[data] >= ini, 'Calendário'[data] <= d)
+			    )
+		formatString: "R$" #,0.00
+		displayFolder: 5. Projeção
+		lineageTag: 8ebe2e44-d629-47c6-ab25-ad07bdd4597f
+
+	/// Para o gráfico de acumulado: meta diária acumulada do início do mês até o dia do eixo, no mês inteiro.
+	measure 'Meta acumulada (linha)' =
+			VAR pos = [Posição]
+			VAR ini = DATE(YEAR(pos), MONTH(pos), 1)
+			VAR fim = EOMONTH(pos, 0)
+			VAR d = MAX('Eixo do mês'[dia])
+			RETURN
+			    IF(
+			        NOT ISBLANK(pos) && d >= ini && d <= fim,
+			        CALCULATE([Meta do período], REMOVEFILTERS('Calendário'), 'Calendário'[data] >= ini, 'Calendário'[data] <= d)
+			    )
+		formatString: "R$" #,0.00
+		displayFolder: 5. Projeção
+		lineageTag: cda183dd-3eb4-4c90-9801-a9025d5d37da
+
+	/// Para o gráfico de acumulado: realizado até a posição + previsto acumulado, só nos dias depois da posição.
+	measure 'Projeção acumulada (linha)' =
+			VAR pos = [Posição]
+			VAR ini = DATE(YEAR(pos), MONTH(pos), 1)
+			VAR fim = EOMONTH(pos, 0)
+			VAR d = MAX('Eixo do mês'[dia])
+			VAR previsto =
+			    CALCULATE(
+			        SUM('Previsão'[valor_previsto]),
+			        REMOVEFILTERS('Calendário'),
+			        'Previsão'[treino_ate] = pos,
+			        'Previsão'[data] > pos,
+			        'Previsão'[data] <= d
+			    )
+			RETURN
+			    IF(NOT ISBLANK(pos) && d > pos && d <= fim && NOT ISBLANK(previsto), [Receita realizada até a posição] + previsto)
+		formatString: "R$" #,0.00
+		displayFolder: 5. Projeção
+		lineageTag: 6a10d8a4-0884-414b-866b-b528f5df5148
+
+	/// Linha de contexto do cartão de receita.
+	measure 'Contexto da receita' = "Meta acumulada: R$ " & FORMAT([Meta acumulada até o dia], "#,0.00", "pt-BR")
+		displayFolder: 6. Textos
+		lineageTag: 7cc6d393-4762-4c82-ad77-ec1596a51ebd
+
+	/// Linha de contexto do cartão de projeção.
+	measure 'Contexto da projeção' = "Cobertura projetada: " & FORMAT([Cobertura projetada], "0.0%", "pt-BR")
+		displayFolder: 6. Textos
+		lineageTag: 4d725141-c303-4279-838e-653776bb63c1
+
+	/// Linha de contexto do cartão de ritmo necessário (último dia do mês da posição).
+	measure 'Contexto do ritmo' = "até " & FORMAT(EOMONTH([Posição], 0), "dd/mm", "pt-BR")
+		displayFolder: 6. Textos
+		lineageTag: e22c12d8-69dc-4f86-ab72-ee0dca08cc3c
+
+	/// Para o tooltip do gráfico de acumulado: receita acumulada ÷ meta acumulada no dia do eixo.
+	measure 'Cobertura acumulada (linha)' = DIVIDE([Receita acumulada (linha)], [Meta acumulada (linha)])
+		formatString: 0.0%
+		displayFolder: 5. Projeção
+		lineageTag: b61289fe-c698-47c5-8af0-b3127d95566d
+
 	column _
 		isHidden
 		lineageTag: c8c9ba0c-0854-4eb6-b153-4a6132a05ff3

@@ -1,0 +1,19 @@
+/// Dias do calendário SEM relação com o resto do modelo: serve de eixo dos gráficos de acumulado, para mostrar o mês inteiro mesmo com a segmentação de período cortando o Calendário na posição.
+table 'Eixo do mês'
+	lineageTag: 2649ae9d-015e-43fd-b211-5edde26802cb
+
+	column dia
+		dataType: dateTime
+		formatString: dd/mm/yyyy
+		lineageTag: 40b09229-2623-48d5-9dd4-eafe4faecc2a
+		summarizeBy: none
+		sourceColumn: [dia]
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	partition 'Eixo do mês' = calculated
+		mode: import
+		source = SELECTCOLUMNS('Calendário', "dia", 'Calendário'[data])
+

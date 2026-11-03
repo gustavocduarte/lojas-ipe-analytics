@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
-  "name": "8990bbd3d84d451c0705",
+  "name": "25cd604ea3e5da9daa48",
   "position": {
-    "x": 498.0,
-    "y": 18.0,
-    "z": 2,
-    "height": 138.0,
-    "width": 450.0,
-    "tabOrder": 2
+    "x": 1536,
+    "y": 112,
+    "z": 6,
+    "height": 132,
+    "width": 360,
+    "tabOrder": 6
   },
   "visual": {
     "visualType": "cardVisual",
@@ -23,11 +23,11 @@
                       "Entity": "Medidas"
                     }
                   },
-                  "Property": "Meta acumulada até o dia"
+                  "Property": "Evolução vs ano anterior"
                 }
               },
-              "queryRef": "Medidas.Meta acumulada até o dia",
-              "nativeQueryRef": "Meta acumulada até o dia"
+              "queryRef": "Medidas.Evolução vs ano anterior",
+              "nativeQueryRef": "Evolução vs ano anterior"
             }
           ]
         }
@@ -40,7 +40,7 @@
             "fontSize": {
               "expr": {
                 "Literal": {
-                  "Value": "26D"
+                  "Value": "28D"
                 }
               }
             },
@@ -51,22 +51,31 @@
                 }
               }
             },
-            "labelPrecision": {
-              "expr": {
-                "Literal": {
-                  "Value": "2L"
+            "fontColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Medidas"
+                        }
+                      },
+                      "Property": "Cor da evolução"
+                    }
+                  }
                 }
               }
             }
           },
           "selector": {
-            "metadata": "Medidas.Meta acumulada até o dia"
+            "id": "default"
           }
         }
       ]
     },
     "visualContainerObjects": {
-      "subTitle": [
+      "title": [
         {
           "properties": {
             "show": {
@@ -79,13 +88,20 @@
           }
         }
       ],
-      "title": [
+      "subTitle": [
         {
           "properties": {
             "show": {
               "expr": {
                 "Literal": {
-                  "Value": "false"
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'vs mesmo período do ano anterior'"
                 }
               }
             }

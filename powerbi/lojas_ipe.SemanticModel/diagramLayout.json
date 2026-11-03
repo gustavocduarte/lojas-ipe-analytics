@@ -150,6 +150,32 @@
             "width": 234
           },
           "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 2293.2847452802043,
+            "y": 387.62414947682043
+          },
+          "nodeIndex": "Eixo do mês",
+          "nodeLineageTag": "2649ae9d-015e-43fd-b211-5edde26802cb",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 2577.2847452802043,
+            "y": 339.62414947682043
+          },
+          "nodeIndex": "Previsão",
+          "nodeLineageTag": "fe310866-8557-4410-b036-5ea31aaefb7c",
+          "size": {
+            "height": 296,
+            "width": 234
+          },
+          "zIndex": 0
         }
       ],
       "name": "Todas as tabelas",

@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
-  "name": "391511a14cdb987fd0c7",
+  "name": "f091a1329953adad9583",
   "position": {
-    "x": 24.0,
-    "y": 18.0,
-    "z": 1,
-    "height": 138.0,
-    "width": 450.0,
-    "tabOrder": 1
+    "x": 1158,
+    "y": 112,
+    "z": 5,
+    "height": 132,
+    "width": 360,
+    "tabOrder": 5
   },
   "visual": {
     "visualType": "cardVisual",
@@ -23,11 +23,11 @@
                       "Entity": "Medidas"
                     }
                   },
-                  "Property": "Receita acumulada no mês"
+                  "Property": "Ritmo necessário por dia"
                 }
               },
-              "queryRef": "Medidas.Receita acumulada no mês",
-              "nativeQueryRef": "Receita acumulada no mês"
+              "queryRef": "Medidas.Ritmo necessário por dia",
+              "nativeQueryRef": "Ritmo necessário por dia"
             }
           ]
         }
@@ -40,7 +40,7 @@
             "fontSize": {
               "expr": {
                 "Literal": {
-                  "Value": "26D"
+                  "Value": "28D"
                 }
               }
             },
@@ -60,13 +60,13 @@
             }
           },
           "selector": {
-            "metadata": "Medidas.Receita acumulada no mês"
+            "metadata": "Medidas.Ritmo necessário por dia"
           }
         }
       ]
     },
     "visualContainerObjects": {
-      "subTitle": [
+      "title": [
         {
           "properties": {
             "show": {
@@ -79,13 +79,25 @@
           }
         }
       ],
-      "title": [
+      "subTitle": [
         {
           "properties": {
             "show": {
               "expr": {
                 "Literal": {
-                  "Value": "false"
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Contexto do ritmo"
                 }
               }
             }

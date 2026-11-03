@@ -125,6 +125,13 @@ table Calendário
 		summarizeBy: none
 		sortByColumn: ano_mes_num
 
+	/// Rótulo do eixo do gráfico diário, ex.: 06 sáb (dia + dia da semana abreviado, separados por espaço não separável para o rótulo nunca quebrar linha), ordenado pela data.
+	column 'Dia e semana' = FORMAT('Calendário'[data], "dd") & UNICHAR(160) & LOWER(LEFT('Calendário'[nome_dia_semana], 3))
+		dataType: string
+		lineageTag: c98eb458-9c7c-4e5a-a45c-c29b788c2652
+		summarizeBy: none
+		sortByColumn: data
+
 	partition 'dw dim_tempo' = m
 		mode: import
 		source =

@@ -1,0 +1,115 @@
+/// Previsão diária de receita por loja e setor (dw.previsao_vendas, nível loja_setor), com uma linha por corte (treino_ate). As medidas usam o corte igual à posição do relatório.
+table Previsão
+	lineageTag: fe310866-8557-4410-b036-5ea31aaefb7c
+
+	column sk_tempo
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 565c87d6-e46c-4635-af57-59bee7e6bde7
+		summarizeBy: none
+		sourceColumn: sk_tempo
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		isHidden
+		formatString: dd/mm/yyyy
+		lineageTag: 779c667f-824c-4661-8d88-6350694bf695
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column sk_loja
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: e3eac6c1-c75a-4814-bc0f-5696f5168c00
+		summarizeBy: none
+		sourceColumn: sk_loja
+
+		annotation SummarizationSetBy = Automatic
+
+	column setor
+		dataType: string
+		isHidden
+		lineageTag: b5397314-1c39-4849-88a8-9c2829435c6e
+		summarizeBy: none
+		sourceColumn: setor
+
+		annotation SummarizationSetBy = Automatic
+
+	column valor_previsto
+		dataType: double
+		isHidden
+		formatString: "R$" #,0.00
+		lineageTag: d079435f-e83c-4799-811f-302f72c78f99
+		summarizeBy: sum
+		sourceColumn: valor_previsto
+
+		annotation SummarizationSetBy = Automatic
+
+	column valor_baixo
+		dataType: double
+		isHidden
+		formatString: "R$" #,0.00
+		lineageTag: 6df58ae5-dbbb-4fb6-90aa-1c82bb3c2909
+		summarizeBy: sum
+		sourceColumn: valor_baixo
+
+		annotation SummarizationSetBy = Automatic
+
+	column valor_alto
+		dataType: double
+		isHidden
+		formatString: "R$" #,0.00
+		lineageTag: 3e66b7e6-77d1-4cbb-94d2-d0e3664fc062
+		summarizeBy: sum
+		sourceColumn: valor_alto
+
+		annotation SummarizationSetBy = Automatic
+
+	column treino_ate
+		dataType: dateTime
+		isHidden
+		formatString: dd/mm/yyyy
+		lineageTag: 2d1b4a12-522e-44ec-9778-213acb58d3aa
+		summarizeBy: none
+		sourceColumn: treino_ate
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column versao_modelo
+		dataType: string
+		isHidden
+		lineageTag: d12a1eaf-cb84-4eb0-8adc-88aa0d423891
+		summarizeBy: none
+		sourceColumn: versao_modelo
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'dw previsao_vendas' = m
+		mode: import
+		source =
+				let
+				    Fonte = PostgreSQL.Database("localhost", "lojas_ipe_dw"),
+				    dw_previsao_vendas = Fonte{[Schema="dw",Item="previsao_vendas"]}[Data],
+				    // série prevista (loja x setor) por dia; as faixas de loja e rede somadas não servem para somar
+				    Dia = Table.SelectRows(dw_previsao_vendas, each [nivel] = "loja_setor" and [granularidade] = "dia"),
+				    // se um mesmo corte tiver mais de uma versão do modelo, fica a mais recente (como dw.fn_projecao_fechamento_mes)
+				    Escolhida = Table.Group(Dia, {"treino_ate"}, {{"versao_escolhida", each Table.Max(_, "gerado_em")[versao_modelo], type text}}),
+				    Unido = Table.NestedJoin(Dia, {"treino_ate", "versao_modelo"}, Escolhida, {"treino_ate", "versao_escolhida"}, "e", JoinKind.Inner),
+				    Colunas = Table.SelectColumns(Unido, {"data", "sk_loja", "setor", "valor_previsto", "valor_baixo", "valor_alto", "treino_ate", "versao_modelo"}),
+				    ComChave = Table.AddColumn(Colunas, "sk_tempo", each Date.Year([data]) * 10000 + Date.Month([data]) * 100 + Date.Day([data]), Int64.Type),
+				    Tipos = Table.TransformColumnTypes(ComChave, {{"data", type date}, {"treino_ate", type date}, {"sk_loja", Int64.Type}, {"valor_previsto", type number}, {"valor_baixo", type number}, {"valor_alto", type number}})
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table
+
