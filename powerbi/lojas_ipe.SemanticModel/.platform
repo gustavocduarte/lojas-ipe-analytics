@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "lojas_ipe"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "c3543425-755b-4d40-9599-7227f1754d99"
+  }
+}

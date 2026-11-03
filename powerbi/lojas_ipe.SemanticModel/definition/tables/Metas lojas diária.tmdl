@@ -1,0 +1,67 @@
+table 'Metas lojas diária'
+	lineageTag: b82aa6aa-faab-4fbc-b4be-40fe6b0e48c8
+
+	column sk_tempo
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 8df9c1ef-c3dd-41be-a154-5b506b6a948b
+		summarizeBy: none
+		sourceColumn: sk_tempo
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		isHidden
+		formatString: Long Date
+		lineageTag: 08094d81-5f55-40a7-b0f0-0fb249fbfc10
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column sk_loja
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: a1561c8a-4def-47f3-83bd-cdb5cacf0ec7
+		summarizeBy: none
+		sourceColumn: sk_loja
+
+		annotation SummarizationSetBy = Automatic
+
+	column setor
+		dataType: string
+		isHidden
+		lineageTag: 333700c0-e294-4339-85ac-fdbc9c1e86c1
+		summarizeBy: none
+		sourceColumn: setor
+
+		annotation SummarizationSetBy = Automatic
+
+	column valor_meta_dia
+		dataType: double
+		isHidden
+		formatString: "R$" #,0.00
+		lineageTag: 67db657a-c8c4-4210-9400-4dc881a4e795
+		summarizeBy: sum
+		sourceColumn: valor_meta_dia
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition 'dw vw_meta_vendas_diaria' = m
+		mode: import
+		source =
+				let
+				    Fonte = PostgreSQL.Database("localhost", "lojas_ipe_dw"),
+				    dw_vw_meta_vendas_diaria = Fonte{[Schema="dw",Item="vw_meta_vendas_diaria"]}[Data]
+				in
+				    dw_vw_meta_vendas_diaria
+
+	annotation PBI_ResultType = Table
+

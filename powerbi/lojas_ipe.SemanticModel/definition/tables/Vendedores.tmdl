@@ -1,0 +1,98 @@
+table Vendedores
+	lineageTag: 256c21d4-782e-4dc0-84f8-73c1fa268fe0
+
+	column sk_vendedor
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 527d7bcb-6f99-4222-b07f-b1a048f1d40d
+		summarizeBy: none
+		sourceColumn: sk_vendedor
+
+		annotation SummarizationSetBy = Automatic
+
+	column cod_vendedor
+		dataType: string
+		lineageTag: d38f6e4a-7d90-48b1-aba7-6dccd1beba4c
+		summarizeBy: none
+		sourceColumn: cod_vendedor
+
+		annotation SummarizationSetBy = Automatic
+
+	column nome_vendedor
+		dataType: string
+		lineageTag: bd22f930-a27f-4378-9140-ab3840bc1553
+		summarizeBy: none
+		sourceColumn: nome_vendedor
+
+		annotation SummarizationSetBy = Automatic
+
+	column sk_loja
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 923b53d7-5e02-459a-bc82-d2408549fa03
+		summarizeBy: sum
+		sourceColumn: sk_loja
+
+		annotation SummarizationSetBy = Automatic
+
+	column cargo
+		dataType: string
+		lineageTag: 40c524f3-90e9-4e14-8584-d2260fbd74ce
+		summarizeBy: none
+		sourceColumn: cargo
+
+		annotation SummarizationSetBy = Automatic
+
+	column turno
+		dataType: string
+		lineageTag: 8f56f7f2-8565-402b-beb0-19435b28bab6
+		summarizeBy: none
+		sourceColumn: turno
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_admissao
+		dataType: dateTime
+		formatString: dd/mm/yyyy
+		lineageTag: 472acb89-de82-4fac-9113-eebd6961ff7d
+		summarizeBy: none
+		sourceColumn: data_admissao
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column data_desligamento
+		dataType: dateTime
+		formatString: dd/mm/yyyy
+		lineageTag: b68a5f07-ee0f-4029-9260-e644bf94eb0f
+		summarizeBy: none
+		sourceColumn: data_desligamento
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column percentual_comissao
+		dataType: double
+		lineageTag: f116e305-1e48-4a80-9801-d4ff0ca287d3
+		summarizeBy: sum
+		sourceColumn: percentual_comissao
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition 'dw dim_vendedor' = m
+		mode: import
+		source =
+				let
+				    Fonte = PostgreSQL.Database("localhost", "lojas_ipe_dw"),
+				    dw_dim_vendedor = Fonte{[Schema="dw",Item="dim_vendedor"]}[Data]
+				in
+				    dw_dim_vendedor
+
+	annotation PBI_ResultType = Table
+

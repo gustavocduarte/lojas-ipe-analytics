@@ -1,0 +1,266 @@
+table Vendas
+	lineageTag: 62fc7bcb-3c3a-4408-86e7-c5dbc174fff7
+
+	column sk_venda
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 443eccf4-89d2-40a0-8a9c-528434e13a07
+		summarizeBy: none
+		sourceColumn: sk_venda
+
+		annotation SummarizationSetBy = Automatic
+
+	column id_venda_erp
+		dataType: string
+		isHidden
+		lineageTag: 61532e55-7df6-4a68-8027-26e7d033e7a0
+		summarizeBy: none
+		sourceColumn: id_venda_erp
+
+		annotation SummarizationSetBy = Automatic
+
+	column numero_cupom
+		dataType: string
+		lineageTag: 6fca7a07-ce81-4182-adf9-257a02a51293
+		summarizeBy: none
+		sourceColumn: numero_cupom
+
+		annotation SummarizationSetBy = Automatic
+
+	column numero_item
+		dataType: int64
+		formatString: 0
+		lineageTag: 02266c7d-be94-48c4-bbfb-555df933550d
+		summarizeBy: none
+		sourceColumn: numero_item
+
+		annotation SummarizationSetBy = Automatic
+
+	column sk_tempo
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 795dc65a-290b-4d0e-bbe5-ba8d5b8d423d
+		summarizeBy: none
+		sourceColumn: sk_tempo
+
+		annotation SummarizationSetBy = Automatic
+
+	column sk_hora
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 71c8d00c-d9db-4fe5-8068-afc19b86da1b
+		summarizeBy: none
+		sourceColumn: sk_hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_hora_venda
+		dataType: dateTime
+		formatString: dd/mm/yyyy hh:nn
+		lineageTag: 6fae8de8-5fdc-4a5a-9465-4773cb93d471
+		summarizeBy: none
+		sourceColumn: data_hora_venda
+
+		annotation SummarizationSetBy = Automatic
+
+	column sk_loja
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: da12c4ab-ba69-4605-8e30-8f553ab2e9bb
+		summarizeBy: none
+		sourceColumn: sk_loja
+
+		annotation SummarizationSetBy = Automatic
+
+	column caixa
+		dataType: int64
+		formatString: 0
+		lineageTag: c36d65ef-f43f-4b4d-a200-3b78289a2b6e
+		summarizeBy: none
+		sourceColumn: caixa
+
+		annotation SummarizationSetBy = Automatic
+
+	column sk_vendedor
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: b893c956-e40c-405d-8dc9-a58970a9f72a
+		summarizeBy: none
+		sourceColumn: sk_vendedor
+
+		annotation SummarizationSetBy = Automatic
+
+	column sk_cliente
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: cbe3593b-4055-487f-93ca-d39bf865d7c4
+		summarizeBy: none
+		sourceColumn: sk_cliente
+
+		annotation SummarizationSetBy = Automatic
+
+	column sk_forma_pagamento
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 0c4bea81-a397-46c9-8ee5-0e042b922791
+		summarizeBy: none
+		sourceColumn: sk_forma_pagamento
+
+		annotation SummarizationSetBy = Automatic
+
+	column numero_parcelas
+		dataType: int64
+		formatString: 0
+		lineageTag: e69caa97-2658-4b64-af30-c4665314d6eb
+		summarizeBy: none
+		sourceColumn: numero_parcelas
+
+		annotation SummarizationSetBy = Automatic
+
+	column sk_campanha
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 73c82612-1310-461b-a2b3-ba0cc38ec0f2
+		summarizeBy: none
+		sourceColumn: sk_campanha
+
+		annotation SummarizationSetBy = Automatic
+
+	column sk_produto
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 008b16e7-2690-429b-bd46-eb469a90d61f
+		summarizeBy: none
+		sourceColumn: sk_produto
+
+		annotation SummarizationSetBy = Automatic
+
+	column quantidade
+		dataType: int64
+		formatString: 0
+		lineageTag: 098d54c8-6e1b-4974-a199-a9ad70974f77
+		summarizeBy: sum
+		sourceColumn: quantidade
+
+		annotation SummarizationSetBy = Automatic
+
+	column preco_unitario
+		dataType: double
+		formatString: "R$" #,0.00
+		lineageTag: 0fa6da8b-98b2-429d-bbd7-6faf640b9e4f
+		summarizeBy: none
+		sourceColumn: preco_unitario
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column desconto
+		dataType: double
+		formatString: "R$" #,0.00
+		lineageTag: 9e471972-cdb4-41a7-94ac-150de2d6af33
+		summarizeBy: sum
+		sourceColumn: desconto
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column receita_liquida
+		dataType: double
+		formatString: "R$" #,0.00
+		lineageTag: b3d3ac29-f400-4310-9618-ef4791d78ca3
+		summarizeBy: sum
+		sourceColumn: receita_liquida
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column custo
+		dataType: double
+		formatString: "R$" #,0.00
+		lineageTag: 6bbf4a63-c48a-40de-91a5-5d0f8bbf1a17
+		summarizeBy: sum
+		sourceColumn: custo
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column margem
+		dataType: double
+		formatString: "R$" #,0.00
+		lineageTag: 88db243e-8293-4b92-911d-6a0d30198d4a
+		summarizeBy: sum
+		sourceColumn: margem
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column status
+		dataType: string
+		lineageTag: 4318dbdc-5979-49f7-9bf4-14a135e37042
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = Automatic
+
+	column motivo_cancelamento_devolucao
+		dataType: string
+		lineageTag: 124c188f-4729-4a97-9a7c-23982cbae140
+		summarizeBy: none
+		sourceColumn: motivo_cancelamento_devolucao
+
+		annotation SummarizationSetBy = Automatic
+
+	column arquivo_origem
+		dataType: string
+		isHidden
+		lineageTag: 8076ebf4-fcd9-41b1-9fc7-5b1965e6c707
+		summarizeBy: none
+		sourceColumn: arquivo_origem
+
+		annotation SummarizationSetBy = Automatic
+
+	column linha_origem
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: c472f566-497e-4b5e-98dd-56d3a377dd85
+		summarizeBy: none
+		sourceColumn: linha_origem
+
+		annotation SummarizationSetBy = Automatic
+
+	column id_carga
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: dbdb81e7-165c-497c-a0cc-a9958fd8966c
+		summarizeBy: none
+		sourceColumn: id_carga
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'dw fato_vendas' = m
+		mode: import
+		source =
+				let
+				    Fonte = PostgreSQL.Database("localhost", "lojas_ipe_dw"),
+				    dw_fato_vendas = Fonte{[Schema="dw",Item="fato_vendas"]}[Data]
+				in
+				    dw_fato_vendas
+
+	annotation PBI_ResultType = Table
+

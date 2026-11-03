@@ -1,0 +1,65 @@
+table 'Metas lojas'
+	lineageTag: 2d9783e5-0965-407e-868f-dfcc271f865c
+
+	column sk_meta
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 8ee5b702-5d1a-4f21-a509-90cfc6dbc04f
+		summarizeBy: none
+		sourceColumn: sk_meta
+
+		annotation SummarizationSetBy = Automatic
+
+	column sk_tempo
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 5aa789b0-8a8d-458e-b8cb-72afa477be66
+		summarizeBy: none
+		sourceColumn: sk_tempo
+
+		annotation SummarizationSetBy = Automatic
+
+	column sk_loja
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 47ffd8cc-0f05-4bf2-83c3-0900d9495518
+		summarizeBy: none
+		sourceColumn: sk_loja
+
+		annotation SummarizationSetBy = Automatic
+
+	column setor
+		dataType: string
+		isHidden
+		lineageTag: 315d40ab-3cfc-4aa6-b6ce-f74baa92fb24
+		summarizeBy: none
+		sourceColumn: setor
+
+		annotation SummarizationSetBy = Automatic
+
+	column valor_meta
+		dataType: double
+		isHidden
+		formatString: "R$" #,0.00
+		lineageTag: 8ee0d30e-721c-4e9b-94e9-57066efb39d2
+		summarizeBy: sum
+		sourceColumn: valor_meta
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition 'dw fato_meta_vendas' = m
+		mode: import
+		source =
+				let
+				    Fonte = PostgreSQL.Database("localhost", "lojas_ipe_dw"),
+				    dw_fato_meta_vendas = Fonte{[Schema="dw",Item="fato_meta_vendas"]}[Data]
+				in
+				    dw_fato_meta_vendas
+
+	annotation PBI_ResultType = Table
+

@@ -1,0 +1,138 @@
+table Calendário
+	lineageTag: e355ee06-697b-46e3-8b0b-156f009091c6
+	dataCategory: Time
+
+	column sk_tempo
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 276de77c-d59c-4cb6-b458-b8b0a3cc91ed
+		summarizeBy: none
+		sourceColumn: sk_tempo
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		isUnique
+		formatString: dd/mm/yyyy
+		lineageTag: 6c31149c-2bbd-44e5-8aa8-9b4c18087f06
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column dia
+		dataType: int64
+		formatString: 0
+		lineageTag: a92ee42d-4fd3-4707-b62e-de7f8aa42fbf
+		summarizeBy: none
+		sourceColumn: dia
+
+		annotation SummarizationSetBy = Automatic
+
+	column semana
+		dataType: int64
+		formatString: 0
+		lineageTag: 7272ec44-3cf0-460a-9353-cba1373dea24
+		summarizeBy: none
+		sourceColumn: semana
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes
+		dataType: int64
+		formatString: 0
+		lineageTag: 6f04f0df-10ef-42d8-b93a-55ca97c692d4
+		summarizeBy: none
+		sourceColumn: mes
+
+		annotation SummarizationSetBy = Automatic
+
+	column trimestre
+		dataType: int64
+		formatString: 0
+		lineageTag: 1d47114c-cde0-4ccd-913f-c1669f1260b7
+		summarizeBy: none
+		sourceColumn: trimestre
+
+		annotation SummarizationSetBy = Automatic
+
+	column ano
+		dataType: int64
+		formatString: 0
+		lineageTag: d13c1c79-7fbe-4118-96c3-4af719f1ebb0
+		summarizeBy: none
+		sourceColumn: ano
+
+		annotation SummarizationSetBy = Automatic
+
+	column nome_mes
+		dataType: string
+		lineageTag: b725d9f1-eed5-465f-97ad-88cae9a5cfa4
+		summarizeBy: none
+		sourceColumn: nome_mes
+		sortByColumn: mes
+
+		annotation SummarizationSetBy = Automatic
+
+	column nome_dia_semana
+		dataType: string
+		lineageTag: 7a3228ff-2169-4a58-88bb-a1bf80fd907d
+		summarizeBy: none
+		sourceColumn: nome_dia_semana
+		sortByColumn: num_dia_semana
+
+		annotation SummarizationSetBy = Automatic
+
+	column feriado_nacional
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 399d523b-b8eb-48a9-b062-05659bea2531
+		summarizeBy: none
+		sourceColumn: feriado_nacional
+
+		annotation SummarizationSetBy = Automatic
+
+	column nome_feriado
+		dataType: string
+		lineageTag: 2259e8a6-9764-4f04-8065-52e77072433c
+		summarizeBy: none
+		sourceColumn: nome_feriado
+
+		annotation SummarizationSetBy = Automatic
+
+	/// 1 = segunda ... 7 = domingo (para ordenar o nome do dia).
+	column num_dia_semana = WEEKDAY('Calendário'[data], 2)
+		dataType: int64
+		isHidden
+		lineageTag: b49037e0-d23d-4a30-bc62-ab8f2cbf628f
+		summarizeBy: none
+
+	/// AAAAMM, para ordenar o rótulo Mês/ano.
+	column ano_mes_num = 'Calendário'[ano] * 100 + 'Calendário'[mes]
+		dataType: int64
+		isHidden
+		lineageTag: b00c8fe6-aacf-4020-9890-ccf54276c273
+		summarizeBy: none
+
+	/// Rótulo curto do mês, ex.: dez/25.
+	column Mês/ano = FORMAT('Calendário'[data], "mmm/yy", "pt-BR")
+		dataType: string
+		lineageTag: 169b4c32-2888-4453-81b1-8ce8cefc8fd6
+		summarizeBy: none
+		sortByColumn: ano_mes_num
+
+	partition 'dw dim_tempo' = m
+		mode: import
+		source =
+				let
+				    Fonte = PostgreSQL.Database("localhost", "lojas_ipe_dw"),
+				    dw_dim_tempo = Fonte{[Schema="dw",Item="dim_tempo"]}[Data]
+				in
+				    dw_dim_tempo
+
+	annotation PBI_ResultType = Table
+

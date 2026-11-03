@@ -1,0 +1,13 @@
+/// Dimensão de setor: liga Produtos (e por eles as Vendas) às Metas por loja e setor.
+table Setores
+	lineageTag: 5b8130f1-46ef-415d-8db6-0b6058eef81b
+
+	column setor
+		lineageTag: cfbe0599-b90c-427f-9190-133870c1cf6e
+		isNameInferred
+		sourceColumn: Produtos[setor]
+
+	partition Setores = calculated
+		mode: import
+		source = DISTINCT(UNION(DISTINCT(Produtos[setor]), DISTINCT('Metas lojas'[setor])))
+

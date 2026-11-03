@@ -1,0 +1,87 @@
+table Produtos
+	lineageTag: 8de61854-6c9d-4ed6-9140-781c81aa5828
+
+	column sk_produto
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: d9592026-66a0-48a3-ad02-d9ac9bcacb95
+		summarizeBy: none
+		sourceColumn: sk_produto
+
+		annotation SummarizationSetBy = Automatic
+
+	column sku
+		dataType: string
+		lineageTag: d114a76c-a8ff-49a1-828b-61812f48830e
+		summarizeBy: none
+		sourceColumn: sku
+
+		annotation SummarizationSetBy = Automatic
+
+	column nome_produto
+		dataType: string
+		lineageTag: 9b00f261-084e-4027-b240-353008f03ec8
+		summarizeBy: none
+		sourceColumn: nome_produto
+
+		annotation SummarizationSetBy = Automatic
+
+	column marca
+		dataType: string
+		lineageTag: b3b8a639-b41c-4fef-ad5c-573ecfceb225
+		summarizeBy: none
+		sourceColumn: marca
+
+		annotation SummarizationSetBy = Automatic
+
+	column setor
+		dataType: string
+		isHidden
+		lineageTag: b50320ad-af70-4365-a136-b6f956ad8229
+		summarizeBy: none
+		sourceColumn: setor
+
+		annotation SummarizationSetBy = Automatic
+
+	column categoria
+		dataType: string
+		lineageTag: 04dd7436-2247-4fda-9a80-049e23a059fd
+		summarizeBy: none
+		sourceColumn: categoria
+
+		annotation SummarizationSetBy = Automatic
+
+	column custo_unitario
+		dataType: double
+		formatString: "R$" #,0.00
+		lineageTag: fa61fc8d-1e5b-4405-a4d9-3f8a1449d57c
+		summarizeBy: none
+		sourceColumn: custo_unitario
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column preco_lista
+		dataType: double
+		formatString: "R$" #,0.00
+		lineageTag: 4a531bf8-538c-44c7-a6a4-b024c106cc23
+		summarizeBy: none
+		sourceColumn: preco_lista
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition 'dw dim_produto' = m
+		mode: import
+		source =
+				let
+				    Fonte = PostgreSQL.Database("localhost", "lojas_ipe_dw"),
+				    dw_dim_produto = Fonte{[Schema="dw",Item="dim_produto"]}[Data]
+				in
+				    dw_dim_produto
+
+	annotation PBI_ResultType = Table
+

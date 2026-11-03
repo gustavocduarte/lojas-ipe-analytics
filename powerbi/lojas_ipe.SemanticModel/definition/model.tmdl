@@ -1,0 +1,29 @@
+model Model
+	culture: pt-BR
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: pt-BR
+	valueFilterBehavior: independent
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation __PBI_TimeIntelligenceEnabled = 0
+
+annotation PBI_QueryOrder = ["Vendas","Calendário","Lojas","Produtos","Vendedores","Metas lojas","Metas vendedores","dw vw_meta_vendas_diaria","dw vw_meta_vendedor_diaria"]
+
+annotation PBI_ProTooling = ["MCP-PBIModeling","DevMode"]
+
+ref table Vendas
+ref table Calendário
+ref table Lojas
+ref table Produtos
+ref table Vendedores
+ref table Medidas
+ref table 'Metas lojas'
+ref table 'Metas vendedores'
+ref table Setores
+ref table 'Metas lojas diária'
+ref table 'Metas vendedores diária'
+
+ref cultureInfo pt-BR
+

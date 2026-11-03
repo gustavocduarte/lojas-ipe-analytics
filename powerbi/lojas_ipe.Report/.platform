@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Report",
+    "displayName": "lojas_ipe"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "48635ab7-cc47-4081-933d-322e03445581"
+  }
+}

@@ -1,0 +1,195 @@
+/// Tabela só para guardar as medidas DAX do relatório.
+table Medidas
+	lineageTag: 572f3939-6446-4d1b-a699-4deb218e46bf
+
+	/// Receita líquida só das vendas concluídas (sem canceladas e devolvidas).
+	measure Receita =
+			CALCULATE(
+			    SUM('Vendas'[receita_liquida]),
+			    'Vendas'[status] = "Concluída"
+			)
+		formatString: "R$" #,0.00
+		displayFolder: 1. Vendas
+		lineageTag: 6e659f28-840e-4713-b395-9377d0540b53
+
+	/// Custo das vendas concluídas.
+	measure Custo = CALCULATE(SUM('Vendas'[custo]), 'Vendas'[status] = "Concluída")
+		formatString: "R$" #,0.00
+		displayFolder: 1. Vendas
+		lineageTag: 59f9bf56-85a8-48af-b9fd-511aca50bce9
+
+	/// Receita menos custo, só vendas concluídas.
+	measure Margem = [Receita] - [Custo]
+		formatString: "R$" #,0.00
+		displayFolder: 1. Vendas
+		lineageTag: ad96fec0-4bd3-4864-894e-129073c5abed
+
+	/// Margem sobre a receita.
+	measure 'Margem %' = DIVIDE([Margem], [Receita])
+		formatString: 0.0%
+		displayFolder: 1. Vendas
+		lineageTag: 4af88f0a-3707-4607-a435-2a9b257c5e0f
+
+	/// Unidades vendidas (concluídas).
+	measure Quantidade = CALCULATE(SUM('Vendas'[quantidade]), 'Vendas'[status] = "Concluída")
+		formatString: #,0
+		displayFolder: 1. Vendas
+		lineageTag: 986f7aa3-2fad-4398-99f0-bf2355939cf3
+
+	/// Número de cupons concluídos.
+	measure Cupons = CALCULATE(DISTINCTCOUNT('Vendas'[numero_cupom]), 'Vendas'[status] = "Concluída")
+		formatString: #,0
+		displayFolder: 1. Vendas
+		lineageTag: 8afddbc3-7ee6-440a-8d66-3fa4ad73bb32
+
+	/// Receita por cupom.
+	measure 'Ticket médio' = DIVIDE([Receita], [Cupons])
+		formatString: "R$" #,0.00
+		displayFolder: 1. Vendas
+		lineageTag: 8e880e5e-97bb-47ca-bb46-16f9dfe4d4f9
+
+	/// Unidades por cupom.
+	measure 'Itens por cupom' = DIVIDE([Quantidade], [Cupons])
+		formatString: #,0.00
+		displayFolder: 1. Vendas
+		lineageTag: 5d0b3363-42f5-40ac-9c84-adae7dd7c236
+
+	/// Desconto concedido nas vendas concluídas.
+	measure Desconto = CALCULATE(SUM('Vendas'[desconto]), 'Vendas'[status] = "Concluída")
+		formatString: "R$" #,0.00
+		displayFolder: 1. Vendas
+		lineageTag: 3fc03d8c-39e4-4b1b-8e02-ee96c0e9c561
+
+	/// Cupons cancelados ÷ (concluídos + cancelados), mesma definição do relatório Excel.
+	measure 'Taxa de cancelamento' =
+			VAR canc = CALCULATE(DISTINCTCOUNT('Vendas'[numero_cupom]), 'Vendas'[status] = "Cancelada")
+			RETURN DIVIDE(canc, canc + [Cupons])
+		formatString: 0.0%
+		displayFolder: 1. Vendas
+		lineageTag: f511ff9e-5062-49f2-bf0b-cc96aeb5e5f1
+
+	/// Acumulado do mês até a data do contexto (TOTALMTD).
+	measure 'Receita acumulada no mês' = TOTALMTD([Receita], 'Calendário'[data])
+		formatString: "R$" #,0.00
+		displayFolder: 2. Tempo
+		lineageTag: 9205c8d0-15e2-4210-ad83-fe619c03ce72
+
+	/// Acumulado do ano até a data do contexto (TOTALYTD).
+	measure 'Receita acumulada no ano' = TOTALYTD([Receita], 'Calendário'[data])
+		formatString: "R$" #,0.00
+		displayFolder: 2. Tempo
+		lineageTag: ca983f2c-ae94-43a2-98e0-fbdfcb25f3b4
+
+	/// Mesmo período do ano anterior (SAMEPERIODLASTYEAR).
+	measure 'Receita ano anterior' = CALCULATE([Receita], SAMEPERIODLASTYEAR('Calendário'[data]))
+		formatString: "R$" #,0.00
+		displayFolder: 2. Tempo
+		lineageTag: 5b48db98-7376-47f6-a24c-99732e12421f
+
+	/// Variação da receita sobre o mesmo período do ano anterior.
+	measure 'Evolução vs ano anterior' = DIVIDE([Receita] - [Receita ano anterior], [Receita ano anterior])
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: 2. Tempo
+		lineageTag: 77474ae3-1500-4fdb-abce-3440fda6fee8
+
+	/// Meta mensal da loja (por setor) para o(s) mês(es) do contexto, mesmo que só alguns dias estejam filtrados.
+	measure 'Meta do mês' =
+			CALCULATE(
+			    SUM('Metas lojas'[valor_meta]),
+			    REMOVEFILTERS('Calendário'),
+			    TREATAS(VALUES('Calendário'[ano_mes_num]), 'Calendário'[ano_mes_num])
+			)
+		formatString: "R$" #,0.00
+		displayFolder: 3. Metas
+		lineageTag: 12b11e8d-042f-4431-ad0a-9b0941479fcc
+
+	/// Receita ÷ meta do mês inteiro (sem cor de status no meio do mês).
+	measure '% da meta do mês atingido' = DIVIDE([Receita], [Meta do mês])
+		formatString: 0.0%
+		displayFolder: 3. Metas
+		lineageTag: 9926f1f5-4941-4b64-a234-2dbafb21d1bb
+
+	/// Meta mensal do vendedor para o(s) mês(es) do contexto.
+	measure 'Meta do mês (vendedor)' =
+			CALCULATE(
+			    SUM('Metas vendedores'[valor_meta]),
+			    REMOVEFILTERS('Calendário'),
+			    TREATAS(VALUES('Calendário'[ano_mes_num]), 'Calendário'[ano_mes_num])
+			)
+		formatString: "R$" #,0.00
+		displayFolder: 3. Metas
+		lineageTag: 5334b447-0fb4-440b-b194-46f614897255
+
+	/// Receita do vendedor ÷ meta do mês dele.
+	measure '% da meta do mês atingido (vendedor)' = DIVIDE([Receita], [Meta do mês (vendedor)])
+		formatString: 0.0%
+		displayFolder: 3. Metas
+		lineageTag: 6a2a6281-2185-408b-9d4f-e811436b1b12
+
+	/// Soma das metas diárias dos dias filtrados (meta do dia num dia; meta acumulada até o dia num período do mês). Pesos de dia da semana e feriados vêm do dw.
+	measure 'Meta do período' = SUM('Metas lojas diária'[valor_meta_dia])
+		formatString: "R$" #,0.00
+		displayFolder: 3. Metas
+		lineageTag: ba5ac508-e167-4385-ae3d-67cbe47fb90f
+
+	/// Meta diária acumulada do início do mês até a data do contexto (DATESMTD).
+	measure 'Meta acumulada até o dia' = CALCULATE([Meta do período], DATESMTD('Calendário'[data]))
+		formatString: "R$" #,0.00
+		displayFolder: 3. Metas
+		lineageTag: e7709d76-e15f-408d-8688-230e4894e72d
+
+	/// Indicador principal no meio do mês: receita acumulada ÷ meta acumulada até o dia. Verde ≥ 100%.
+	measure 'Cobertura da meta até o dia' = DIVIDE([Receita acumulada no mês], [Meta acumulada até o dia])
+		formatString: 0.0%
+		displayFolder: 3. Metas
+		lineageTag: 982b3099-4c3f-46eb-8fef-3723489a942b
+
+	/// Receita ÷ meta dos dias filtrados (ex.: cobertura do dia num gráfico diário).
+	measure 'Cobertura do período' = DIVIDE([Receita], [Meta do período])
+		formatString: 0.0%
+		displayFolder: 3. Metas
+		lineageTag: 2950909b-6601-4d6a-a52b-9345d60df251
+
+	/// Soma das metas diárias do vendedor nos dias filtrados.
+	measure 'Meta do período (vendedor)' = SUM('Metas vendedores diária'[valor_meta_dia])
+		formatString: "R$" #,0.00
+		displayFolder: 3. Metas
+		lineageTag: 364be16f-b364-4e01-873c-877af1fe112b
+
+	/// Meta diária do vendedor acumulada no mês até a data do contexto.
+	measure 'Meta acumulada até o dia (vendedor)' = CALCULATE([Meta do período (vendedor)], DATESMTD('Calendário'[data]))
+		formatString: "R$" #,0.00
+		displayFolder: 3. Metas
+		lineageTag: 7085e893-fb0e-4a18-99ec-1230a2858ee3
+
+	/// Receita acumulada do vendedor ÷ meta acumulada dele até o dia.
+	measure 'Cobertura da meta até o dia (vendedor)' = DIVIDE([Receita acumulada no mês], [Meta acumulada até o dia (vendedor)])
+		formatString: 0.0%
+		displayFolder: 3. Metas
+		lineageTag: 93f71a4c-242e-4ea6-ac6b-d3ffae6aa747
+
+	/// Verde se a cobertura da meta até o dia for ≥ 100%, vermelho se não. Usar em Formatação condicional → Valor do campo.
+	measure 'Cor da cobertura' = IF(ISBLANK([Cobertura da meta até o dia]), BLANK(), IF([Cobertura da meta até o dia] >= 1, "#2E7D32", "#C62828"))
+		displayFolder: 4. Formatação
+		lineageTag: 03fb31e2-bd95-4ec2-95e3-052a63b76229
+
+	/// Verde se a evolução vs ano anterior for positiva, vermelho se negativa.
+	measure 'Cor da evolução' = IF(ISBLANK([Evolução vs ano anterior]), BLANK(), IF([Evolução vs ano anterior] >= 0, "#2E7D32", "#C62828"))
+		displayFolder: 4. Formatação
+		lineageTag: d3268c68-9374-4d85-9ad4-633d82ff0b1b
+
+	/// Verde/vermelho para a cobertura do período (ex.: colunas do gráfico diário).
+	measure 'Cor da cobertura do período' = IF(ISBLANK([Cobertura do período]), BLANK(), IF([Cobertura do período] >= 1, "#2E7D32", "#C62828"))
+		displayFolder: 4. Formatação
+		lineageTag: 84f83e3f-a687-4f41-a95d-60a1ffe0131b
+
+	column _
+		isHidden
+		lineageTag: c8c9ba0c-0854-4eb6-b153-4a6132a05ff3
+		isNameInferred
+		sourceColumn: [_]
+
+	partition Medidas = calculated
+		mode: import
+		source = ROW("_", BLANK())
+

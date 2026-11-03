@@ -1,0 +1,58 @@
+table 'Metas vendedores diária'
+	lineageTag: b8c2b745-1a5d-4c28-ba34-2f3afdbe83fa
+
+	column sk_tempo
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 41f840d5-f5a9-413d-bb19-45d8653818f0
+		summarizeBy: none
+		sourceColumn: sk_tempo
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		isHidden
+		formatString: Long Date
+		lineageTag: e224c9e2-2943-452f-96cd-f76d21b64af4
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column sk_vendedor
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 52f4e43a-248c-4cc2-8a32-af401bea0c3f
+		summarizeBy: none
+		sourceColumn: sk_vendedor
+
+		annotation SummarizationSetBy = Automatic
+
+	column valor_meta_dia
+		dataType: double
+		isHidden
+		formatString: "R$" #,0.00
+		lineageTag: 9239646e-fc4c-4083-b6a0-fd1f370a09d9
+		summarizeBy: sum
+		sourceColumn: valor_meta_dia
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition 'dw vw_meta_vendedor_diaria' = m
+		mode: import
+		source =
+				let
+				    Fonte = PostgreSQL.Database("localhost", "lojas_ipe_dw"),
+				    dw_vw_meta_vendedor_diaria = Fonte{[Schema="dw",Item="vw_meta_vendedor_diaria"]}[Data]
+				in
+				    dw_vw_meta_vendedor_diaria
+
+	annotation PBI_ResultType = Table
+

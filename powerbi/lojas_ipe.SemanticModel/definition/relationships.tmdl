@@ -1,0 +1,68 @@
+relationship 7c3c80f2-7e26-4a86-b92c-b9d6c46d5d94
+	fromColumn: Vendas.sk_loja
+	toColumn: Lojas.sk_loja
+
+	annotation PBI_IsFromSource = FS
+
+relationship 1ed06863-67f8-482f-9d0f-67ea611658de
+	fromColumn: Vendas.sk_produto
+	toColumn: Produtos.sk_produto
+
+	annotation PBI_IsFromSource = FS
+
+relationship 33566f03-6774-4e1d-a6f2-50c5da3dfb31
+	fromColumn: Vendas.sk_tempo
+	toColumn: Calendário.sk_tempo
+
+	annotation PBI_IsFromSource = FS
+
+relationship 3d729f25-f0e4-43a4-b01c-9e7ba391a706
+	fromColumn: Vendas.sk_vendedor
+	toColumn: Vendedores.sk_vendedor
+
+	annotation PBI_IsFromSource = FS
+
+relationship Produtos_setor_Setores_setor
+	fromColumn: Produtos.setor
+	toColumn: Setores.setor
+
+relationship 'Metas lojas_setor_Setores_setor'
+	fromColumn: 'Metas lojas'.setor
+	toColumn: Setores.setor
+
+relationship 'Metas lojas_sk_loja_Lojas_sk_loja'
+	fromColumn: 'Metas lojas'.sk_loja
+	toColumn: Lojas.sk_loja
+
+relationship 'Metas lojas_sk_tempo_Calendário_sk_tempo'
+	fromColumn: 'Metas lojas'.sk_tempo
+	toColumn: Calendário.sk_tempo
+
+relationship 'Metas vendedores_sk_vendedor_Vendedores_sk_vendedor'
+	fromColumn: 'Metas vendedores'.sk_vendedor
+	toColumn: Vendedores.sk_vendedor
+
+relationship 'Metas vendedores_sk_tempo_Calendário_sk_tempo'
+	fromColumn: 'Metas vendedores'.sk_tempo
+	toColumn: Calendário.sk_tempo
+
+relationship 'Metas lojas diária_sk_tempo_Calendário_sk_tempo'
+	fromColumn: 'Metas lojas diária'.sk_tempo
+	toColumn: Calendário.sk_tempo
+
+relationship 'Metas lojas diária_sk_loja_Lojas_sk_loja'
+	fromColumn: 'Metas lojas diária'.sk_loja
+	toColumn: Lojas.sk_loja
+
+relationship 'Metas lojas diária_setor_Setores_setor'
+	fromColumn: 'Metas lojas diária'.setor
+	toColumn: Setores.setor
+
+relationship 'Metas vendedores diária_sk_tempo_Calendário_sk_tempo'
+	fromColumn: 'Metas vendedores diária'.sk_tempo
+	toColumn: Calendário.sk_tempo
+
+relationship 'Metas vendedores diária_sk_vendedor_Vendedores_sk_vendedor'
+	fromColumn: 'Metas vendedores diária'.sk_vendedor
+	toColumn: Vendedores.sk_vendedor
+

@@ -1,0 +1,165 @@
+{
+  "version": "1.1.0",
+  "diagrams": [
+    {
+      "ordinal": 0,
+      "scrollPosition": {
+        "x": 0,
+        "y": 144.92753623188406
+      },
+      "nodes": [
+        {
+          "location": {
+            "x": 789.28474528020445,
+            "y": 387.62414947682043
+          },
+          "nodeIndex": "Medidas",
+          "nodeLineageTag": "572f3939-6446-4d1b-a699-4deb218e46bf",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 555.28474528020445,
+            "y": 275.40420572542337
+          },
+          "nodeIndex": "Calendário",
+          "nodeLineageTag": "e355ee06-697b-46e3-8b0b-156f009091c6",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 57.842080000507572,
+            "y": 629.08925736025185
+          },
+          "nodeIndex": "Lojas",
+          "nodeLineageTag": "c7468a96-9559-41aa-a81b-6203d2d60b24",
+          "size": {
+            "height": 272,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 50,
+            "y": -50
+          },
+          "nodeIndex": "Produtos",
+          "nodeLineageTag": "8de61854-6c9d-4ed6-9140-781c81aa5828",
+          "size": {
+            "height": 272,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 268.87685857342785,
+            "y": 275.55115782157407
+          },
+          "nodeIndex": "Vendas",
+          "nodeLineageTag": "62fc7bcb-3c3a-4408-86e7-c5dbc174fff7",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 357.43287416145586,
+            "y": 629.24829895364087
+          },
+          "nodeIndex": "Vendedores",
+          "nodeLineageTag": "256c21d4-782e-4dc0-84f8-73c1fa268fe0",
+          "size": {
+            "height": 296,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 1023.2847452802044,
+            "y": 387.62414947682043
+          },
+          "nodeIndex": "Metas lojas",
+          "nodeLineageTag": "2d9783e5-0965-407e-868f-dfcc271f865c",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 1307.2847452802043,
+            "y": 399.62414947682043
+          },
+          "nodeIndex": "Metas vendedores",
+          "nodeLineageTag": "e575dc81-b1b3-464e-97e5-cd024aa2b754",
+          "size": {
+            "height": 176,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 1541.2847452802043,
+            "y": 387.62414947682043
+          },
+          "nodeIndex": "Setores",
+          "nodeLineageTag": "5b8130f1-46ef-415d-8db6-0b6058eef81b",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 1775.2847452802043,
+            "y": 387.62414947682043
+          },
+          "nodeIndex": "Metas lojas diária",
+          "nodeLineageTag": "b82aa6aa-faab-4fbc-b4be-40fe6b0e48c8",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 2059.2847452802043,
+            "y": 399.62414947682043
+          },
+          "nodeIndex": "Metas vendedores diária",
+          "nodeLineageTag": "b8c2b745-1a5d-4c28-ba34-2f3afdbe83fa",
+          "size": {
+            "height": 176,
+            "width": 234
+          },
+          "zIndex": 0
+        }
+      ],
+      "name": "Todas as tabelas",
+      "zoomValue": 69,
+      "pinKeyFieldsToTop": false,
+      "showExtraHeaderInfo": false,
+      "hideKeyFieldsWhenCollapsed": false,
+      "tablesLocked": false
+    }
+  ],
+  "selectedDiagram": "Todas as tabelas",
+  "defaultDiagram": "Todas as tabelas"
+}

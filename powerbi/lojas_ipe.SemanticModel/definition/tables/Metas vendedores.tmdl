@@ -1,0 +1,56 @@
+table 'Metas vendedores'
+	lineageTag: e575dc81-b1b3-464e-97e5-cd024aa2b754
+
+	column sk_meta_vendedor
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: e034aba0-66e1-4018-a490-fe12c9272491
+		summarizeBy: none
+		sourceColumn: sk_meta_vendedor
+
+		annotation SummarizationSetBy = Automatic
+
+	column sk_tempo
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: fddaaed5-4f8f-49bb-94f1-3f7a4aab7ae4
+		summarizeBy: none
+		sourceColumn: sk_tempo
+
+		annotation SummarizationSetBy = Automatic
+
+	column sk_vendedor
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 2263fc6f-c474-4035-9e98-c33360929604
+		summarizeBy: none
+		sourceColumn: sk_vendedor
+
+		annotation SummarizationSetBy = Automatic
+
+	column valor_meta
+		dataType: double
+		isHidden
+		formatString: "R$" #,0.00
+		lineageTag: 2d075f7a-1793-4e29-af9d-046cd222b954
+		summarizeBy: sum
+		sourceColumn: valor_meta
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition 'dw fato_meta_vendedor' = m
+		mode: import
+		source =
+				let
+				    Fonte = PostgreSQL.Database("localhost", "lojas_ipe_dw"),
+				    dw_fato_meta_vendedor = Fonte{[Schema="dw",Item="fato_meta_vendedor"]}[Data]
+				in
+				    dw_fato_meta_vendedor
+
+	annotation PBI_ResultType = Table
+

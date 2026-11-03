@@ -1,0 +1,83 @@
+table Lojas
+	lineageTag: c7468a96-9559-41aa-a81b-6203d2d60b24
+
+	column sk_loja
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: de795d18-c2ed-4875-a6da-f2155bc24350
+		summarizeBy: none
+		sourceColumn: sk_loja
+
+		annotation SummarizationSetBy = Automatic
+
+	column cod_loja
+		dataType: string
+		lineageTag: 5c8be11f-f7ac-4d13-ac9b-a4190ae028fc
+		summarizeBy: none
+		sourceColumn: cod_loja
+
+		annotation SummarizationSetBy = Automatic
+
+	column nome_loja
+		dataType: string
+		lineageTag: 8e5f0f81-c35d-4396-b963-b567cb7f1650
+		summarizeBy: none
+		sourceColumn: nome_loja
+
+		annotation SummarizationSetBy = Automatic
+
+	column uf
+		dataType: string
+		lineageTag: 33d25351-bdf3-4cdd-abeb-7022313ddf3b
+		summarizeBy: none
+		sourceColumn: uf
+
+		annotation SummarizationSetBy = Automatic
+
+	column regiao
+		dataType: string
+		lineageTag: 05c9c231-9e5f-425e-967f-6a7ca5cf572f
+		summarizeBy: none
+		sourceColumn: regiao
+
+		annotation SummarizationSetBy = Automatic
+
+	column cidade
+		dataType: string
+		lineageTag: c537b891-d213-4f98-aa66-2d4a109cd93e
+		summarizeBy: none
+		sourceColumn: cidade
+
+		annotation SummarizationSetBy = Automatic
+
+	column formato
+		dataType: string
+		lineageTag: 7aff35eb-dd9e-410e-81e1-5fb0a4e0d69f
+		summarizeBy: none
+		sourceColumn: formato
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_abertura
+		dataType: dateTime
+		formatString: dd/mm/yyyy
+		lineageTag: 066478d3-17fb-4ea4-988d-a10a0c1e8ad4
+		summarizeBy: none
+		sourceColumn: data_abertura
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	partition 'dw dim_loja' = m
+		mode: import
+		source =
+				let
+				    Fonte = PostgreSQL.Database("localhost", "lojas_ipe_dw"),
+				    dw_dim_loja = Fonte{[Schema="dw",Item="dim_loja"]}[Data]
+				in
+				    dw_dim_loja
+
+	annotation PBI_ResultType = Table
+
