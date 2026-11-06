@@ -21,47 +21,46 @@
                   {
                     "value": "Cor de status: ",
                     "textStyle": {
-                      "fontSize": "12pt",
                       "fontFamily": "Segoe UI",
-                      "color": "#5B6B7C"
+                      "fontSize": "12pt",
+                      "color": "#5b6b7c"
                     }
                   },
                   {
                     "value": "verde",
                     "textStyle": {
                       "fontWeight": "bold",
-                      "fontSize": "12pt",
                       "fontFamily": "Segoe UI",
-                      "color": "#2E7D32"
+                      "fontSize": "12pt",
+                      "color": "#2e7d32"
                     }
                   },
                   {
                     "value": " = acima da meta, ",
                     "textStyle": {
-                      "fontSize": "12pt",
                       "fontFamily": "Segoe UI",
-                      "color": "#5B6B7C"
+                      "fontSize": "12pt",
+                      "color": "#5b6b7c"
                     }
                   },
                   {
                     "value": "vermelho",
                     "textStyle": {
                       "fontWeight": "bold",
-                      "fontSize": "12pt",
                       "fontFamily": "Segoe UI",
-                      "color": "#C62828"
+                      "fontSize": "12pt",
+                      "color": "#c62828"
                     }
                   },
                   {
                     "value": " = abaixo.",
                     "textStyle": {
-                      "fontSize": "12pt",
                       "fontFamily": "Segoe UI",
-                      "color": "#5B6B7C"
+                      "fontSize": "12pt",
+                      "color": "#5b6b7c"
                     }
                   }
-                ],
-                "horizontalTextAlignment": "left"
+                ]
               }
             ]
           }

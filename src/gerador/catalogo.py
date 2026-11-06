@@ -119,6 +119,7 @@ class Loja:
     porte: float  # peso no volume de vendas e nos orçamentos
     atingimento_meta: float  # realizado / meta típico da loja
     fator_preco: float  # variação regional de preço
+    area_m2: int  # área de venda em m² (fixa por loja, cadastro; não usa número aleatório)
 
 
 @dataclass(frozen=True)
@@ -192,21 +193,21 @@ class Catalogo:
 
 
 _LOJAS = (
-    Loja("L01", "Ipê São Paulo", "SP", "Sudeste", "São Paulo", "Hipermercado", date(2010, 3, 12), 1.6, 1.06, 1.03),
-    Loja("L02", "Ipê Campinas", "SP", "Sudeste", "Campinas", "Supermercado", date(2013, 8, 20), 1.1, 0.97, 1.00),
-    Loja("L03", "Ipê Ribeirão Preto", "SP", "Sudeste", "Ribeirão Preto", "Supermercado", date(2015, 5, 5), 0.9, 1.02, 0.99),
-    Loja("L04", "Ipê Rio de Janeiro", "RJ", "Sudeste", "Rio de Janeiro", "Hipermercado", date(2011, 10, 1), 1.5, 0.92, 1.04),
-    Loja("L05", "Ipê Niterói", "RJ", "Sudeste", "Niterói", "Supermercado", date(2016, 2, 15), 0.8, 0.89, 1.02),
-    Loja("L06", "Ipê Belo Horizonte", "MG", "Sudeste", "Belo Horizonte", "Hipermercado", date(2012, 6, 30), 1.3, 1.04, 1.00),
-    Loja("L07", "Ipê Uberlândia", "MG", "Sudeste", "Uberlândia", "Supermercado", date(2017, 9, 10), 0.8, 1.08, 0.98),
-    Loja("L08", "Ipê Salvador", "BA", "Nordeste", "Salvador", "Hipermercado", date(2014, 11, 22), 1.2, 0.94, 0.99),
-    Loja("L09", "Ipê Recife", "PE", "Nordeste", "Recife", "Supermercado", date(2018, 4, 18), 0.9, 0.87, 0.98),
-    Loja("L10", "Ipê Curitiba", "PR", "Sul", "Curitiba", "Hipermercado", date(2013, 3, 9), 1.2, 1.10, 1.01),
-    Loja("L11", "Ipê Porto Alegre", "RS", "Sul", "Porto Alegre", "Supermercado", date(2015, 10, 25), 1.0, 0.98, 1.00),
-    Loja("L12", "Ipê Goiânia", "GO", "Centro-Oeste", "Goiânia", "Supermercado", date(2016, 7, 14), 0.9, 1.01, 0.98),
-    Loja("L13", "Ipê Florianópolis", "SC", "Sul", "Florianópolis", "Express", date(2019, 1, 12), 0.5, 0.95, 1.03),
-    Loja("L14", "Ipê Fortaleza", "CE", "Nordeste", "Fortaleza", "Supermercado", date(2024, 6, 15), 0.7, 0.91, 0.97),
-    Loja("L15", "Ipê Brasília", "DF", "Centro-Oeste", "Brasília", "Express", date(2025, 3, 3), 0.5, 1.03, 1.02),
+    Loja("L01", "Ipê São Paulo", "SP", "Sudeste", "São Paulo", "Hipermercado", date(2010, 3, 12), 1.6, 1.06, 1.03, 7800),
+    Loja("L02", "Ipê Campinas", "SP", "Sudeste", "Campinas", "Supermercado", date(2013, 8, 20), 1.1, 0.97, 1.00, 2600),
+    Loja("L03", "Ipê Ribeirão Preto", "SP", "Sudeste", "Ribeirão Preto", "Supermercado", date(2015, 5, 5), 0.9, 1.02, 0.99, 2100),
+    Loja("L04", "Ipê Rio de Janeiro", "RJ", "Sudeste", "Rio de Janeiro", "Hipermercado", date(2011, 10, 1), 1.5, 0.92, 1.04, 7200),
+    Loja("L05", "Ipê Niterói", "RJ", "Sudeste", "Niterói", "Supermercado", date(2016, 2, 15), 0.8, 0.89, 1.02, 1900),
+    Loja("L06", "Ipê Belo Horizonte", "MG", "Sudeste", "Belo Horizonte", "Hipermercado", date(2012, 6, 30), 1.3, 1.04, 1.00, 6500),
+    Loja("L07", "Ipê Uberlândia", "MG", "Sudeste", "Uberlândia", "Supermercado", date(2017, 9, 10), 0.8, 1.08, 0.98, 1900),
+    Loja("L08", "Ipê Salvador", "BA", "Nordeste", "Salvador", "Hipermercado", date(2014, 11, 22), 1.2, 0.94, 0.99, 6000),
+    Loja("L09", "Ipê Recife", "PE", "Nordeste", "Recife", "Supermercado", date(2018, 4, 18), 0.9, 0.87, 0.98, 2100),
+    Loja("L10", "Ipê Curitiba", "PR", "Sul", "Curitiba", "Hipermercado", date(2013, 3, 9), 1.2, 1.10, 1.01, 6200),
+    Loja("L11", "Ipê Porto Alegre", "RS", "Sul", "Porto Alegre", "Supermercado", date(2015, 10, 25), 1.0, 0.98, 1.00, 2400),
+    Loja("L12", "Ipê Goiânia", "GO", "Centro-Oeste", "Goiânia", "Supermercado", date(2016, 7, 14), 0.9, 1.01, 0.98, 2200),
+    Loja("L13", "Ipê Florianópolis", "SC", "Sul", "Florianópolis", "Express", date(2019, 1, 12), 0.5, 0.95, 1.03, 450),
+    Loja("L14", "Ipê Fortaleza", "CE", "Nordeste", "Fortaleza", "Supermercado", date(2024, 6, 15), 0.7, 0.91, 0.97, 1800),
+    Loja("L15", "Ipê Brasília", "DF", "Centro-Oeste", "Brasília", "Express", date(2025, 3, 3), 0.5, 1.03, 1.02, 400),
 )  # fmt: skip
 
 # Produtos-base por setor (nome, categoria, preço de lista), do mais para o menos vendido.

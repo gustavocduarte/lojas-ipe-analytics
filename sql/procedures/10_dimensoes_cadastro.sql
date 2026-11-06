@@ -14,7 +14,8 @@ BEGIN
         etl.limpar_texto(s.cod_loja) AS cod_loja, etl.limpar_texto(s.nome_loja) AS nome_loja,
         upper(etl.limpar_texto(s.uf)) AS uf, etl.limpar_texto(s.regiao) AS regiao,
         etl.limpar_texto(s.cidade) AS cidade, etl.limpar_texto(s.formato) AS formato,
-        etl.limpar_data(s.data_abertura) AS data_abertura) c
+        etl.limpar_data(s.data_abertura) AS data_abertura,
+        etl.limpar_numero(s.area_m2) AS area_m2) c
     LEFT JOIN LATERAL (
         SELECT q.coluna, q.valor, q.motivo FROM (VALUES
             (1, 'cod_loja', s.cod_loja, etl.motivo_texto(s.cod_loja, 10)),
@@ -24,7 +25,10 @@ BEGIN
             (5, 'cidade', s.cidade, etl.motivo_texto(s.cidade, 60)),
             (6, 'formato', s.formato, etl.motivo_texto(s.formato, 20)),
             (7, 'data_abertura', s.data_abertura,
-                etl.motivo(s.data_abertura, c.data_abertura IS NULL, 'data_invalida'))
+                etl.motivo(s.data_abertura, c.data_abertura IS NULL, 'data_invalida')),
+            (8, 'area_m2', s.area_m2,
+                COALESCE(etl.motivo_valor(s.area_m2, c.area_m2, FALSE, FALSE),
+                         CASE WHEN c.area_m2 = 0 THEN 'valor_fora_do_intervalo' END))
         ) q(ord, coluna, valor, motivo) WHERE q.motivo IS NOT NULL ORDER BY q.ord LIMIT 1
     ) r ON true
     WHERE s.id_carga = p_id_carga;
@@ -35,15 +39,15 @@ BEGIN
 
     SELECT count(*) INTO v_validas FROM _lim_lojas WHERE rej_motivo IS NULL;
     WITH up AS (
-        INSERT INTO dw.dim_loja AS d (cod_loja, nome_loja, uf, regiao, cidade, formato, data_abertura)
-        SELECT cod_loja, nome_loja, uf, regiao, cidade, formato, data_abertura
+        INSERT INTO dw.dim_loja AS d (cod_loja, nome_loja, uf, regiao, cidade, formato, data_abertura, area_m2)
+        SELECT cod_loja, nome_loja, uf, regiao, cidade, formato, data_abertura, area_m2
         FROM _lim_lojas WHERE rej_motivo IS NULL
         ON CONFLICT (cod_loja) DO UPDATE SET nome_loja = EXCLUDED.nome_loja, uf = EXCLUDED.uf,
             regiao = EXCLUDED.regiao, cidade = EXCLUDED.cidade, formato = EXCLUDED.formato,
-            data_abertura = EXCLUDED.data_abertura
-        WHERE (d.nome_loja, d.uf, d.regiao, d.cidade, d.formato, d.data_abertura)
+            data_abertura = EXCLUDED.data_abertura, area_m2 = EXCLUDED.area_m2
+        WHERE (d.nome_loja, d.uf, d.regiao, d.cidade, d.formato, d.data_abertura, d.area_m2)
             IS DISTINCT FROM (EXCLUDED.nome_loja, EXCLUDED.uf, EXCLUDED.regiao, EXCLUDED.cidade,
-                              EXCLUDED.formato, EXCLUDED.data_abertura)
+                              EXCLUDED.formato, EXCLUDED.data_abertura, EXCLUDED.area_m2)
         RETURNING (xmax = 0) AS inserida)
     SELECT count(*) FILTER (WHERE inserida), count(*) FILTER (WHERE NOT inserida)
     INTO v_ins, v_upd FROM up;

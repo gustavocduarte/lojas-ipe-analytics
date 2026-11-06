@@ -51,6 +51,17 @@ def test_lojas_so_vendem_depois_de_abrir(dados_pequenos):
         assert data(data_venda) >= abertura[cod_loja]
 
 
+def test_area_das_lojas_e_fixa_do_cadastro(dados_pequenos):
+    """A área (m²) vem do catálogo, sem sorteio: não pode mudar nenhum outro arquivo gerado."""
+    params, _ = dados_pequenos
+    esperado = {lj.cod_loja: lj.area_m2 for lj in montar_catalogo(params.semente).lojas}
+    assert all(area > 0 for area in esperado.values())
+    lojas = ler_csv(params.diretorio_saida / config.ARQ_LOJAS)
+    assert {c: int(a) for c, a in zip(lojas["cod_loja"], lojas["area_m2"], strict=True)} == esperado
+    outra_semente = {lj.cod_loja: lj.area_m2 for lj in montar_catalogo(params.semente + 1).lojas}
+    assert outra_semente == esperado
+
+
 def test_metas_e_orcamento_cobrem_o_periodo(dados_pequenos):
     params, _ = dados_pequenos
     metas = ler_csv(params.diretorio_saida / config.ARQ_METAS)

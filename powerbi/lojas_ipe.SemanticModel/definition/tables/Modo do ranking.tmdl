@@ -1,0 +1,26 @@
+/// Tabela sem relação com o resto: alimenta os botões "10 piores | 10 melhores" do ranking de lojas.
+table 'Modo do ranking'
+	lineageTag: 0b6e3a95-d7c2-4148-9f5a-c3e18d24a760
+
+	column Modo
+		dataType: string
+		lineageTag: 2e90b4d7-5a61-4c3f-8d28-f7a1c6e03b59
+		summarizeBy: none
+		sourceColumn: [Modo]
+		sortByColumn: Ordem
+
+		annotation SummarizationSetBy = Automatic
+
+	column Ordem
+		dataType: int64
+		formatString: 0
+		lineageTag: c4d81f06-93ae-4b72-a05d-1e6f8b2a7c93
+		summarizeBy: none
+		sourceColumn: [Ordem]
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'Modo do ranking' = calculated
+		mode: import
+		source = DATATABLE("Modo", STRING, "Ordem", INTEGER, {{"10 piores", 1}, {"10 melhores", 2}})
+

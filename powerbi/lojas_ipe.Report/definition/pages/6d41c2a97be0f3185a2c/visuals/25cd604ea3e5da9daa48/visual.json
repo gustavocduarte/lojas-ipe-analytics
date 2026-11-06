@@ -23,11 +23,12 @@
                       "Entity": "Medidas"
                     }
                   },
-                  "Property": "Evolução vs ano anterior"
+                  "Property": "Evolução vs ano anterior (texto)"
                 }
               },
-              "queryRef": "Medidas.Evolução vs ano anterior",
-              "nativeQueryRef": "Evolução vs ano anterior"
+              "queryRef": "Medidas.Evolução vs ano anterior (texto)",
+              "nativeQueryRef": "Evolução vs ano anterior (texto)",
+              "displayName": "Evolução vs ano anterior"
             }
           ]
         }
@@ -41,13 +42,6 @@
               "expr": {
                 "Literal": {
                   "Value": "28D"
-                }
-              }
-            },
-            "labelDisplayUnits": {
-              "expr": {
-                "Literal": {
-                  "Value": "1D"
                 }
               }
             },

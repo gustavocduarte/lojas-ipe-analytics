@@ -28,6 +28,7 @@ Chave natural: `cod_loja`
 | `cidade` | texto | sim | Cidade da loja. | rejeita a linha |
 | `formato` | texto | sim | Formato da loja (Hipermercado, Supermercado, Express). | rejeita a linha |
 | `data_abertura` | data | sim | Data de inauguração da loja. | rejeita a linha |
+| `area_m2` | decimal | não | Área de venda em m² (opcional; base da venda por m²). | aceita vazio |
 
 ## horarios_loja
 

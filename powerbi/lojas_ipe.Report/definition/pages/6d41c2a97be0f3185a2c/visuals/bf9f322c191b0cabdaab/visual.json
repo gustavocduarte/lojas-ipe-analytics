@@ -2,11 +2,11 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
   "name": "bf9f322c191b0cabdaab",
   "position": {
-    "x": 24,
-    "y": 260,
+    "x": 24.860557768924302,
+    "y": 260.07968127490039,
     "z": 7,
-    "height": 420,
-    "width": 1236,
+    "height": 436.01593625498003,
+    "width": 1250.6772908366534,
     "tabOrder": 7
   },
   "visual": {
@@ -47,6 +47,34 @@
               },
               "queryRef": "Medidas.Cobertura acumulada (linha)",
               "nativeQueryRef": "Cobertura acumulada (linha)"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Meta do mês da posição"
+                }
+              },
+              "queryRef": "Medidas.Meta do mês da posição",
+              "nativeQueryRef": "Meta do mês da posição"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Falta para a meta do mês"
+                }
+              },
+              "queryRef": "Medidas.Falta para a meta do mês",
+              "nativeQueryRef": "Falta para a meta do mês"
             }
           ]
         },
@@ -80,7 +108,22 @@
               },
               "queryRef": "Medidas.Meta acumulada (linha)",
               "nativeQueryRef": "Meta acumulada (linha)",
-              "displayName": "Meta"
+              "displayName": "Meta do ritmo"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Meta do mês (linha)"
+                }
+              },
+              "queryRef": "Medidas.Meta do mês (linha)",
+              "nativeQueryRef": "Meta do mês (linha)",
+              "displayName": "Meta do mês"
             },
             {
               "field": {
@@ -183,6 +226,24 @@
                 "color": {
                   "expr": {
                     "Literal": {
+                      "Value": "'#8A3B08'"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "Medidas.Meta do mês (linha)"
+          }
+        },
+        {
+          "properties": {
+            "fill": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
                       "Value": "'#9AA5B1'"
                     }
                   }
@@ -222,10 +283,44 @@
                   "Value": "'dashed'"
                 }
               }
+            },
+            "strokeWidth": {
+              "expr": {
+                "Literal": {
+                  "Value": "2D"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "Medidas.Meta do mês (linha)"
+          }
+        },
+        {
+          "properties": {
+            "lineStyle": {
+              "expr": {
+                "Literal": {
+                  "Value": "'dashed'"
+                }
+              }
             }
           },
           "selector": {
             "metadata": "Medidas.Projeção acumulada (linha)"
+          }
+        }
+      ],
+      "valueAxis": [
+        {
+          "properties": {
+            "start": {
+              "expr": {
+                "Literal": {
+                  "Value": "0D"
+                }
+              }
+            }
           }
         }
       ]
@@ -264,7 +359,19 @@
             "show": {
               "expr": {
                 "Literal": {
-                  "Value": "false"
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Subtítulo do acumulado"
                 }
               }
             }

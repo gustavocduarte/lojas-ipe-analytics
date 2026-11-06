@@ -5,7 +5,7 @@
       "ordinal": 0,
       "scrollPosition": {
         "x": 0,
-        "y": 144.92753623188406
+        "y": 34.782608695652179
       },
       "nodes": [
         {
@@ -173,6 +173,19 @@
           "nodeLineageTag": "fe310866-8557-4410-b036-5ea31aaefb7c",
           "size": {
             "height": 296,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 2811.2847452802043,
+            "y": 423.62414947682043
+          },
+          "nodeIndex": "Modo do ranking",
+          "nodeLineageTag": "0b6e3a95-d7c2-4148-9f5a-c3e18d24a760",
+          "size": {
+            "height": 128,
             "width": 234
           },
           "zIndex": 0

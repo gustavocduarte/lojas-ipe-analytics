@@ -26,6 +26,7 @@ entidades:
       cidade: cidade
       formato: formato
       data_abertura: data_abertura
+      area_m2: area_m2
 
   horarios_loja:
     arquivo: horarios_loja.csv

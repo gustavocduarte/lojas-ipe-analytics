@@ -109,11 +109,12 @@ table Medidas
 		displayFolder: 3. Metas
 		lineageTag: 9926f1f5-4941-4b64-a234-2dbafb21d1bb
 
-	/// Meta mensal do vendedor para o(s) mês(es) do contexto.
+	/// Meta mensal do vendedor para o(s) mês(es) do contexto. Respeita a loja do contexto via TREATAS (Vendedores não tem relação com Lojas).
 	measure 'Meta do mês (vendedor)' =
 			CALCULATE(
 			    SUM('Metas vendedores'[valor_meta]),
 			    REMOVEFILTERS('Calendário'),
+			    TREATAS(VALUES(Lojas[sk_loja]), Vendedores[sk_loja]),
 			    TREATAS(VALUES('Calendário'[ano_mes_num]), 'Calendário'[ano_mes_num])
 			)
 		formatString: "R$" #,0.00
@@ -150,8 +151,8 @@ table Medidas
 		displayFolder: 3. Metas
 		lineageTag: 2950909b-6601-4d6a-a52b-9345d60df251
 
-	/// Soma das metas diárias do vendedor nos dias filtrados.
-	measure 'Meta do período (vendedor)' = SUM('Metas vendedores diária'[valor_meta_dia])
+	/// Soma das metas diárias do vendedor nos dias filtrados. Respeita a loja do contexto via TREATAS (Vendedores não tem relação com Lojas).
+	measure 'Meta do período (vendedor)' = CALCULATE(SUM('Metas vendedores diária'[valor_meta_dia]), TREATAS(VALUES(Lojas[sk_loja]), Vendedores[sk_loja]))
 		formatString: "R$" #,0.00
 		displayFolder: 3. Metas
 		lineageTag: 364be16f-b364-4e01-873c-877af1fe112b
@@ -355,6 +356,339 @@ table Medidas
 		formatString: 0.0%
 		displayFolder: 5. Projeção
 		lineageTag: b61289fe-c698-47c5-8af0-b3127d95566d
+
+	/// Número de lojas com venda no período (contexto da segmentação).
+	measure 'Lojas ativas' = COUNTROWS(FILTER(VALUES(Lojas[nome_loja]), NOT ISBLANK([Receita acumulada no mês])))
+		formatString: 0
+		displayFolder: 1. Vendas
+		lineageTag: 9eb3fb96-9545-4fb3-8f55-997601c78c74
+
+	/// Lojas com cobertura da meta até o dia ≥ 100%.
+	measure 'Lojas acima da meta' = COUNTROWS(FILTER(VALUES(Lojas[nome_loja]), [Cobertura da meta até o dia] >= 1))
+		formatString: 0
+		displayFolder: 3. Metas
+		lineageTag: f75b21eb-8c41-4bcf-81ad-1325eca2e4ff
+
+	/// 1 = melhor cobertura da meta até o dia entre as lojas selecionadas. Só tem valor numa tabela/gráfico por loja.
+	measure 'Posição da loja no ranking' = IF(ISINSCOPE(Lojas[nome_loja]), RANKX(ALLSELECTED(Lojas[nome_loja]), [Cobertura da meta até o dia], , DESC, DENSE))
+		formatString: 0
+		displayFolder: 3. Metas
+		lineageTag: cf1d2f33-0e82-48c0-bb2f-a2b73059d12d
+
+	/// Menor cobertura da meta até o dia entre as lojas com venda.
+	measure 'Cobertura da pior loja' = MINX(FILTER(ALLSELECTED(Lojas[nome_loja]), NOT ISBLANK([Cobertura da meta até o dia])), [Cobertura da meta até o dia])
+		formatString: 0.0%
+		displayFolder: 3. Metas
+		lineageTag: c712983a-0cc0-440d-9516-2bc1b6e086b2
+
+	/// Verde/vermelho para a cobertura do vendedor.
+	measure 'Cor da cobertura (vendedor)' = IF(ISBLANK([Cobertura da meta até o dia (vendedor)]), BLANK(), IF([Cobertura da meta até o dia (vendedor)] >= 1, "#2E7D32", "#C62828"))
+		displayFolder: 4. Formatação
+		lineageTag: 3dfef1c5-b58f-4f6a-9b69-e6ebdd181fb7
+
+	/// Valor do cartão da página Lojas, ex.: 7 de 15.
+	measure 'Lojas acima da meta (X de N)' = [Lojas acima da meta] & " de " & [Lojas ativas]
+		displayFolder: 6. Textos
+		lineageTag: 49091a99-45c7-400b-b95d-556d2034bc2f
+
+	/// Frase completa, ex.: 7 de 15 lojas acima da meta.
+	measure 'Texto das lojas acima da meta' = [Lojas acima da meta (X de N)] & " lojas acima da meta"
+		displayFolder: 6. Textos
+		lineageTag: 1ae5ffd5-aaa4-4c4b-95f8-7394641fb27f
+
+	/// Nome da loja com a menor cobertura da meta até o dia.
+	measure 'Pior loja' = MAXX(TOPN(1, FILTER(ALLSELECTED(Lojas[nome_loja]), NOT ISBLANK([Cobertura da meta até o dia])), [Cobertura da meta até o dia], ASC), Lojas[nome_loja])
+		displayFolder: 6. Textos
+		lineageTag: fc7596af-8afe-4883-a5c3-a7d2fe2d1426
+
+	measure 'Contexto da pior loja' = "Cobertura: " & FORMAT([Cobertura da pior loja], "0.0%", "pt-BR")
+		displayFolder: 6. Textos
+		lineageTag: f44f7211-4be7-4211-a144-3d5aa4d7cadc
+
+	/// Nome da loja da página Detalhe da loja (vem do drill-through).
+	measure 'Nome da loja' = SELECTEDVALUE(Lojas[nome_loja], "Todas as lojas")
+		displayFolder: 6. Textos
+		lineageTag: efc460eb-8a87-4437-a4fd-13008b7f1461
+
+	measure 'Contexto da loja' = IF(HASONEVALUE(Lojas[nome_loja]), SELECTEDVALUE(Lojas[cidade]) & " · " & SELECTEDVALUE(Lojas[uf]) & " · " & SELECTEDVALUE(Lojas[formato]), "Todas as lojas · escolha uma loja na lista")
+		displayFolder: 6. Textos
+		lineageTag: 5a9aed20-aa82-4834-9f83-07372561efae
+
+	/// Para o gráfico de acumulado: meta final do mês da posição, igual em todos os dias do eixo (linha horizontal no topo). Respeita loja e setor.
+	measure 'Meta do mês (linha)' =
+			VAR pos = [Posição]
+			VAR d = MAX('Eixo do mês'[dia])
+			RETURN
+			    IF(
+			        NOT ISBLANK(pos) && d >= DATE(YEAR(pos), MONTH(pos), 1) && d <= EOMONTH(pos, 0),
+			        [Meta do mês da posição]
+			    )
+		formatString: "R$" #,0.00
+		displayFolder: 5. Projeção
+		lineageTag: 3f8a6c21-5b7d-4e19-9a42-c1d0e7b85a36
+
+	/// Para o tooltip: meta do mês − realizado até a posição (zero quando a meta já foi batida).
+	measure 'Falta para a meta do mês' =
+			VAR pos = [Posição]
+			RETURN
+			    IF(NOT ISBLANK(pos), MAX([Meta do mês da posição] - [Receita realizada até a posição], 0))
+		formatString: """falta R$ ""#,0.00;;""meta batida"""
+		displayFolder: 5. Projeção
+		lineageTag: b94e2d70-1c6a-4f83-8d15-7a3e60c9f2b4
+
+	/// Quanto falta (R$) para a meta acumulada até o dia; 0 quando já atingiu. Na rede é a diferença da rede, não a soma das lojas abaixo da meta.
+	measure 'Falta para a meta até o dia' = MAX([Meta acumulada até o dia] - [Receita acumulada no mês], 0)
+		formatString: "R$" #,0
+		displayFolder: 3. Metas
+		lineageTag: 6c1d8e47-2a93-4b05-8f6e-d41a7b09c352
+
+	/// Parâmetro: quantas lojas o ranking mostra (10 piores / 10 melhores).
+	measure 'Tamanho do ranking' = 10
+		formatString: 0
+		displayFolder: 3. Metas
+		lineageTag: 91e5a3b8-7d20-4c64-a1f9-3e86b2d07c14
+
+	/// Posição da loja pela cobertura da meta até o dia: 1 = pior no modo "10 piores" (crescente), 1 = melhor no modo "10 melhores" (decrescente). Sem seleção em 'Modo do ranking', vale "10 piores". Lojas sem cobertura ficam de fora.
+	measure 'Posição no ranking (modo)' =
+			VAR melhores = SELECTEDVALUE('Modo do ranking'[Ordem], 1) = 2
+			VAR lojas = FILTER(ALLSELECTED(Lojas[nome_loja]), NOT ISBLANK([Cobertura da meta até o dia]))
+			RETURN
+			    IF(
+			        ISINSCOPE(Lojas[nome_loja]) && NOT ISBLANK([Cobertura da meta até o dia]),
+			        IF(
+			            melhores,
+			            RANKX(lojas, [Cobertura da meta até o dia], , DESC, DENSE),
+			            RANKX(lojas, [Cobertura da meta até o dia], , ASC, DENSE)
+			        )
+			    )
+		formatString: 0
+		displayFolder: 3. Metas
+		lineageTag: e2b74f10-8c35-4a96-b7d3-05f1a9c6e8d2
+
+	/// 1 se a loja está entre as N do ranking no modo escolhido (filtro do visual do ranking).
+	measure 'Mostrar no ranking' = IF(NOT ISBLANK([Posição no ranking (modo)]), IF([Posição no ranking (modo)] <= [Tamanho do ranking], 1, 0))
+		formatString: 0
+		displayFolder: 3. Metas
+		lineageTag: 4a9f6d23-b1e8-4075-9c2a-68d3e7f10b95
+
+	/// Vermelho forte se a cobertura da meta até o dia está abaixo de 80%; vermelho claro de 80% a 100%. Vazio quando não falta nada.
+	measure 'Cor da falta' = IF([Falta para a meta até o dia] <= 0, BLANK(), IF([Cobertura da meta até o dia] < 0.8, "#C62828", "#E57373"))
+		displayFolder: 4. Formatação
+		lineageTag: 7d03c5e9-6f2a-4b18-a4d7-91e0b3a85c46
+
+	/// Título do ranking de lojas, conforme o modo escolhido.
+	measure 'Título do ranking' = "Lojas: as " & [Tamanho do ranking] & IF(SELECTEDVALUE('Modo do ranking'[Ordem], 1) = 2, " melhores", " piores") & " em cobertura"
+		displayFolder: 6. Textos
+		lineageTag: a8f14b60-3e97-4d52-8c0b-d25e6a7f9318
+
+	/// Subtítulo do gráfico de acumulado: meta do mês e quanto falta.
+	measure 'Subtítulo do acumulado' = "Meta do mês: R$ " & FORMAT([Meta do mês da posição], "#,0.00", "pt-BR") & IF([Falta para a meta do mês] > 0, "  ·  falta R$ " & FORMAT([Falta para a meta do mês], "#,0.00", "pt-BR"), "  ·  meta batida")
+		displayFolder: 6. Textos
+		lineageTag: 53c7e0a2-9d14-4f86-b3a1-e8749f2d6b07
+
+	/// Subtítulo da faixa do Detalhe da loja: cidade · UF · formato da loja escolhida (ou "Todas as lojas") e a posição dos dados.
+	measure 'Faixa da loja' = IF(HASONEVALUE(Lojas[nome_loja]), SELECTEDVALUE(Lojas[cidade]) & " · " & SELECTEDVALUE(Lojas[uf]) & " · " & SELECTEDVALUE(Lojas[formato]), "Todas as lojas") & " · posição em " & FORMAT([Posição], "dd/mm/yyyy", "pt-BR") & " · receita líquida de vendas concluídas"
+		displayFolder: 6. Textos
+		lineageTag: 8e24b1c7-0d93-4a5f-b6e8-17c9a3d5f204
+
+	/// Evolução vs ano anterior como texto: "loja sem histórico" (ou "sem histórico") quando não há venda no mesmo período do ano anterior.
+	measure 'Evolução vs ano anterior (texto)' = IF([Receita ano anterior] = 0, IF(HASONEVALUE(Lojas[nome_loja]), "loja sem histórico", "sem histórico"), FORMAT([Evolução vs ano anterior], "+0.0%;-0.0%;0.0%", "pt-BR"))
+		displayFolder: 2. Tempo
+		lineageTag: d7a35c18-4e92-4b60-9f1d-0a8b6e2c7f53
+
+	/// 1 quando há exatamente uma loja no contexto (seletor da página); em branco caso contrário. Filtro da tabela de vendedores.
+	measure 'Loja única escolhida' = IF(HASONEVALUE(Lojas[nome_loja]), 1)
+		formatString: 0
+		displayFolder: 6. Textos
+		lineageTag: 5b7d2e19-4c60-4a83-9f15-d3e8a0c61b72
+
+	/// Título da tabela de vendedores: sem loja escolhida, traz a orientação no próprio título (a tabela fica vazia).
+	measure 'Título dos vendedores' = IF(HASONEVALUE(Lojas[nome_loja]), "Vendedores da loja", "Vendedores da loja · escolha uma loja para ver os vendedores")
+		displayFolder: 6. Textos
+		lineageTag: 9c41e6a8-2f75-4d0b-8a37-e1b5c7d90f43
+
+	/// Preço × quantidade antes do desconto, de todos os status (concluídas, canceladas e devolvidas). Ponto de partida da cascata até a receita líquida.
+	measure 'Receita bruta' = SUMX(Vendas, Vendas[preco_unitario] * Vendas[quantidade])
+		formatString: "R$" #,0.00
+		displayFolder: 1. Vendas
+		lineageTag: 61f0a4fb-e617-4d91-bb72-dfdd4b4e8d98
+
+	/// Preço × quantidade antes do desconto, só das vendas concluídas (base do desconto médio %).
+	measure 'Receita bruta das concluídas' = CALCULATE(SUMX(Vendas, Vendas[preco_unitario] * Vendas[quantidade]), Vendas[status] = "Concluída")
+		formatString: "R$" #,0.00
+		displayFolder: 1. Vendas
+		lineageTag: ce37048a-52f5-48ff-b70d-71a4d85f4175
+
+	/// Valor bruto (preço × quantidade) das vendas canceladas.
+	measure 'Cancelamentos (R$)' = CALCULATE(SUMX(Vendas, Vendas[preco_unitario] * Vendas[quantidade]), Vendas[status] = "Cancelada")
+		formatString: "R$" #,0.00
+		displayFolder: 1. Vendas
+		lineageTag: d94490e2-7eec-464e-8cda-da8e493de616
+
+	/// Valor bruto (preço × quantidade) das vendas devolvidas.
+	measure 'Devoluções (R$)' = CALCULATE(SUMX(Vendas, Vendas[preco_unitario] * Vendas[quantidade]), Vendas[status] = "Devolvida")
+		formatString: "R$" #,0.00
+		displayFolder: 1. Vendas
+		lineageTag: 217c25e9-7c67-4efa-a240-03d5f7a626f8
+
+	/// Receita bruta − descontos − cancelamentos − devoluções − receita líquida. Deve ser 0,00 em qualquer contexto.
+	measure 'Conferência da cascata' = ROUND([Receita bruta] - [Desconto] - [Cancelamentos (R$)] - [Devoluções (R$)] - [Receita], 2)
+		formatString: "R$" #,0.00
+		displayFolder: 1. Vendas
+		lineageTag: f42bab87-732b-4af5-90ae-7ffd4e8aa01f
+
+	/// Desconto das vendas concluídas ÷ receita bruta das concluídas.
+	measure 'Desconto médio %' = DIVIDE([Desconto], [Receita bruta das concluídas])
+		formatString: 0.0%
+		displayFolder: 1. Vendas
+		lineageTag: 5ac9785c-feeb-427b-8963-4c01907e9d38
+
+	/// Vendedores com venda concluída no contexto (não é o cadastro).
+	measure 'Vendedores ativos' = CALCULATE(DISTINCTCOUNT(Vendas[sk_vendedor]), Vendas[status] = "Concluída")
+		formatString: #,0
+		displayFolder: 1. Vendas
+		lineageTag: 5a39fafa-cd64-495e-ba4a-5af6395c5857
+
+	/// Receita líquida ÷ vendedores ativos.
+	measure 'Venda por vendedor' = DIVIDE([Receita], [Vendedores ativos])
+		formatString: "R$" #,0.00
+		displayFolder: 1. Vendas
+		lineageTag: 69770e34-015f-49fe-99b9-a87d8d45fa8b
+
+	/// Receita do setor ÷ receita de todos os setores do contexto (respeita as segmentações).
+	measure 'Participação do setor %' = DIVIDE([Receita], CALCULATE([Receita], ALLSELECTED(Setores)))
+		formatString: 0.0%
+		displayFolder: 1. Vendas
+		lineageTag: c8c3ad39-44cf-465d-bb23-672a3190d222
+
+	/// Receita da loja ÷ receita de todas as lojas do contexto (respeita as segmentações).
+	measure 'Participação da loja %' = DIVIDE([Receita], CALCULATE([Receita], ALLSELECTED(Lojas)))
+		formatString: 0.0%
+		displayFolder: 1. Vendas
+		lineageTag: 73515103-f600-41d1-aeb2-e67387e14f03
+
+	/// Área de venda das lojas do contexto que tiveram receita no período.
+	measure 'Área de venda (m²)' = SUMX(FILTER(Lojas, NOT ISBLANK([Receita])), Lojas[area_m2])
+		formatString: #,0
+		displayFolder: 1. Vendas
+		lineageTag: 3e16d4aa-ae47-497f-8792-cb366a27e519
+
+	/// Receita líquida ÷ área de venda (m²) das lojas com receita, no período do contexto.
+	measure 'Venda por m²' = DIVIDE([Receita], [Área de venda (m²)])
+		formatString: "R$" #,0.00
+		displayFolder: 1. Vendas
+		lineageTag: f6d7a27c-0580-40d1-9ad4-75246820e255
+
+	/// Projeção de fechamento do mês ÷ área de venda (m²) das lojas com projeção. É o valor de um mês inteiro, comparável a referências de mercado (mensais); a 'Venda por m²' do período serve só para comparar lojas entre si.
+	measure 'Venda por m² no mês (projetada)' = DIVIDE([Projeção de fechamento], SUMX(FILTER(Lojas, NOT ISBLANK([Projeção de fechamento])), Lojas[area_m2]))
+		formatString: "R$" #,0.00
+		displayFolder: 1. Vendas
+		lineageTag: 84617b35-5ed1-47e6-9853-0e780fba8054
+
+	/// Cupons concluídos do início do mês até a data do contexto.
+	measure 'Cupons acumulados no mês' = CALCULATE([Cupons], DATESMTD('Calendário'[data]))
+		formatString: #,0
+		displayFolder: 2. Tempo
+		lineageTag: 0675eaba-82ba-45ab-a1bc-10d002c76ce3
+
+	/// Margem do início do mês até a data do contexto.
+	measure 'Margem acumulada no mês' = CALCULATE([Margem], DATESMTD('Calendário'[data]))
+		formatString: "R$" #,0.00
+		displayFolder: 2. Tempo
+		lineageTag: 274fb392-fe3f-436f-a1dd-353848d211f3
+
+	/// Receita acumulada no mês anterior no mesmo intervalo de dias (1–15/12 contra 1–15/11).
+	measure 'Receita mês anterior' = CALCULATE([Receita acumulada no mês], DATEADD('Calendário'[data], -1, MONTH))
+		formatString: "R$" #,0.00
+		displayFolder: 2. Tempo
+		lineageTag: 208ec7cd-8f25-4372-acd4-66a1e8396daa
+
+	/// Cupons acumulados no mês anterior no mesmo intervalo de dias.
+	measure 'Cupons mês anterior' = CALCULATE([Cupons acumulados no mês], DATEADD('Calendário'[data], -1, MONTH))
+		formatString: #,0
+		displayFolder: 2. Tempo
+		lineageTag: ee2a8701-c03e-4912-ac86-384ece16d1eb
+
+	/// Margem acumulada no mês anterior no mesmo intervalo de dias.
+	measure 'Margem mês anterior' = CALCULATE([Margem acumulada no mês], DATEADD('Calendário'[data], -1, MONTH))
+		formatString: "R$" #,0.00
+		displayFolder: 2. Tempo
+		lineageTag: ab85088f-fa85-44be-90cc-744ae1f186c0
+
+	/// Receita acumulada do mês ÷ receita do mês anterior (mesmo intervalo) − 1.
+	measure 'Variação da receita vs mês anterior' = DIVIDE([Receita acumulada no mês] - [Receita mês anterior], [Receita mês anterior])
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: 2. Tempo
+		lineageTag: d460955a-a3d8-4e79-860f-9b6b1280b235
+
+	/// Cupons acumulados do mês ÷ cupons do mês anterior (mesmo intervalo) − 1.
+	measure 'Variação dos cupons vs mês anterior' = DIVIDE([Cupons acumulados no mês] - [Cupons mês anterior], [Cupons mês anterior])
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: 2. Tempo
+		lineageTag: 736b6ec1-4805-40fe-90b8-6219ee1cec81
+
+	/// Margem acumulada do mês ÷ margem do mês anterior (mesmo intervalo) − 1.
+	measure 'Variação da margem vs mês anterior' = DIVIDE([Margem acumulada no mês] - [Margem mês anterior], [Margem mês anterior])
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: 2. Tempo
+		lineageTag: 2bb8da05-8ad3-4e16-a26c-fd4531b1000a
+
+	/// Receita − receita do mesmo período do ano anterior; em branco quando a loja não tem histórico.
+	measure 'Variação da receita vs ano anterior (R$)' = IF([Receita ano anterior] = 0, BLANK(), [Receita] - [Receita ano anterior])
+		formatString: "R$" #,0.00;-"R$" #,0.00
+		displayFolder: 2. Tempo
+		lineageTag: 1aea4c8c-b87b-4c43-ac40-1716bfa3424e
+
+	/// Margem do mesmo período do ano anterior.
+	measure 'Margem ano anterior' = CALCULATE([Margem], SAMEPERIODLASTYEAR('Calendário'[data]))
+		formatString: "R$" #,0.00
+		displayFolder: 2. Tempo
+		lineageTag: 7de16681-d251-4b7e-8e9d-b2295979d0fe
+
+	/// Margem − margem do mesmo período do ano anterior; em branco sem histórico.
+	measure 'Variação da margem vs ano anterior (R$)' = IF([Margem ano anterior] = 0, BLANK(), [Margem] - [Margem ano anterior])
+		formatString: "R$" #,0.00;-"R$" #,0.00
+		displayFolder: 2. Tempo
+		lineageTag: e3bb96de-edf9-419e-b900-4ddf485f8f85
+
+	/// Variação da margem em R$ ÷ margem do ano anterior; em branco sem histórico.
+	measure 'Variação da margem vs ano anterior %' = DIVIDE([Variação da margem vs ano anterior (R$)], [Margem ano anterior])
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: 2. Tempo
+		lineageTag: 9328a346-ec97-471d-ac17-112decf880bf
+
+	/// Receita só das lojas comparáveis: abertas há mais de 12 meses antes da posição do relatório.
+	measure 'Receita mesmas lojas' =
+			VAR corte = EDATE([Posição], -12)
+			RETURN
+			    CALCULATE([Receita], Lojas[data_abertura] < corte)
+		formatString: "R$" #,0.00
+		displayFolder: 2. Tempo
+		lineageTag: 5cc11a2c-8a8b-43a8-ad5c-d0faa4e40c60
+
+	/// Receita do ano anterior das lojas comparáveis (abertas há mais de 12 meses antes da posição).
+	measure 'Receita ano anterior mesmas lojas' =
+			VAR corte = EDATE([Posição], -12)
+			RETURN
+			    CALCULATE([Receita ano anterior], Lojas[data_abertura] < corte)
+		formatString: "R$" #,0.00
+		displayFolder: 2. Tempo
+		lineageTag: 703b3761-9eae-48b7-b4a1-f23c092652a2
+
+	/// Evolução da receita vs ano anterior só nas lojas comparáveis (exclui as abertas há 12 meses ou menos).
+	measure 'Evolução mesmas lojas' = DIVIDE([Receita mesmas lojas] - [Receita ano anterior mesmas lojas], [Receita ano anterior mesmas lojas])
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: 2. Tempo
+		lineageTag: b97ec445-8e86-47dc-b0a3-5ff98f3b99ae
+
+	/// Quantidade de lojas abertas há mais de 12 meses antes da posição, no contexto.
+	measure 'Lojas comparáveis (qtde)' =
+			VAR corte = EDATE([Posição], -12)
+			RETURN
+			    CALCULATE(DISTINCTCOUNT(Lojas[sk_loja]), Lojas[data_abertura] < corte)
+		formatString: #,0
+		displayFolder: 2. Tempo
+		lineageTag: d18161a9-fe39-4ac2-bac1-e0d7858fc924
 
 	column _
 		isHidden

@@ -113,6 +113,13 @@ class TestCargaDoErp:
         for faixa, inicio, fim in config.FAIXAS_DO_DIA:
             assert all(faixas[h] == faixa for h in range(inicio, fim + 1)), faixa
 
+    def test_area_da_loja_chega_ao_dw(self, banco_com_ddl, erp):
+        _carregar(banco_com_ddl, erp)
+        areas = dict(banco_com_ddl.execute("SELECT cod_loja, area_m2 FROM dw.dim_loja").fetchall())
+        esperado = ler_csv(erp.pasta / "lojas.csv")
+        do_csv = dict(zip(esperado["cod_loja"], esperado["area_m2"], strict=True))
+        assert {c: int(a) for c, a in do_csv.items()} == {c: int(a) for c, a in areas.items()}
+
     def test_feriados_marcados_na_dim_tempo(self, banco_com_ddl, erp):
         _carregar(banco_com_ddl, erp)
         n = banco_com_ddl.execute(
@@ -193,6 +200,7 @@ class TestRejeicao:
     def test_cadastros_invalidos(self, banco_com_ddl, erp):
         _editar(erp.pasta, "lojas.csv", 3, "uf", "SPX")
         _editar(erp.pasta, "lojas.csv", 4, "data_abertura", "99/99/2020")
+        _editar(erp.pasta, "lojas.csv", 5, "area_m2", "grande")
         _editar(erp.pasta, "produtos.csv", 5, "custo_unitario", "-1")
         _editar(erp.pasta, "vendedores.csv", 6, "turno", "Madrugada")
         _editar(erp.pasta, "vendedores.csv", 7, "cod_loja", "L99")
@@ -204,6 +212,7 @@ class TestRejeicao:
         esperados = {
             ("lojas.csv", 3, "uf"): "uf_invalida",
             ("lojas.csv", 4, "data_abertura"): "data_invalida",
+            ("lojas.csv", 5, "area_m2"): "valor_nao_numerico",
             ("produtos.csv", 5, "custo_unitario"): "valor_negativo",
             ("vendedores.csv", 6, "turno"): "turno_invalido",
             ("vendedores.csv", 7, "cod_loja"): "loja_inexistente",

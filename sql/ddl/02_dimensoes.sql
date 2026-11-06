@@ -31,7 +31,8 @@ CREATE TABLE dw.dim_loja (
     regiao         VARCHAR(15)  NOT NULL,
     cidade         VARCHAR(60)  NOT NULL,
     formato        VARCHAR(20)  NOT NULL,
-    data_abertura  DATE         NOT NULL
+    data_abertura  DATE         NOT NULL,
+    area_m2        NUMERIC(9,2) CHECK (area_m2 > 0)
 );
 
 -- Horário de funcionamento por dia da semana (1 = segunda ... 7 = domingo, padrão ISO).

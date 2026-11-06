@@ -2,11 +2,11 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
   "name": "38a3b483758f15c30096",
   "position": {
-    "x": 876,
-    "y": 696,
+    "x": 860.55776892430276,
+    "y": 696.09561752988043,
     "z": 10,
-    "height": 324,
-    "width": 1020,
+    "height": 336.57370517928285,
+    "width": 1034.5816733067729,
     "tabOrder": 10
   },
   "visual": {
@@ -27,7 +27,8 @@
                 }
               },
               "queryRef": "Setores.setor",
-              "nativeQueryRef": "setor"
+              "nativeQueryRef": "setor",
+              "displayName": "Setor"
             },
             {
               "field": {
@@ -41,7 +42,8 @@
                 }
               },
               "queryRef": "Medidas.Receita",
-              "nativeQueryRef": "Receita"
+              "nativeQueryRef": "Receita",
+              "displayName": "Receita"
             },
             {
               "field": {
@@ -55,7 +57,8 @@
                 }
               },
               "queryRef": "Medidas.Meta do período",
-              "nativeQueryRef": "Meta do período"
+              "nativeQueryRef": "Meta do período",
+              "displayName": "Meta até o dia"
             },
             {
               "field": {
@@ -69,7 +72,8 @@
                 }
               },
               "queryRef": "Medidas.Cobertura do período",
-              "nativeQueryRef": "Cobertura do período"
+              "nativeQueryRef": "Cobertura do período",
+              "displayName": "Cobertura"
             },
             {
               "field": {
@@ -83,7 +87,8 @@
                 }
               },
               "queryRef": "Medidas.Margem %",
-              "nativeQueryRef": "Margem %"
+              "nativeQueryRef": "Margem %",
+              "displayName": "Margem"
             },
             {
               "field": {
@@ -97,7 +102,8 @@
                 }
               },
               "queryRef": "Medidas.Evolução vs ano anterior",
-              "nativeQueryRef": "Evolução vs ano anterior"
+              "nativeQueryRef": "Evolução vs ano anterior",
+              "displayName": "Evolução"
             }
           ]
         }
@@ -127,7 +133,14 @@
             "fontSize": {
               "expr": {
                 "Literal": {
-                  "Value": "12D"
+                  "Value": "13D"
+                }
+              }
+            },
+            "autoSizeColumnWidth": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
                 }
               }
             }
@@ -140,7 +153,7 @@
             "fontSize": {
               "expr": {
                 "Literal": {
-                  "Value": "12D"
+                  "Value": "13D"
                 }
               }
             }
@@ -199,10 +212,116 @@
             "fontSize": {
               "expr": {
                 "Literal": {
-                  "Value": "12D"
+                  "Value": "13D"
+                }
+              }
+            },
+            "bold": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
                 }
               }
             }
+          }
+        }
+      ],
+      "grid": [
+        {
+          "properties": {
+            "rowPadding": {
+              "expr": {
+                "Literal": {
+                  "Value": "9D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "columnWidth": [
+        {
+          "properties": {
+            "value": {
+              "expr": {
+                "Literal": {
+                  "Value": "200D"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "Setores.setor"
+          }
+        },
+        {
+          "properties": {
+            "value": {
+              "expr": {
+                "Literal": {
+                  "Value": "170D"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "Medidas.Receita"
+          }
+        },
+        {
+          "properties": {
+            "value": {
+              "expr": {
+                "Literal": {
+                  "Value": "170D"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "Medidas.Meta do período"
+          }
+        },
+        {
+          "properties": {
+            "value": {
+              "expr": {
+                "Literal": {
+                  "Value": "140D"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "Medidas.Cobertura do período"
+          }
+        },
+        {
+          "properties": {
+            "value": {
+              "expr": {
+                "Literal": {
+                  "Value": "140D"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "Medidas.Margem %"
+          }
+        },
+        {
+          "properties": {
+            "value": {
+              "expr": {
+                "Literal": {
+                  "Value": "172D"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "Medidas.Evolução vs ano anterior"
           }
         }
       ]

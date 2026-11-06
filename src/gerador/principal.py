@@ -65,6 +65,7 @@ def _gravar_cadastros(
             "cidade": [lj.cidade for lj in cat.lojas],
             "formato": [lj.formato for lj in cat.lojas],
             "data_abertura": [lj.data_abertura.strftime(formato) for lj in cat.lojas],
+            "area_m2": [str(lj.area_m2) for lj in cat.lojas],
         }
     )
     horarios = pd.DataFrame(

@@ -71,6 +71,7 @@ _ENTIDADES = (
             _c("cidade", TEXTO, True, "Cidade da loja."),
             _c("formato", TEXTO, True, "Formato da loja (Hipermercado, Supermercado, Express)."),
             _c("data_abertura", DATA, True, "Data de inauguração da loja."),
+            _c("area_m2", DECIMAL, False, "Área de venda em m² (opcional; base da venda por m²)."),
         ),
     ),
     EntidadeContrato(

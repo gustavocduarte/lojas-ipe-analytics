@@ -3,7 +3,7 @@
 
 CREATE TABLE stg.lojas (
     cod_loja TEXT, nome_loja TEXT, uf TEXT, regiao TEXT, cidade TEXT, formato TEXT,
-    data_abertura TEXT,
+    data_abertura TEXT, area_m2 TEXT,
     arquivo_origem TEXT, linha_origem INTEGER, carregado_em TIMESTAMP NOT NULL DEFAULT now()
 );
 

@@ -87,3 +87,109 @@ O que o Power BI gravou no ranking das lojas (15 categorias), depois do ajuste m
 - `y1AxisReferenceLine[]` da linha em 0: `show`, `value` `0D`, `style` `'solid'`, `width` `2D`, `position` `'front'` e `lineColor` como `ThemeDataColor` (`ColorId` 1 = cor de primeiro plano do tema; `ColorId` 0 = branco). Aceita cor literal `'#RRGGBB'` também.
 - Ao clicar em "Adicionar linha" no painel Análise sem preencher, o Power BI deixa uma entrada órfã `{show, displayName: 'Linha Constante do Eixo Y 0'}` com `selector.id` = `"NaN"`. **Remover do JSON**: é a linha desativada/sem valor.
 - A grade do eixo de valores foi gravada com `gridlineShow` `false` e `valueAxis.fontSize` `9D`: o destaque do zero vem só da linha constante.
+
+## Páginas Lojas e Detalhe da loja — pendências manuais (copiar o JSON depois)
+
+| Efeito | Onde | O que o Power BI deve gravar | Situação |
+|---|---|---|---|
+| Botões "10 piores \| 10 melhores" | segmentação de `'Modo do ranking'[Modo]` (tabela desconectada) | `selection.strictSingleSelect` e filtro padrão gravados por texto; **estilo de botões/lado a lado: manual** (copiar o que o Power BI gravar) | a confirmar |
+| Hierarquia com drill-down | mesmo visual: trocar o eixo `nome_loja` pela hierarquia `Lojas[Geografia]` (Região → UF → Loja) e ligar o drill | `HierarchyLevel` nas projeções de `Category` (com `active`) | manual |
+| Drill-through | página Detalhe da loja: Campos de drill-through = `Lojas[nome_loja]` (manter todos os filtros desligado) + botão de voltar | `page.json`: `pageBinding` do tipo `Drillthrough`; botão `actionButton` com ação `Back` | manual |
+| Linha em 100% e eixo 0–120% no ranking | `xAxisReferenceLine` (`linha_100`) + `valueAxis.start/end` | — | a confirmar na tela |
+
+## Filtro N inferior (Top N) gravado pelo Power BI — confirmado
+
+Aplicado à mão, "N inferior = 10 por `Cobertura da meta até o dia`" gravou em `visual.filterConfig.filters[]` (o visual foi o da dispersão, não o ranking):
+
+```json
+{ "name": "...", "field": { "Column": { "Expression": { "SourceRef": { "Entity": "Lojas" } }, "Property": "nome_loja" } },
+  "type": "TopN",
+  "filter": { "Version": 2,
+    "From": [ { "Name": "subquery", "Type": 2, "Expression": { "Subquery": { "Query": { "Version": 2,
+        "From": [ { "Name": "l", "Entity": "Lojas", "Type": 0 }, { "Name": "m", "Entity": "Medidas", "Type": 0 } ],
+        "Select": [ { "Column": { "Expression": { "SourceRef": { "Source": "l" } }, "Property": "nome_loja" }, "Name": "field" } ],
+        "OrderBy": [ { "Direction": 1, "Expression": { "Measure": { "Expression": { "SourceRef": { "Source": "m" } }, "Property": "Cobertura da meta até o dia" } } } ],
+        "Top": 10 } } } },
+      { "Name": "l", "Entity": "Lojas", "Type": 0 } ],
+    "Where": [ { "Condition": { "In": { "Expressions": [ { "Column": { "Expression": { "SourceRef": { "Source": "l" } }, "Property": "nome_loja" } } ],
+        "Table": { "SourceRef": { "Source": "subquery" } } } } } ] } }
+```
+
+- `Direction: 1` = crescente (N **inferior**); decrescente (N superior) seria `2`. `Top` é o N.
+- Ao abrir o painel Filtros, o Power BI também deixou entradas `type: "Advanced"` sem `filter` (uma por medida do visual): são só os campos listados, sem condição.
+- Substituído nas lojas pelo modo "10 piores | 10 melhores" (abaixo), porque o Top N fixo não alterna.
+
+## Ranking com botões 10 piores | 10 melhores (sem bookmarks) — a confirmar na tela
+
+- Tabela calculada `'Modo do ranking'` (`DATATABLE`, sem relação) com `Modo` (ordenada por `Ordem`).
+- `Posição no ranking (modo)`: `RANKX` sobre `ALLSELECTED(Lojas[nome_loja])` (só lojas com cobertura), crescente no modo 1 e decrescente no 2; `Mostrar no ranking` = 1 se posição ≤ `Tamanho do ranking` (parâmetro, 10).
+- No visual: `filterConfig` `Advanced` por medida (`Comparison`, `ComparisonKind` 0 = igual, `1L`); a ordem usa a posição (medida no bucket `Tooltips`, só para ordenar); título dinâmico = `title.text` com `expr.Measure` (mesma forma do subtítulo dos cartões).
+- Filtro de medida no visual não altera o contexto: o ranking continua calculado sobre todas as lojas selecionadas.
+- Filtro "só lojas com falta > 0": `Advanced` com `ComparisonKind: 1` (maior que) e `0D`.
+
+## Rótulo da meta do mês no gráfico de acumulado — não funcionou
+
+Formato dinâmico (`formatStringDefinition`) para mostrar "Meta do mês: R$ …" só no último ponto: o Power BI aceitou a sintaxe (grava a linha depois do `lineageTag`, separada por linha em branco), mas o rótulo não apareceu. Solução usada: o valor vai no **subtítulo do gráfico** (`Subtítulo do acumulado`, medida de texto) e no tooltip.
+
+## Regras de TMDL/DAX aprendidas no Power BI (confirmado)
+
+- **`formatString` com texto entre aspas:** o valor inteiro vai entre aspas, com as internas dobradas. Errado: `formatString: "falta R$ "#,0.00;;"meta batida"`. Certo: `formatString: """falta R$ ""#,0.00;;""meta batida"""`. (`"R$" #,0.00`, com um único par de aspas, o Power BI aceita como está.) O `validar.py` acusa `formatString` com mais de 2 aspas sem dobrar.
+- **Ordem do `RANKX` é constante:** o 4º argumento só aceita `ASC`, `DESC`, `0` ou `1`. `IF(melhores, DESC, ASC)` quebra o filtro do ranking com "Broken_Filters". Para alternar a ordem, repetir o `RANKX`: `IF(melhores, RANKX(t, expr, , DESC, DENSE), RANKX(t, expr, , ASC, DENSE))`. O `validar.py` acusa ordem que não seja constante.
+- **Segmentação em fila (botões):** lista vertical numa caixa baixa mostra só o 1º item; `objects.general.orientation` = `1D` (horizontal) põe as opções lado a lado (a confirmar na tela). Aspecto de botão/azulejo e seleção única obrigatória: ver "Botões" acima.
+
+## Segmentação em botões lado a lado (gravado pelo Power BI) — confirmado
+
+Depois do estilo de botões aplicado à mão na segmentação `'Modo do ranking'[Modo]`, o `visual.json` ficou (trecho de `objects`):
+
+```json
+"selection": [ { "properties": { "strictSingleSelect": { "expr": { "Literal": { "Value": "true" } } } } } ],
+"header":    [ { "properties": { "show": { "expr": { "Literal": { "Value": "false" } } } } } ],
+"general":   [ { "properties": {
+    "filter": { "filter": { "...": "In [ '10 melhores' ]  (a opção selecionada ao salvar)" } },
+    "orientation": { "expr": { "Literal": { "Value": "1D" } } } } } ]
+```
+
+- O "estilo de botões" é só `general.orientation = 1D` (horizontal) + `selection.strictSingleSelect = true`; **nenhuma outra propriedade de estilo foi gravada**. A caixa precisa de largura para as opções (420 × 44 para duas).
+- `general.filter` guarda a seleção atual: salvar com "10 melhores" escolhido grava esse padrão. Para o padrão ser "10 piores", salvar com ela selecionada (ou trocar o valor no JSON).
+
+## Segmentação suspensa de loja com busca (página Detalhe da loja) — a confirmar na tela
+
+`slicer` de `Lojas[nome_loja]`: `data.mode = 'Dropdown'`, `selection.singleSelect = true` e `selection.selectAllCheckboxEnabled = false` (sem "Selecionar tudo"), `general.selfFilterEnabled = true` (campo de busca), título "Loja" e subtítulo dinâmico (`Contexto da loja`). Sem seleção a página mostra a rede.
+
+- **Drill-through no mesmo campo:** o filtro de drill-through é um filtro de página em `Lojas[nome_loja]`; a segmentação usa o mesmo campo. Ao chegar pelo drill-through a lista da segmentação só oferece a loja de origem (a lista também é filtrada pelo filtro de página); para outra loja, usar Voltar. Sem conflito, mas escolher outra loja na lista com o drill-through ativo dá interseção vazia.
+
+## Seletor de loja na faixa e larguras de coluna (Detalhe da loja) — a confirmar na tela
+
+- **Seletor:** a segmentação suspensa fica numa caixa branca (y 34, altura 50) com fonte de 16 pt (`objects.items.fontSize`); o rótulo "Loja" é uma caixa de texto branca acima (a segmentação, no cartão branco, não pode ter título branco). Sem título nem subtítulo próprios.
+- **Subtítulo da faixa:** um `cardVisual` sem fundo nem borda, com a medida `Faixa da loja` (cidade · UF · formato ou "Todas as lojas", mais a posição dos dados), à esquerda sob o título; o parágrafo estático foi retirado da caixa de texto da faixa.
+- **Largura de coluna em tabela:** `objects.columnWidth[]` com `selector.metadata` = `queryRef` da coluna e `properties.value` = `150D`; o ajuste automático é `objects.columnHeaders[].properties.autoSizeColumnWidth = false` (nomes a confirmar; se o Power BI não reagir, arrastar uma coluna à mão e copiar o JSON gravado).
+
+## Correções da rodada do Detalhe da loja
+
+- **Meta do vendedor e loja:** `Vendedores` não tem relação com `Lojas`; as medidas de meta do vendedor usam `TREATAS(VALUES(Lojas[sk_loja]), Vendedores[sk_loja])` dentro de `CALCULATE`. Sem isso o total de uma loja mostrava a meta da rede inteira. Conferido no banco: Ipê Brasília, 6 vendedores, meta até 15/12 = R$ 15.797,72; rede = R$ 412.712,28.
+- **Texto sem chrome sobre a faixa:** o `cardVisual` mostrava caixa branca mesmo com `background`/`border` desligados em `visualContainerObjects`; usar o cartão clássico (`visualType: "card"`, `objects.labels.color/fontSize`, `categoryLabels.show=false`) com fundo e borda desligados — a confirmar na tela.
+- **Texto no lugar de vazio:** `Evolução vs ano anterior (texto)` devolve "loja sem histórico" quando a receita do ano anterior é zero; a cor continua vindo de `Cor da evolução`.
+
+## Tabelas preenchem o cartão (rodada de acabamento)
+
+**Regra:** a tabela sempre preenche a largura útil do cartão: soma das colunas = largura do visual − margens (usamos 28 px: padding do contêiner + folga da barra de rolagem). Sem rolagem horizontal, `autoSizeColumnWidth = false` e `columnWidth` em todas as colunas (selector `metadata` = queryRef).
+
+| Tabela | Largura do cartão | Colunas (soma) | Fonte |
+|---|---|---|---|
+| Desempenho por setor (Vendas vs Meta) | 1020 | 200+170+170+140+140+172 = 992 | 13 (cabeçalho, valores, total em negrito) |
+| Vendedores da loja (Detalhe) | 1020 | 260+150+150+150+120+162 = 992 | 13 |
+| Todas as lojas (Lojas) | 1872 | 280+90+240+200+200+200+160+240+234 = 1844 | 12 |
+
+- Altura das linhas: `grid.rowPadding` (6 a 9 px). **A confirmar na tela:** nomes `grid.rowPadding` e `total.bold`; se não valerem, ajustar à mão uma vez e copiar o JSON para cá.
+- Cartões de evolução: o rótulo vem do `displayName` da projeção ("Evolução vs ano anterior"); a medida `Evolução vs ano anterior (texto)` não é renomeada.
+- Vendedores sem loja escolhida: filtro visual `Loja única escolhida = 1` (tabela vazia na rede) e a orientação vai no **título** da própria tabela (medida `Título dos vendedores`), sem cartão sobreposto (que mostrava "(Em branco)" e cobria a tabela). Ajuste de tamanho: margem de 56 px (28 não bastou: a última coluna saía pela direita); colunas 240+140+145+145+118+176 = 964; fonte 12, `grid.rowPadding` 2; cabem ~10 linhas em 324 px de altura, e a rolagem vertical só aparece acima disso (a maior loja tem 19 vendedores).
+- Meta de vendedor × meta da loja: a meta dos vendedores de Brasília soma R$ 15.797,72 (cobertura 73,7%), enquanto a meta da loja é R$ 17.220,82 (cobertura 67,6%). São bases diferentes: as metas por vendedor cobrem menos que a meta da loja.
+
+## Rodada de melhorias, etapa 1: medidas de análise, mesmas lojas e área da loja
+
+- **Cascata:** `Receita bruta` (preço × quantidade, todos os status) − `Desconto` (concluídas) − `Cancelamentos (R$)` − `Devoluções (R$)` (valor bruto) = `Receita`. `Conferência da cascata` deve dar 0,00 em qualquer contexto. Conferido no banco (histórico inteiro e 1–15/12/2025).
+- **Mês anterior (mesmo intervalo):** `CALCULATE([... acumulado no mês], DATEADD('Calendário'[data], -1, MONTH))`; em mês de 31 dias contra um de 30 o intervalo anterior termina no dia 30.
+- **Mesmas lojas:** loja comparável = `Lojas[data_abertura] < EDATE([Posição], -12)`; só DAX, sem coluna calculada (a posição muda com a segmentação).
+- **Área (m²):** `dw.dim_loja.area_m2` (opcional no contrato). `Venda por m²` = receita ÷ área das lojas com receita no contexto, no período selecionado (não é anualizada). **Regra de exibição:** o valor principal nas páginas é `Venda por m² no mês (projetada)` (projeção de fechamento ÷ área; um mês inteiro, comparável a referências de mercado); a `Venda por m²` do período fica só no tooltip e serve para comparar lojas entre si. O rótulo sempre diz o período.
+- **Vendedores ativos:** vendedores com venda concluída no contexto, não o cadastro.
+- **Conferência de números:** nas rodadas de melhoria uma página temporária (segmentação 01–15/12/2025) confere os números na tela e é removida antes do commit.

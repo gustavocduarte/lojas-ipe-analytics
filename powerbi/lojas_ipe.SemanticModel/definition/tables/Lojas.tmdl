@@ -70,6 +70,31 @@ table Lojas
 
 		annotation UnderlyingDateTimeDataType = Date
 
+	column area_m2
+		dataType: double
+		formatString: #,0
+		lineageTag: a1f64f3b-a465-40ab-8086-02537cce757b
+		summarizeBy: sum
+		sourceColumn: area_m2
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Região → UF → Loja, para o drill-down do ranking da página Lojas.
+	hierarchy Geografia
+		lineageTag: 81bc4357-333d-4ba0-bba4-6db372788154
+
+		level Região
+			lineageTag: e546f5de-c579-405e-9bac-3c5c7e39aba9
+			column: regiao
+
+		level UF
+			lineageTag: ee7a3493-c325-4c97-ba12-94ecdc256228
+			column: uf
+
+		level Loja
+			lineageTag: 8c5ec640-bf7d-4e73-a3d9-2b10045cd8cc
+			column: nome_loja
+
 	partition 'dw dim_loja' = m
 		mode: import
 		source =
