@@ -507,6 +507,11 @@ table Medidas
 		displayFolder: 6. Textos
 		lineageTag: 9c41e6a8-2f75-4d0b-8a37-e1b5c7d90f43
 
+	/// Subtítulo do gráfico de vendedores: a leitura da cor, ou a orientação quando não há uma loja só no contexto (o gráfico fica vazio).
+	measure 'Subtítulo dos vendedores' = IF(HASONEVALUE(Lojas[nome_loja]), "acima de 100% = bateu a meta do dia", "escolha uma loja para ver os vendedores")
+		displayFolder: 6. Textos
+		lineageTag: 7fb6f830-4291-48e2-ad2c-0b3bd4b7030c
+
 	/// Preço × quantidade antes do desconto, de todos os status (concluídas, canceladas e devolvidas). Ponto de partida da cascata até a receita líquida.
 	measure 'Receita bruta' = SUMX(Vendas, Vendas[preco_unitario] * Vendas[quantidade])
 		formatString: "R$" #,0.00
@@ -578,12 +583,6 @@ table Medidas
 		formatString: "R$" #,0.00
 		displayFolder: 1. Vendas
 		lineageTag: f6d7a27c-0580-40d1-9ad4-75246820e255
-
-	/// Projeção de fechamento do mês ÷ área de venda (m²) das lojas com projeção. É o valor de um mês inteiro, comparável a referências de mercado (mensais); a 'Venda por m²' do período serve só para comparar lojas entre si.
-	measure 'Venda por m² no mês (projetada)' = DIVIDE([Projeção de fechamento], SUMX(FILTER(Lojas, NOT ISBLANK([Projeção de fechamento])), Lojas[area_m2]))
-		formatString: "R$" #,0.00
-		displayFolder: 1. Vendas
-		lineageTag: 84617b35-5ed1-47e6-9853-0e780fba8054
 
 	/// Cupons concluídos do início do mês até a data do contexto.
 	measure 'Cupons acumulados no mês' = CALCULATE([Cupons], DATESMTD('Calendário'[data]))
@@ -689,6 +688,64 @@ table Medidas
 		formatString: #,0
 		displayFolder: 2. Tempo
 		lineageTag: d18161a9-fe39-4ac2-bac1-e0d7858fc924
+
+	/// Projeção de fechamento do mês ÷ área de venda (m²) das lojas com projeção. É o valor de um mês inteiro, comparável a referências de mercado (mensais); a 'Venda por m²' do período serve só para comparar lojas entre si.
+	measure 'Venda por m² no mês (projetada)' = DIVIDE([Projeção de fechamento], SUMX(FILTER(Lojas, NOT ISBLANK([Projeção de fechamento])), Lojas[area_m2]))
+		formatString: "R$" #,0.00
+		displayFolder: 1. Vendas
+		lineageTag: 84617b35-5ed1-47e6-9853-0e780fba8054
+
+	/// Quadrante da loja: sinal da evolução da receita × sinal da variação da margem (R$) contra o mesmo período do ano anterior. Em branco para loja sem histórico.
+	measure Quadrante =
+			VAR x = [Evolução vs ano anterior]
+			VAR y = [Variação da margem vs ano anterior %]
+			RETURN
+			    IF(
+			        ISBLANK(x) || ISBLANK(y), BLANK(),
+			        SWITCH(
+			            TRUE(),
+			            x >= 0 && y >= 0, "Cresce receita e margem",
+			            x >= 0, "Cresce receita, perde margem",
+			            y >= 0, "Perde receita, ganha margem",
+			            "Perde receita e margem"
+			        )
+			    )
+		displayFolder: 4. Formatação
+		lineageTag: 2562adae-0a72-44da-8aa0-82ca17362153
+
+	/// Cor fixa do quadrante: verde, laranja, azul ou vermelho.
+	measure 'Cor do quadrante' =
+			SWITCH(
+			    [Quadrante],
+			    "Cresce receita e margem", "#2E7D32",
+			    "Cresce receita, perde margem", "#EF8A17",
+			    "Perde receita, ganha margem", "#1F6FB5",
+			    "Perde receita e margem", "#C62828",
+			    BLANK()
+			)
+		displayFolder: 4. Formatação
+		lineageTag: 18e220a4-252d-4015-aab8-5fdbfc14205e
+
+	/// Margem % da loja menos a margem % de todas as lojas do contexto, em pontos percentuais (+1,2 p.p. = 1,2 ponto acima da rede).
+	measure 'Margem vs rede (p.p.)' = ([Margem %] - CALCULATE([Margem %], ALLSELECTED(Lojas))) * 100
+		formatString: +0.0\ \p\.\p\.;-0.0\ \p\.\p\.;0.0\ \p\.\p\.
+		displayFolder: 1. Vendas
+		lineageTag: 6cdf5117-37a8-4ae7-8d40-cffb408cec97
+
+	/// Verde se a margem da loja estiver acima da rede, vermelho se abaixo.
+	measure 'Cor da margem vs rede' = IF(ISBLANK([Margem vs rede (p.p.)]), BLANK(), IF([Margem vs rede (p.p.)] >= 0, "#2E7D32", "#C62828"))
+		displayFolder: 4. Formatação
+		lineageTag: 8f9025f9-8263-4534-84ff-bb953d3a197d
+
+	/// Evolução da receita das lojas comparáveis (abertas há mais de 12 meses) em texto com sinal.
+	measure 'Evolução mesmas lojas (texto)' = IF(ISBLANK([Evolução mesmas lojas]), "sem lojas comparáveis", FORMAT([Evolução mesmas lojas], "+0.0%;-0.0%;0.0%", "pt-BR"))
+		displayFolder: 6. Textos
+		lineageTag: 98c72015-0f0a-407c-93af-11535ac5272e
+
+	/// Verde se a evolução das mesmas lojas for ≥ 0, vermelho se negativa.
+	measure 'Cor da evolução mesmas lojas' = IF(ISBLANK([Evolução mesmas lojas]), BLANK(), IF([Evolução mesmas lojas] >= 0, "#2E7D32", "#C62828"))
+		displayFolder: 4. Formatação
+		lineageTag: 573d44cf-92d6-479f-ace8-73c22f7aa36b
 
 	column _
 		isHidden

@@ -1,19 +1,19 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
-  "name": "acca11d8fee68700a33f",
+  "name": "d7a2f6c1e48b905a3b6e",
   "position": {
-    "x": 875.85657370517924,
-    "y": 680.796812749004,
+    "x": 875.8565737051792,
+    "y": 621,
     "z": 11,
-    "height": 338.48605577689239,
+    "height": 399,
     "width": 1021.1952191235059,
     "tabOrder": 11
   },
   "visual": {
-    "visualType": "tableEx",
+    "visualType": "barChart",
     "query": {
       "queryState": {
-        "Values": {
+        "Category": {
           "projections": [
             {
               "field": {
@@ -28,21 +28,50 @@
               },
               "queryRef": "Vendedores.nome_vendedor",
               "nativeQueryRef": "nome_vendedor",
-              "displayName": "Vendedor"
-            },
+              "displayName": "Vendedor",
+              "active": true
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
             {
               "field": {
-                "Column": {
+                "Measure": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "Vendedores"
+                      "Entity": "Medidas"
                     }
                   },
-                  "Property": "cargo"
+                  "Property": "Cobertura da meta até o dia (vendedor)"
                 }
               },
-              "queryRef": "Vendedores.cargo",
-              "nativeQueryRef": "cargo",
+              "queryRef": "Medidas.Cobertura da meta até o dia (vendedor)",
+              "nativeQueryRef": "Cobertura da meta até o dia (vendedor)",
+              "displayName": "Cobertura"
+            }
+          ]
+        },
+        "Tooltips": {
+          "projections": [
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Vendedores"
+                        }
+                      },
+                      "Property": "cargo"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(Vendedores.cargo)",
+              "nativeQueryRef": "Min de cargo",
               "displayName": "Cargo"
             },
             {
@@ -83,21 +112,6 @@
                       "Entity": "Medidas"
                     }
                   },
-                  "Property": "Cobertura da meta até o dia (vendedor)"
-                }
-              },
-              "queryRef": "Medidas.Cobertura da meta até o dia (vendedor)",
-              "nativeQueryRef": "Cobertura da meta até o dia (vendedor)",
-              "displayName": "Cobertura"
-            },
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Medidas"
-                    }
-                  },
                   "Property": "Ticket médio"
                 }
               },
@@ -118,7 +132,7 @@
                     "Entity": "Medidas"
                   }
                 },
-                "Property": "Receita acumulada no mês"
+                "Property": "Cobertura da meta até o dia (vendedor)"
               }
             },
             "direction": "Descending"
@@ -127,41 +141,30 @@
       }
     },
     "objects": {
-      "columnHeaders": [
+      "labels": [
         {
           "properties": {
-            "fontSize": {
-              "expr": {
-                "Literal": {
-                  "Value": "12D"
-                }
-              }
-            },
-            "autoSizeColumnWidth": {
+            "show": {
               "expr": {
                 "Literal": {
                   "Value": "true"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
                 }
               }
             }
           }
         }
       ],
-      "values": [
+      "dataPoint": [
         {
           "properties": {
-            "fontSize": {
-              "expr": {
-                "Literal": {
-                  "Value": "12D"
-                }
-              }
-            }
-          }
-        },
-        {
-          "properties": {
-            "fontColor": {
+            "fill": {
               "solid": {
                 "color": {
                   "expr": {
@@ -179,119 +182,87 @@
             }
           },
           "selector": {
-            "metadata": "Medidas.Cobertura da meta até o dia (vendedor)"
+            "data": [
+              {
+                "dataViewWildcard": {
+                  "matchingOption": 1
+                }
+              }
+            ]
           }
         }
       ],
-      "total": [
+      "categoryAxis": [
         {
           "properties": {
             "fontSize": {
               "expr": {
                 "Literal": {
-                  "Value": "12D"
+                  "Value": "11D"
                 }
               }
             }
           }
         }
       ],
-      "columnWidth": [
+      "valueAxis": [
         {
           "properties": {
-            "value": {
+            "start": {
               "expr": {
                 "Literal": {
-                  "Value": "240D"
+                  "Value": "0D"
                 }
               }
             }
-          },
-          "selector": {
-            "metadata": "Vendedores.nome_vendedor"
-          }
-        },
-        {
-          "properties": {
-            "value": {
-              "expr": {
-                "Literal": {
-                  "Value": "140D"
-                }
-              }
-            }
-          },
-          "selector": {
-            "metadata": "Vendedores.cargo"
-          }
-        },
-        {
-          "properties": {
-            "value": {
-              "expr": {
-                "Literal": {
-                  "Value": "145D"
-                }
-              }
-            }
-          },
-          "selector": {
-            "metadata": "Medidas.Receita acumulada no mês"
-          }
-        },
-        {
-          "properties": {
-            "value": {
-              "expr": {
-                "Literal": {
-                  "Value": "145D"
-                }
-              }
-            }
-          },
-          "selector": {
-            "metadata": "Medidas.Meta acumulada até o dia (vendedor)"
-          }
-        },
-        {
-          "properties": {
-            "value": {
-              "expr": {
-                "Literal": {
-                  "Value": "118D"
-                }
-              }
-            }
-          },
-          "selector": {
-            "metadata": "Medidas.Cobertura da meta até o dia (vendedor)"
-          }
-        },
-        {
-          "properties": {
-            "value": {
-              "expr": {
-                "Literal": {
-                  "Value": "176D"
-                }
-              }
-            }
-          },
-          "selector": {
-            "metadata": "Medidas.Ticket médio"
           }
         }
       ],
-      "grid": [
+      "xAxisReferenceLine": [
         {
           "properties": {
-            "rowPadding": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "value": {
+              "expr": {
+                "Literal": {
+                  "Value": "1D"
+                }
+              }
+            },
+            "lineColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#5B6B7C'"
+                    }
+                  }
+                }
+              }
+            },
+            "style": {
+              "expr": {
+                "Literal": {
+                  "Value": "'dashed'"
+                }
+              }
+            },
+            "width": {
               "expr": {
                 "Literal": {
                   "Value": "2D"
                 }
               }
             }
+          },
+          "selector": {
+            "id": "linha_100"
           }
         }
       ]
@@ -309,13 +280,8 @@
             },
             "text": {
               "expr": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Medidas"
-                    }
-                  },
-                  "Property": "Título dos vendedores"
+                "Literal": {
+                  "Value": "'Vendedores: cobertura da meta até o dia'"
                 }
               }
             },
@@ -323,6 +289,31 @@
               "expr": {
                 "Literal": {
                   "Value": "14D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Subtítulo dos vendedores"
                 }
               }
             }

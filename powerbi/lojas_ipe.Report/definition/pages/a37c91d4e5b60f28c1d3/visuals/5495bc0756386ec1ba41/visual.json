@@ -87,11 +87,11 @@
   },
   "name": "5495bc0756386ec1ba41",
   "position": {
-    "x": 968,
+    "x": 780,
     "y": 112,
     "z": 4,
     "height": 132,
-    "width": 456,
+    "width": 360,
     "tabOrder": 4
   },
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json"

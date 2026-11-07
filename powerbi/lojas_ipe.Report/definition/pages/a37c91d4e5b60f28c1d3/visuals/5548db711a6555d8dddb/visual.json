@@ -103,11 +103,11 @@
   },
   "name": "5548db711a6555d8dddb",
   "position": {
-    "x": 496,
+    "x": 402,
     "y": 112,
     "z": 3,
     "height": 132,
-    "width": 456,
+    "width": 360,
     "tabOrder": 3
   },
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json"

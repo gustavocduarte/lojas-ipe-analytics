@@ -84,7 +84,7 @@
     "y": 112,
     "z": 2,
     "height": 132,
-    "width": 456,
+    "width": 360,
     "tabOrder": 2
   },
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json"

@@ -193,3 +193,103 @@ Depois do estilo de botões aplicado à mão na segmentação `'Modo do ranking'
 - **Área (m²):** `dw.dim_loja.area_m2` (opcional no contrato). `Venda por m²` = receita ÷ área das lojas com receita no contexto, no período selecionado (não é anualizada). **Regra de exibição:** o valor principal nas páginas é `Venda por m² no mês (projetada)` (projeção de fechamento ÷ área; um mês inteiro, comparável a referências de mercado); a `Venda por m²` do período fica só no tooltip e serve para comparar lojas entre si. O rótulo sempre diz o período.
 - **Vendedores ativos:** vendedores com venda concluída no contexto, não o cadastro.
 - **Conferência de números:** nas rodadas de melhoria uma página temporária (segmentação 01–15/12/2025) confere os números na tela e é removida antes do commit.
+
+## Rodada de melhorias, etapa 3 (Lojas e Comparação de lojas)
+
+- **Lojas:** a tabela "Todas as lojas" virou matriz (`pivotTable`, linhas = loja; colunas = medidas), com receita, meta, cobertura, projeção, evolução, evolução mesmas lojas, ticket médio, margem %, participação e `Venda por m² no mês (projetada)`. Larguras somam 1816 px (largura − 56). Barras de dados são manuais (Formatar → Elementos da célula → Barras de dados).
+- **Comparação de lojas (página nova):** quadrantes "Crescimento de faturamento × crescimento de rentabilidade" (X = `Evolução vs ano anterior`, Y = `Variação da margem vs ano anterior %`, bolha = receita, cor = `Cor do quadrante` a partir de `Quadrante`, linhas de referência em 0; os nomes dos 4 cantos são caixas de texto, porque medida não serve de legenda). Escolheu-se a evolução geral, e não a de mesmas lojas, porque por loja as duas coincidem (loja sem histórico fica em branco nas duas) e a geral também funciona nos totais, árvore de decomposição da receita (Região → UF → Loja → Setor), venda por m² projetada por loja (a do período no tooltip) e margem % por loja.
+- Propriedades ainda não confirmadas no JSON: linhas de referência da dispersão, objetos da matriz (`rowHeaders`, `columnWidth`) e a árvore de decomposição; se o Power BI regravar, copiar o JSON para cá.
+
+### Barras de dados na matriz (gerado pelo Power BI Desktop)
+
+Objeto `columnFormatting` da matriz (`pivotTable`), um item por medida (seletor `metadata`); fica na lista `objects`, ao lado de `values` e `columnWidth`:
+
+```json
+{
+  "properties": {
+    "dataBars": {
+      "positiveColor": {
+        "solid": {
+          "color": {
+            "expr": {
+              "Literal": {
+                "Value": "'maxColor'"
+              }
+            }
+          }
+        }
+      },
+      "negativeColor": {
+        "solid": {
+          "color": {
+            "expr": {
+              "Literal": {
+                "Value": "'minColor'"
+              }
+            }
+          }
+        }
+      },
+      "axisColor": {
+        "solid": {
+          "color": {
+            "expr": {
+              "Literal": {
+                "Value": "'foreground'"
+              }
+            }
+          }
+        }
+      },
+      "reverseDirection": {
+        "expr": {
+          "Literal": {
+            "Value": "false"
+          }
+        }
+      },
+      "hideText": {
+        "expr": {
+          "Literal": {
+            "Value": "false"
+          }
+        }
+      },
+      "totalMatchingOption": {
+        "expr": {
+          "Literal": {
+            "Value": "1L"
+          }
+        }
+      }
+    }
+  },
+  "selector": {
+    "metadata": "Medidas.<nome da medida>"
+  }
+}
+```
+
+### Regra do validador: um displayName por queryRef
+
+Em um mesmo visual, cada `queryRef` só pode ter um `displayName`. Se a medida aparece em mais de um papel (por exemplo eixo e `Tooltips`), o `displayName` tem que ser idêntico ou omitido; senão o Power BI recusa abrir o relatório ("Este queryRef só pode ter um displayName"). O `validar.py` confere todos os `visual.json`.
+
+### Etapa 3, ajustes finais
+
+- Quadrantes sem campo de tamanho (bolhas uniformes), rótulos de categoria em fonte 8.
+- `Margem vs rede (p.p.)` = (`Margem %` − margem % de todas as lojas do contexto) × 100, formato `+0.0\ \p\.\p\.` (sem aspas, para não precisar escapar); barras verdes/vermelhas por `Cor da margem vs rede`.
+- Cartão `Evolução mesmas lojas` na faixa de KPIs da página Lojas (5 cartões de 360 px, passo 378); a coluna saiu da matriz porque por loja repete a `Evolução`.
+
+### Tabelas e fonte; vendedores no Detalhe da loja
+
+- **Tamanho mínimo de fonte em tabelas = 12pt** (canvas 1920×1080; o painel também vai para a TV). Não reduzir a fonte para evitar rolagem; se não couber, preferir gráfico de barras.
+- **Detalhe da loja:** a tabela de vendedores foi trocada pelo gráfico de barras "Vendedores: cobertura da meta até o dia" (de 6 a 15 vendedores, a grossura das barras se ajusta ao painel; sem rolagem). Mesmo estilo do gráfico de setores; cor por `Cor da cobertura (vendedor)`; linha tracejada em 100%; tooltip com cargo, receita, meta até o dia e ticket médio. O filtro `Loja única escolhida = 1` e o `TREATAS` das metas do vendedor continuam; o subtítulo (`Subtítulo dos vendedores`) traz a orientação quando não há uma loja só. Painéis de baixo em y = 621, altura 399 (fundo em 1020).
+- **Pendência:** quando a página Vendedores for criada, este gráfico deve ganhar drill-through para ela (nome do vendedor como filtro de detalhamento), no mesmo padrão de Lojas → Detalhe da loja.
+
+### Regra do validador: coluna em Tooltips tem que ser agregada
+
+Em visuais que não são tabela nem matriz, uma coluna solta em `Tooltips` vira agrupamento extra e dá o erro "primary projections must have set equality with the corresponding subset in the filter target". Use agregação (`Aggregation`, por exemplo `Min(Vendedores.cargo)`). O `validar.py` confere todos os `visual.json`.
+
+### Regra de interações: visual de detalhe de vendedor não filtra os KPIs da loja
+
+O gráfico "Vendedores: cobertura da meta até o dia" (Detalhe da loja) tem interação **Nenhum** (`NoFilter`) com todos os outros visuais da página; os outros visuais continuam filtrando ele. Senão, clicar numa barra faz os cartões compararem a receita do vendedor com a meta da loja (cobertura 31,7%, "loja sem histórico") e a venda diária fica toda vermelha. Vale para qualquer visual de detalhe de vendedor novo.
