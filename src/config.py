@@ -278,8 +278,14 @@ PESO_PROBLEMA = {  # chance relativa de cada tipo entre os aplicáveis ao arquiv
 VARIANTES_SKU_SUJO = 4
 
 # --- Metas de vendas --------------------------------------------------------------------------
-DESVIO_ATINGIMENTO_MENSAL = 0.06
-ATINGIMENTO_MINIMO = 0.70
+# A meta é o "esperado" do período (histórico e calendário comercial), nunca o realizado do mês.
+ESFORCO_META = 0.0  # meta = esperado x (1 + esforço); 0%: ver docs/metodologia_metas.md
+MESES_ORCAMENTO_INICIAL = 12  # primeiros meses do período: orçamento estrutural, sem histórico
+DESVIO_RUIDO_META_ORCAMENTO = 0.03  # ruído do orçamento inicial (primeiro ano, sem histórico)
+MESES_TENDENCIA_META = 3  # meses anteriores que medem a tendência
+LIMITE_TENDENCIA_META = (0.90, 1.25)  # a tendência é limitada a esta faixa
+MESES_HISTORICO_PARTICIPACAO = 3  # meses anteriores que medem a participação do vendedor
+PESO_TURNO_PARCIAL_META = 0.5  # peso do vendedor de meio turno na participação sem histórico
 
 # --- Gerador: cupons, horários, vendedores, clientes ------------------------------------------
 FLUXO_QUALIDADE_CADASTROS = 8
@@ -348,7 +354,6 @@ DIAS_MINIMOS_ANTES_DESLIGAMENTO = 60
 DIAS_REPOSICAO_VENDEDOR = (3, 30)
 DESVIO_DESEMPENHO_VENDEDOR = 0.35
 BONUS_DESEMPENHO_VETERANO = 1.3
-ATINGIMENTO_META_VENDEDOR = (0.80, 1.20)
 
 TOTAL_CLIENTES = 5000
 PROB_CLIENTE_IDENTIFICADO = 0.30

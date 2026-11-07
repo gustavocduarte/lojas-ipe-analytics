@@ -188,7 +188,8 @@ def test_metas_por_vendedor_alguns_batem_e_outros_nao(medios):
         zip(metas["cod_vendedor"], [data(t) for t in metas["competencia"]], strict=True)
     )
     ating = [
-        realizado[k] / numero(v) for k, v in zip(metas["chave"], metas["valor_meta"], strict=True)
+        realizado.get(k, 0.0) / numero(v)
+        for k, v in zip(metas["chave"], metas["valor_meta"], strict=True)
     ]
     assert sum(a > 1 for a in ating) > 0.2 * len(ating)
     assert sum(a < 1 for a in ating) > 0.2 * len(ating)

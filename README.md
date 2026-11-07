@@ -161,8 +161,10 @@ fim da `dim_tempo`.
   continuam no realizado somado à projeção. Com o corte em 30/06/2025, nenhum centro ficou no teto (antes,
   L02-PES e L02-TER ficavam em 1,30) e o desvio total da projeção contra o realizado de 2025 caiu de +1,9% para +0,6%.
 * `dw.vw_meta_vendas_diaria` e `dw.vw_meta_vendedor_diaria`: meta do mês repartida pelos dias com o peso
-  do dia da semana e do feriado (os mesmos de `src/config.py`); a soma dos dias bate com a meta do mês (o
-  último dia absorve o resto do arredondamento).
+  do calendário comercial (`etl.pesos_calendario`: dia da semana, feriados, Natal, Black Friday, Dia das
+  Mães, Carnaval, volta às aulas e setor; sem linha ali, os pesos simples de dia da semana e feriado); a
+  soma dos dias bate com a meta do mês (o último dia absorve o resto do arredondamento). As metas são o
+  esperado do período, não o realizado do mês: ver `docs/metodologia_metas.md`.
 * **Evolução** (relatório) = acumulado do mês / acumulado do mesmo período do ano anterior - 1.
 
 ## Dashboard Power BI (Fase 5)

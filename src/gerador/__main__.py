@@ -1,10 +1,15 @@
-"""Uso: python -m src.gerador   (gera os CSVs em data/raw/ com os parâmetros de src/config.py)."""
+"""Uso: python -m src.gerador   (gera os CSVs em data/raw/ com os parâmetros de src/config.py).
 
-from src.gerador.principal import gerar_dados
+`python -m src.gerador --so-metas` regenera só metas_vendas.csv e metas_vendedor.csv."""
+
+import sys
+
+from src.gerador.principal import gerar_dados, gerar_somente_metas
 
 
 def _principal() -> None:
-    resumo = gerar_dados(progresso=print)
+    somente_metas = "--so-metas" in sys.argv[1:]
+    resumo = (gerar_somente_metas if somente_metas else gerar_dados)(progresso=print)
     print("\nLinhas de dados por arquivo:")
     for arquivo, linhas in resumo.linhas_por_arquivo.items():
         print(f"  {arquivo:<28} {linhas:>9,}".replace(",", "."))

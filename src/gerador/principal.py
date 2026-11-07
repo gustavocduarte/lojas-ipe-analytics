@@ -11,6 +11,7 @@ import pandas as pd
 from src import calendario, config
 from src.gerador import despesas as mod_despesas
 from src.gerador import lotacao as mod_lotacao
+from src.gerador import metas as mod_metas
 from src.gerador import outra_empresa, qualidade, vendas
 from src.gerador.catalogo import Catalogo, horario_funcionamento, montar_catalogo
 from src.gerador.escrita import EscritorCsv, RegistroCsv, formatar_dinheiro
@@ -234,6 +235,95 @@ def _linha_gabarito_venda(df: pd.DataFrame, i: int, arquivo: str) -> tuple:
     )
 
 
+def _gravar_metas(
+    params, cat, sazon, meses, pesos, itens_por_mes, receita_loja_setor, receita_vendedor, resumo
+) -> None:
+    """Calcula e grava metas_vendas.csv e metas_vendedor.csv (rng próprio das metas, seed fixa)."""
+    saida = params.diretorio_saida
+    esperado = mod_metas.esperado_estrutural(cat, sazon, meses, pesos, itens_por_mes)
+    metas = mod_metas.gerar_metas(
+        cat, sazon, meses, esperado, receita_loja_setor,
+        rng_para(params.semente, config.FLUXO_METAS),
+        (params.data_inicio, params.data_fim),
+    )  # fmt: skip
+    resumo.linhas_por_arquivo[config.ARQ_METAS] = _gravar_df(
+        qualidade.converter_para_texto(
+            metas, ["competencia"], ["valor_meta"], ["cod_loja", "setor"]
+        ),
+        saida / config.ARQ_METAS,
+    )
+    metas_vendedor = mod_metas.gerar_metas_vendedor(cat, metas, receita_vendedor, meses)
+    resumo.linhas_por_arquivo[config.ARQ_METAS_VENDEDOR] = _gravar_df(
+        qualidade.converter_para_texto(
+            metas_vendedor, ["competencia"], ["valor_meta"], ["cod_vendedor"]
+        ),
+        saida / config.ARQ_METAS_VENDEDOR,
+    )
+
+
+def gerar_somente_metas(
+    params: ParametrosGeracao | None = None,
+    progresso: Callable[[str], None] | None = None,
+) -> ResumoGeracao:
+    """Regenera só metas_vendas.csv e metas_vendedor.csv.
+
+    As vendas são sorteadas de novo em memória, mês a mês, com as mesmas sementes (resultado
+    idêntico ao da geração completa), mas nada além das duas metas é gravado: vendas, cadastros,
+    anomalias e gabaritos ficam como estão.
+    """
+    params = params or ParametrosGeracao()
+    avisar = progresso or (lambda _mensagem: None)
+    resumo = ResumoGeracao()
+    resumo.memoria_livre_inicio_gb = (
+        verificar_memoria_livre() if params.verificar_memoria else memoria_livre_gb()
+    )
+    cat = montar_catalogo(params.semente, params.data_inicio, params.data_fim)
+    sazon = Sazonalidade(params.data_inicio, params.data_fim)
+    meses = calendario.meses_do_periodo(params.data_inicio, params.data_fim)
+    plano = mod_despesas.montar_plano(
+        params, cat, meses, rng_para(params.semente, config.FLUXO_PLANO_ANOMALIAS)
+    )
+    lotacao = mod_lotacao.montar_lotacao(params, cat) if params.lotacao_por_setor else None
+    gerador_vendas = vendas.GeradorVendas(params, cat, sazon, lotacao)
+    receita_loja_setor: dict[tuple[str, str, int, int], float] = defaultdict(float)
+    receita_vendedor: dict[tuple[str, int, int], float] = defaultdict(float)
+    pesos = {m: vendas.pesos_do_mes(sazon, cat, *m, params) for m in meses}
+    itens_por_mes = vendas.distribuir_linhas(
+        params.total_linhas_venda, [float(pesos[m][1].sum()) for m in meses]
+    )
+    for (ano, mes), n_itens in zip(meses, itens_por_mes, strict=True):
+        if params.verificar_memoria:
+            verificar_memoria_livre()
+        dias, pesos_mes = pesos[(ano, mes)]
+        df = gerador_vendas.gerar_mes(
+            ano=ano, mes=mes, dias=dias, pesos=pesos_mes, n_itens=n_itens,
+            plano=plano.vendas_por_mes[(ano, mes)],
+            rng=rng_para(params.semente, config.FLUXO_VENDAS, ano * 100 + mes),
+        )  # fmt: skip
+        _somar_receitas(df, ano, mes, receita_loja_setor, receita_vendedor)
+        avisar(f"vendas {ano}-{mes:02d} (só em memória)")
+    params.diretorio_saida.mkdir(parents=True, exist_ok=True)
+    _gravar_metas(
+        params, cat, sazon, meses, pesos, itens_por_mes, receita_loja_setor, receita_vendedor,
+        resumo,
+    )  # fmt: skip
+    resumo.memoria_livre_fim_gb = memoria_livre_gb()
+    resumo.pico_memoria_processo_gb = pico_memoria_processo_gb()
+    return resumo
+
+
+def _somar_receitas(df, ano, mes, receita_loja_setor, receita_vendedor) -> None:
+    """Acumula a receita concluída (sem duplicatas) por loja x setor e por vendedor."""
+    unicos = df.loc[~df["_duplicata"]]
+    concluidos = unicos.loc[unicos["status"] == config.STATUS_CONCLUIDA]
+    for (cod_loja, setor), valor in (
+        concluidos.groupby(["cod_loja", "_setor"])["receita_liquida"].sum().items()
+    ):
+        receita_loja_setor[(cod_loja, setor, ano, mes)] = float(valor)
+    for cod, valor in concluidos.groupby("cod_vendedor")["receita_liquida"].sum().items():
+        receita_vendedor[(cod, ano, mes)] = float(valor)
+
+
 def gerar_dados(
     params: ParametrosGeracao | None = None,
     progresso: Callable[[str], None] | None = None,
@@ -286,13 +376,7 @@ def gerar_dados(
                 rng=rng_para(params.semente, config.FLUXO_VENDAS, ano * 100 + mes),
             )
             unicos = df.loc[~df["_duplicata"]]
-            concluidos = unicos.loc[unicos["status"] == config.STATUS_CONCLUIDA]
-            for (cod_loja, setor), valor in (
-                concluidos.groupby(["cod_loja", "_setor"])["receita_liquida"].sum().items()
-            ):
-                receita_loja_setor[(cod_loja, setor, ano, mes)] = float(valor)
-            for cod, valor in concluidos.groupby("cod_vendedor")["receita_liquida"].sum().items():
-                receita_vendedor[(cod, ano, mes)] = float(valor)
+            _somar_receitas(df, ano, mes, receita_loja_setor, receita_vendedor)
             primeiros = unicos.loc[unicos["numero_item"] == 1]
             resumo.cupons += len(primeiros)
             for cod, grupo in primeiros.groupby("cod_vendedor"):
@@ -360,25 +444,11 @@ def gerar_dados(
                 )
             )
 
-        # ---- metas (derivadas do realizado) ----------------------------------------------
-        metas = vendas.gerar_metas(
-            receita_loja_setor, cat, meses, rng_para(params.semente, config.FLUXO_METAS)
-        )
-        resumo.linhas_por_arquivo[config.ARQ_METAS] = _gravar_df(
-            qualidade.converter_para_texto(
-                metas, ["competencia"], ["valor_meta"], ["cod_loja", "setor"]
-            ),
-            saida / config.ARQ_METAS,
-        )
-        metas_vendedor = vendas.gerar_metas_vendedor(
-            receita_vendedor, cat, rng_para(params.semente, config.FLUXO_METAS, 1)
-        )
-        resumo.linhas_por_arquivo[config.ARQ_METAS_VENDEDOR] = _gravar_df(
-            qualidade.converter_para_texto(
-                metas_vendedor, ["competencia"], ["valor_meta"], ["cod_vendedor"]
-            ),
-            saida / config.ARQ_METAS_VENDEDOR,
-        )
+        # ---- metas (esperado do período, nunca o realizado do mês) --------------------------
+        _gravar_metas(
+            params, cat, sazon, meses, pesos, itens_por_mes, receita_loja_setor, receita_vendedor,
+            resumo,
+        )  # fmt: skip
 
         # ---- despesas e orçamento ----------------------------------------------------------
         with (

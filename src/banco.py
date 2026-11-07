@@ -97,6 +97,23 @@ def aplicar_scripts(
     return list(nomes)
 
 
+def gravar_pesos_calendario(
+    conexao: psycopg.Connection, inicio=config.DATA_INICIO, fim=config.DATA_FIM
+) -> int:
+    """Grava (upsert) em etl.pesos_calendario o peso de cada data e setor do período."""
+    from src.calendario_comercial import pesos_do_periodo
+
+    pesos = pesos_do_periodo(inicio, fim)
+    with conexao.cursor() as cursor:
+        cursor.executemany(
+            "INSERT INTO etl.pesos_calendario (data, setor, peso) VALUES (%s, %s, %s)"
+            " ON CONFLICT (data, setor) DO UPDATE SET peso = EXCLUDED.peso",
+            list(pesos.itertuples(index=False, name=None)),
+        )
+    conexao.commit()
+    return len(pesos)
+
+
 def conectar() -> psycopg.Connection:
     """Conexão psycopg com o banco do .env (usuário lojas_ipe)."""
     url = url_do_ambiente()
@@ -111,17 +128,20 @@ def conectar() -> psycopg.Connection:
 
 def _principal(argumentos: list[str]) -> None:
     """Sem argumentos: DDL completo (banco novo), procedures e views. `--procedures` ou `--views`:
-    só esse grupo (reaplicável). Com nomes de scripts de DDL: aplica só esses (banco que já tem
-    os anteriores)."""
+    só esse grupo (reaplicável); `--calendario` grava os pesos do calendário
+    comercial. Com nomes de scripts de DDL: aplica só esses (banco que já tem os anteriores)."""
     with conectar() as conexao:
         if argumentos == ["--procedures"]:
             aplicados = aplicar_procedures(conexao)
         elif argumentos == ["--views"]:
             aplicados = aplicar_views(conexao)
+        elif argumentos == ["--calendario"]:
+            aplicados = [f"etl.pesos_calendario: {gravar_pesos_calendario(conexao)} linhas"]
         elif argumentos:
             aplicados = aplicar_scripts(conexao, argumentos)
         else:
             aplicados = aplicar_ddl(conexao) + aplicar_procedures(conexao) + aplicar_views(conexao)
+            aplicados.append(f"etl.pesos_calendario: {gravar_pesos_calendario(conexao)} linhas")
         for nome in aplicados:
             print(f"aplicado: {nome}")
 

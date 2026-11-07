@@ -1,4 +1,4 @@
-"""Geração de cupons e itens de venda, mês a mês, e das metas mensais."""
+"""Geração de cupons e itens de venda, mês a mês (as metas ficam em metas.py)."""
 
 from datetime import date
 
@@ -544,63 +544,3 @@ class GeradorVendas:
             ],
         )
         return df
-
-
-def gerar_metas(
-    receita_realizada: dict[tuple[str, str, int, int], float],
-    cat: Catalogo,
-    meses: list[tuple[int, int]],
-    rng: np.random.Generator,
-) -> pd.DataFrame:
-    """Meta mensal por loja e setor, derivada do realizado: lojas diferem no atingimento típico."""
-    linhas = []
-    for ano, mes in meses:
-        fim_do_mes = calendario.ultimo_dia_do_mes(ano, mes)
-        for loja in cat.lojas:
-            if loja.data_abertura > fim_do_mes:
-                continue
-            for setor in SETORES:
-                realizado = receita_realizada.get((loja.cod_loja, setor, ano, mes), 0.0)
-                atingimento = max(
-                    config.ATINGIMENTO_MINIMO,
-                    loja.atingimento_meta * rng.normal(1.0, config.DESVIO_ATINGIMENTO_MENSAL),
-                )
-                if realizado > 0:
-                    linhas.append(
-                        (
-                            date(ano, mes, 1),
-                            loja.cod_loja,
-                            setor,
-                            round(realizado / atingimento, config.CASAS_DECIMAIS_DINHEIRO),
-                        )
-                    )
-    df = pd.DataFrame(linhas, columns=["competencia", "cod_loja", "setor", "valor_meta"])
-    df["competencia"] = pd.to_datetime(df["competencia"])
-    return df
-
-
-def gerar_metas_vendedor(
-    receita_vendedor: dict[tuple[str, int, int], float],
-    cat: Catalogo,
-    rng: np.random.Generator,
-) -> pd.DataFrame:
-    """Meta mensal por vendedor: quem tem desempenho maior tende a bater a meta, os demais não."""
-    desempenho = {v.cod_vendedor: v.desempenho for v in cat.vendedores}
-    linhas = []
-    for (cod, ano, mes), realizado in sorted(receita_vendedor.items()):
-        if realizado <= 0:
-            continue
-        atingimento = np.clip(
-            np.sqrt(desempenho[cod]) * rng.normal(1.0, config.DESVIO_ATINGIMENTO_MENSAL),
-            *config.ATINGIMENTO_META_VENDEDOR,
-        )
-        linhas.append(
-            (
-                date(ano, mes, 1),
-                cod,
-                round(realizado / float(atingimento), config.CASAS_DECIMAIS_DINHEIRO),
-            )
-        )
-    df = pd.DataFrame(linhas, columns=["competencia", "cod_vendedor", "valor_meta"])
-    df["competencia"] = pd.to_datetime(df["competencia"])
-    return df
