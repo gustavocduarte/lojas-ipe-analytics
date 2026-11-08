@@ -507,11 +507,6 @@ table Medidas
 		displayFolder: 6. Textos
 		lineageTag: 9c41e6a8-2f75-4d0b-8a37-e1b5c7d90f43
 
-	/// Subtítulo do gráfico de vendedores: a leitura da cor, ou a orientação quando não há uma loja só no contexto (o gráfico fica vazio).
-	measure 'Subtítulo dos vendedores' = IF(HASONEVALUE(Lojas[nome_loja]), "acima de 100% = bateu a meta do dia", "escolha uma loja para ver os vendedores")
-		displayFolder: 6. Textos
-		lineageTag: 7fb6f830-4291-48e2-ad2c-0b3bd4b7030c
-
 	/// Preço × quantidade antes do desconto, de todos os status (concluídas, canceladas e devolvidas). Ponto de partida da cascata até a receita líquida.
 	measure 'Receita bruta' = SUMX(Vendas, Vendas[preco_unitario] * Vendas[quantidade])
 		formatString: "R$" #,0.00
@@ -725,6 +720,22 @@ table Medidas
 			)
 		displayFolder: 4. Formatação
 		lineageTag: 18e220a4-252d-4015-aab8-5fdbfc14205e
+
+	/// Soma, por loja, de MAX(0, meta até o dia − receita até o dia): só conta as lojas abaixo da meta (sem compensar com as que passaram). Respeita os filtros de data e de loja.
+	measure 'Falta nas lojas abaixo da meta (até o dia)' = SUMX(VALUES(Lojas[nome_loja]), MAX([Meta acumulada até o dia] - [Receita acumulada no mês], 0))
+		formatString: "R$" #,0
+		displayFolder: 3. Metas
+		lineageTag: 3b7e9d24-6a15-4c80-b2f7-8e41d0a95c63
+
+	/// Vermelho se alguma loja está abaixo da meta (falta > 0); verde quando falta = 0.
+	measure 'Cor da falta nas lojas' = IF(ISBLANK([Meta acumulada até o dia]), BLANK(), IF([Falta nas lojas abaixo da meta (até o dia)] > 0, "#C62828", "#2E7D32"))
+		displayFolder: 4. Formatação
+		lineageTag: c58a1f93-d207-4be6-9a34-70f2b6e8d1a5
+
+	/// Subtítulo do gráfico de vendedores: a leitura da cor, ou a orientação quando não há uma loja só no contexto (o gráfico fica vazio).
+	measure 'Subtítulo dos vendedores' = IF(HASONEVALUE(Lojas[nome_loja]), "acima de 100% = bateu a meta do dia", "escolha uma loja para ver os vendedores")
+		displayFolder: 6. Textos
+		lineageTag: 7fb6f830-4291-48e2-ad2c-0b3bd4b7030c
 
 	/// Margem % da loja menos a margem % de todas as lojas do contexto, em pontos percentuais (+1,2 p.p. = 1,2 ponto acima da rede).
 	measure 'Margem vs rede (p.p.)' = ([Margem %] - CALCULATE([Margem %], ALLSELECTED(Lojas))) * 100

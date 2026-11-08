@@ -385,15 +385,7 @@
       ],
       "markers": [
         {
-          "properties": {
-            "markerSize": {
-              "expr": {
-                "Literal": {
-                  "Value": "10D"
-                }
-              }
-            }
-          }
+          "properties": {}
         }
       ]
     },

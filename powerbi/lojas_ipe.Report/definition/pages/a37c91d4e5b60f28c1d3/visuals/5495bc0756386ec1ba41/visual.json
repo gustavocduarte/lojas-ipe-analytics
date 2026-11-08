@@ -13,11 +13,11 @@
                       "Entity": "Medidas"
                     }
                   },
-                  "Property": "Falta para a meta até o dia"
+                  "Property": "Falta nas lojas abaixo da meta (até o dia)"
                 }
               },
-              "queryRef": "Medidas.Falta para a meta até o dia",
-              "nativeQueryRef": "Falta para a meta até o dia"
+              "queryRef": "Medidas.Falta nas lojas abaixo da meta (até o dia)",
+              "nativeQueryRef": "Falta nas lojas abaixo da meta (até o dia)"
             }
           ]
         }
@@ -38,6 +38,22 @@
               "expr": {
                 "Literal": {
                   "Value": "1D"
+                }
+              }
+            },
+            "fontColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Medidas"
+                        }
+                      },
+                      "Property": "Cor da falta nas lojas"
+                    }
+                  }
                 }
               }
             }
@@ -75,7 +91,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'falta para a rede voltar à meta até o dia'"
+                  "Value": "'Falta nas lojas abaixo da meta'"
                 }
               }
             }

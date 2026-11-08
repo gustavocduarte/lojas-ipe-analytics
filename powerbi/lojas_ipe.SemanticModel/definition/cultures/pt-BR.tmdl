@@ -355,19 +355,7 @@ cultureInfo pt-BR
 			          "ConceptualProperty": "cargo"
 			        }
 			      },
-			      "State": "Generated",
-			      "Terms": [
-			        {
-			          "Cargo": {
-			            "State": "Suggested",
-			            "Source": {
-			              "Type": "External",
-			              "Agent": "PowerBI.VisualColumnRename"
-			            },
-			            "Weight": 0.9
-			          }
-			        }
-			      ]
+			      "State": "Generated"
 			    },
 			    "medidas.evolução_vs_ano_anterior_texto": {
 			      "Definition": {
@@ -522,19 +510,7 @@ cultureInfo pt-BR
 			          "ConceptualProperty": "Evolução mesmas lojas"
 			        }
 			      },
-			      "State": "Generated",
-			      "Terms": [
-			        {
-			          "Evolução mesmas lojas": {
-			            "State": "Suggested",
-			            "Source": {
-			              "Type": "External",
-			              "Agent": "PowerBI.VisualColumnRename"
-			            },
-			            "Weight": 0.9
-			          }
-			        }
-			      ]
+			      "State": "Generated"
 			    },
 			    "medidas.participação_da_loja_": {
 			      "Definition": {
@@ -694,6 +670,27 @@ cultureInfo pt-BR
 			      "Terms": [
 			        {
 			          "Região": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.evolução_mesmas_lojas_texto": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Evolução mesmas lojas (texto)"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Evolução mesmas lojas": {
 			            "State": "Suggested",
 			            "Source": {
 			              "Type": "External",
