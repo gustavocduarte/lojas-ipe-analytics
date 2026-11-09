@@ -74,13 +74,6 @@
                 }
               }
             },
-            "outline": {
-              "expr": {
-                "Literal": {
-                  "Value": "'None'"
-                }
-              }
-            },
             "outlineWeight": {
               "expr": {
                 "Literal": {

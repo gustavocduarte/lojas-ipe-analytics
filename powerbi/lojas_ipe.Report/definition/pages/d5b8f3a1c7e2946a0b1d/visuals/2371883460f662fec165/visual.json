@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
-  "name": "4209c23bb8db26e766ca",
+  "name": "2371883460f662fec165",
   "position": {
-    "x": 640,
-    "y": 6,
-    "z": 3,
+    "x": 760,
+    "y": 64,
+    "z": 42,
     "height": 26,
-    "width": 200,
-    "tabOrder": 3
+    "width": 700,
+    "tabOrder": 42
   },
   "visual": {
     "visualType": "textbox",
@@ -19,16 +19,14 @@
               {
                 "textRuns": [
                   {
-                    "value": "Loja",
+                    "value": "para trocar: botão direito numa loja na página Lojas",
                     "textStyle": {
-                      "fontWeight": "bold",
-                      "fontSize": "12pt",
                       "fontFamily": "Segoe UI",
+                      "fontSize": "12pt",
                       "color": "#FFFFFF"
                     }
                   }
-                ],
-                "horizontalTextAlignment": "left"
+                ]
               }
             ]
           }

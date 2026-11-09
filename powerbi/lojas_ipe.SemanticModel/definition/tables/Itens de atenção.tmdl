@@ -13,8 +13,8 @@ table 'Itens de atenção'
 
 	column Ordem
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
 		lineageTag: be6058e6-b0bf-44aa-be84-72d35daf178c
 		summarizeBy: none
 		sourceColumn: [Ordem]
@@ -24,3 +24,4 @@ table 'Itens de atenção'
 	partition 'Itens de atenção' = calculated
 		mode: import
 		source = DATATABLE("Tema", STRING, "Ordem", INTEGER, {{"Setores", 1}, {"Equipe", 2}, {"Fluxo", 3}, {"Ticket", 4}, {"Desconto", 5}})
+

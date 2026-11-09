@@ -94,7 +94,7 @@ O que o Power BI gravou no ranking das lojas (15 categorias), depois do ajuste m
 |---|---|---|---|
 | Botões "10 piores \| 10 melhores" | segmentação de `'Modo do ranking'[Modo]` (tabela desconectada) | `selection.strictSingleSelect` e filtro padrão gravados por texto; **estilo de botões/lado a lado: manual** (copiar o que o Power BI gravar) | a confirmar |
 | Hierarquia com drill-down | mesmo visual: trocar o eixo `nome_loja` pela hierarquia `Lojas[Geografia]` (Região → UF → Loja) e ligar o drill | `HierarchyLevel` nas projeções de `Category` (com `active`) | manual |
-| Drill-through | página Detalhe da loja: Campos de drill-through = `Lojas[nome_loja]` (manter todos os filtros desligado) + botão de voltar | `page.json`: `pageBinding` do tipo `Drillthrough`; botão `actionButton` com ação `Back` | manual |
+| Drill-through | páginas Detalhe da loja e Diagnóstico da loja: Campos de drill-through = `Lojas[nome_loja]`, manter todos os filtros ligado, botão de voltar | `page.json`: `filterConfig.filters[]` com `howCreated: "Drillthrough"` + `pageBinding` (ver seção abaixo); botão `actionButton` com `visualLink.type = 'Back'` | gravado pelo Power BI (Diagnóstico) e replicado no Detalhe |
 | Linha em 100% e eixo 0–120% no ranking | `xAxisReferenceLine` (`linha_100`) + `valueAxis.start/end` | — | a confirmar na tela |
 
 ## Filtro N inferior (Top N) gravado pelo Power BI — confirmado
@@ -156,7 +156,7 @@ Depois do estilo de botões aplicado à mão na segmentação `'Modo do ranking'
 
 `slicer` de `Lojas[nome_loja]`: `data.mode = 'Dropdown'`, `selection.singleSelect = true` e `selection.selectAllCheckboxEnabled = false` (sem "Selecionar tudo"), `general.selfFilterEnabled = true` (campo de busca), título "Loja" e subtítulo dinâmico (`Contexto da loja`). Sem seleção a página mostra a rede.
 
-- **Drill-through no mesmo campo:** o filtro de drill-through é um filtro de página em `Lojas[nome_loja]`; a segmentação usa o mesmo campo. Ao chegar pelo drill-through a lista da segmentação só oferece a loja de origem (a lista também é filtrada pelo filtro de página); para outra loja, usar Voltar. Sem conflito, mas escolher outra loja na lista com o drill-through ativo dá interseção vazia.
+- **Drill-through e seletor de loja não convivem:** com um seletor de loja na página, o drill-through aplicava os dois filtros (loja de origem E loja do seletor) e a página ficava vazia. Por isso Detalhe da loja e Diagnóstico da loja não têm seletor: a loja vem do filtro de detalhamento (salvo com Ipê Brasília para quem abre a página pela aba) e o cabeçalho mostra a medida `Loja escolhida (cabeçalho)`.
 
 ## Seletor de loja na faixa e larguras de coluna (Detalhe da loja) — a confirmar na tela
 
@@ -293,38 +293,24 @@ Em visuais que não são tabela nem matriz, uma coluna solta em `Tooltips` vira 
 ### Regra de interações: visual de detalhe de vendedor não filtra os KPIs da loja
 
 O gráfico "Vendedores: cobertura da meta até o dia" (Detalhe da loja) tem interação **Nenhum** (`NoFilter`) com todos os outros visuais da página; os outros visuais continuam filtrando ele. Senão, clicar numa barra faz os cartões compararem a receita do vendedor com a meta da loja (cobertura 31,7%, "loja sem histórico") e a venda diária fica toda vermelha. Vale para qualquer visual de detalhe de vendedor novo.
+- **Drill-through (gravado pelo Power BI na página Diagnóstico, replicado no Detalhe):** o filtro de detalhamento é um filtro de página e o `pageBinding` aponta para ele pelo nome. Estrutura de `page.json` (nomes de filtro e parâmetro são hex aleatórios por página):
 
-### Referência da rede vem de tabela agregada, por causa do RLS
+```json
+"filterConfig": { "filters": [ {
+  "name": "<id do filtro>",
+  "field": { "Column": { "Expression": { "SourceRef": { "Entity": "Lojas" } }, "Property": "nome_loja" } },
+  "type": "Categorical",
+  "filter": { "Version": 2, "From": [ { "Name": "l", "Entity": "Lojas", "Type": 0 } ],
+    "Where": [ { "Condition": { "In": {
+      "Expressions": [ { "Column": { "Expression": { "SourceRef": { "Source": "l" } }, "Property": "nome_loja" } } ],
+      "Values": [ [ { "Literal": { "Value": "'Ipê Brasília'" } } ] ] } } } ] },
+  "howCreated": "Drillthrough" } ] },
+"pageBinding": { "name": "<id>", "type": "Drillthrough",
+  "parameters": [ { "name": "<id>", "boundFilter": "<id do filtro>", "asAggregation": false, "qnaSingleSelectRequired": false,
+    "fieldExpr": { "Column": { "Expression": { "SourceRef": { "Entity": "Lojas" } }, "Property": "nome_loja" } } } ] }
+```
 
-Médias da rede (ticket médio, desconto médio) **não** podem vir de `CALCULATE(..., ALL(Lojas))`: com segurança por loja (RLS) o gerente só enxerga a própria loja, e a "rede" viraria a loja dele. Padrão:
-
-- View agregada **sem loja** no dw (`dw.vw_referencia_rede_dia`: data, receita, cupons, unidades, desconto, receita bruta; só concluídas), importada como a tabela `Referência da rede`.
-- Relacionamento **só com `Calendário`** (por `sk_tempo`), nunca com `Lojas`; o papel de RLS filtra `Lojas` e não chega nela.
-- As medidas da rede somam essa tabela com o mesmo período da medida da loja (`DATESMTD`): `Ticket médio da rede até o dia`, `Desconto médio da rede até o dia`.
-- A view não tem setor de propósito: um cupom pode ter itens de vários setores, então cupons por setor não somam. Uma referência por setor precisaria de outra view (e de outro cuidado com cupons).
-- Conferência (1 a 15/12/2025): ticket médio da rede R$ 128,39 e desconto médio da rede 4,70%, iguais ao cálculo sem RLS.
-
-### Página Diagnóstico da loja (etapa 4)
-
-- Limites vêm do banco: `etl.parametros_negocio` (chaves `diag_*`, `sql/ddl/25_parametros_diagnostico.sql`) → `dw.vw_parametros_diagnostico` → tabela `Parâmetros do diagnóstico` → medidas `Limite: ...`. Nada fixo no DAX.
-- Sinais: `Sinal: fluxo|ticket|desconto|setor fraco|setor forte|equipe|meta` (+1 ponto forte, −1 atenção, 0 neutro, em branco sem base). Loja em maturação (aberta há menos de 12 meses) mostra "sem base" nos indicadores de ano anterior.
-- `Veredito` = situação, contexto de loja nova, até 2 atenções (prioridade: setor fraco, equipe, fluxo, ticket, desconto), até 2 pontos fortes (setor forte, ticket, fluxo, equipe, desconto) e o contexto da meta. A referência em Python (`src/diagnostico.py`, `scripts/diagnostico_loja.py`) usa as mesmas regras; compare os dois.
-- Tabela de indicadores: tabela desconectada `Indicadores do diagnóstico` (6 linhas) e medidas `Indicador: loja|referência|limite|sinal|situação` que mudam por `SELECTEDVALUE(Ordem)`.
-- Interações: setores, vendedores e tabela de indicadores têm `NoFilter` para os outros visuais (clicar neles mudaria o diagnóstico).
-- **Drill-through (pendente):** `pageBinding` em `Lojas[nome_loja]`, aplicado à mão no Power BI e copiado para cá.
-
-### Regra do validador: expressão de várias linhas no TMDL
-
-Em medida (ou coluna calculada) cuja expressão começa na linha seguinte (`measure 'X' =`), **toda linha não vazia da expressão, inclusive a primeira, começa com tab** e fica mais recuada que a linha da medida (o padrão do projeto é 3 tabs). Uma primeira linha colada na margem (por exemplo `SWITCH(`) faz o Power BI recusar abrir o projeto com "Recuo inválido". O `validar.py` confere todos os `.tmdl` (`TMDL expressões multilinha`) e tem um autoteste que garante que o arquivo com esse erro seria detectado; ele pegou as 4 medidas `Indicador: ...` da versão anterior.
-
-### Texto longo ou com quebra de linha → tabela de uma coluna com wordWrap, não cartão
-
-O `cardVisual` corta texto longo numa linha ("...") e mostra o rótulo da medida junto com o título. Para veredito e listas use `tableEx`:
-
-- Uma coluna (a medida de texto), `values.wordWrap = true`, `values.fontSize` 14 (12 nas listas), `total.totals = false`, `grid.gridHorizontal/gridVertical = false`, `grid.rowPadding` 4D, `columnWidth` explícito (`autoSizeColumnWidth = false`), título do visual no lugar do rótulo.
-- **Cabeçalho:** o schema (`tableEx.columnHeaders`) não tem opção de esconder o cabeçalho; aproximação: `fontColor` e `backColor` brancos e `fontSize` 8D (é o único texto de tabela abaixo de 12pt, e é invisível). Se achar a propriedade certa no Power BI, aplicar à mão e registrar aqui.
-- **Uma linha por item:** não depender de `UNICHAR(10)` dentro da célula. Use uma tabela desconectada de itens (`Itens de atenção`, `Itens fortes`: colunas `Tema` e `Ordem`, `Tema` ordenada por `Ordem`) e uma medida que devolve o texto do item da linha com `SELECTEDVALUE(Ordem)`; linhas sem item ficam em branco e a tabela as oculta (`SUMMARIZECOLUMNS` descarta linhas com todas as medidas em branco).
-- **Tabela com `wordWrap` só quebra com largura de coluna fixa (`autoSizeColumnWidth = false`)** e `columnWidth` por seletor (`metadata` = `queryRef`). Regra prática: soma das larguras = largura do visual menos ~40 px (barra de rolagem e margens); caso contrário aparece rolagem horizontal. Altura do visual = título (~35) + cabeçalho (~30) + linhas; 3 linhas de fonte 14 pedem ~150 px.
+  O valor do filtro (`Values`) é a loja padrão de quando a página é aberta pela aba (Ipê Brasília); o drill-through o substitui. Botão de voltar: `actionButton` com `icon.shapeType = 'back'` e `visualLink.type = 'Back'`, em x=24, y=56 (110×32), abaixo do título, igual nas duas páginas. Cabeçalho: botão, faixa da loja (x=146) e cartão `Loja escolhida (cabeçalho)` (x=760). Medidas com `HASONEVALUE(Lojas[nome_loja])` (`Uma loja escolhida`, `Loja única escolhida`, `Faixa da loja`) funcionam com o filtro de detalhamento, pois ele filtra `Lojas`.
 - Cartões de rótulo: o nome da medida é o rótulo do cartão (`Meta vs venda do ano anterior`, `Fluxo de cupons vs ano anterior`); não usar sufixos como "(texto)" em medida exibida.
 
 ### Metas de vendedor não são por setor: visual de setor não filtra visual de vendedor
@@ -342,3 +328,7 @@ Referência da rede sem loja: `Referência da rede` (ticket, desconto e, agora, 
 O gráfico de vendedores não fica na página Diagnóstico da loja: ele já existe no Detalhe da loja (e entrará na página Vendedores), e a linha Equipe da tabela de indicadores resume a equipe. Com 15 vendedores (São Paulo) o gráfico rolava mesmo no menor tamanho. Na linha de baixo do Diagnóstico, Pontos de atenção e Pontos fortes dividem a largura (924 px cada, 24 px entre eles).
 
 Medidas "vs rede": devolver BLANK() quando a medida da loja é vazia (`IF(NOT ISBLANK([Margem %]), ...)`); sem isso, ao selecionar uma loja num gráfico as outras mostram "vazio − rede" (ex.: 30,0 p.p.).
+
+No Desktop o filtro de detalhamento (`howCreated: "Drillthrough"`) **não aparece** no painel Filtros ("Filtros nesta página" fica vazio), então não dá para trocar a loja por ali. Decisão: a troca é pelo botão direito numa loja na página Lojas (Drill-through). O cabeçalho avisa isso ("para trocar: botão direito numa loja na página Lojas") e a medida `Loja escolhida (cabeçalho)` não menciona o painel Filtros.
+
+O Power BI grava estado de tela nos visuais ao salvar (segmentação '10 melhores' selecionada, `expansionStates` e `insights` da árvore de decomposição). Antes de commitar, conferir `git diff` desses visuais e voltar o estado padrão editando o JSON.

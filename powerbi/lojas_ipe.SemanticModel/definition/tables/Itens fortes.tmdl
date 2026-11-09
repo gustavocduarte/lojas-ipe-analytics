@@ -13,8 +13,8 @@ table 'Itens fortes'
 
 	column Ordem
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
 		lineageTag: 849cd42b-991e-4cc5-be65-68375f3c7aa3
 		summarizeBy: none
 		sourceColumn: [Ordem]
@@ -24,3 +24,4 @@ table 'Itens fortes'
 	partition 'Itens fortes' = calculated
 		mode: import
 		source = DATATABLE("Tema", STRING, "Ordem", INTEGER, {{"Setores", 1}, {"Ticket", 2}, {"Fluxo", 3}, {"Equipe", 4}, {"Desconto", 5}})
+

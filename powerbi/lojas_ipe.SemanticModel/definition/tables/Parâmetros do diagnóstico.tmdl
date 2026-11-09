@@ -40,3 +40,4 @@ table 'Parâmetros do diagnóstico'
 				    dw_vw_parametros_diagnostico
 
 	annotation PBI_ResultType = Table
+

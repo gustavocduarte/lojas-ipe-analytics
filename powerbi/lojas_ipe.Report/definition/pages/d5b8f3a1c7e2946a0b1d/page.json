@@ -5,6 +5,86 @@
   "displayOption": "FitToPage",
   "height": 1080,
   "width": 1920,
+  "filterConfig": {
+    "filters": [
+      {
+        "name": "0604739067b2b791c1a0",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Lojas"
+              }
+            },
+            "Property": "nome_loja"
+          }
+        },
+        "type": "Categorical",
+        "filter": {
+          "Version": 2,
+          "From": [
+            {
+              "Name": "l",
+              "Entity": "Lojas",
+              "Type": 0
+            }
+          ],
+          "Where": [
+            {
+              "Condition": {
+                "In": {
+                  "Expressions": [
+                    {
+                      "Column": {
+                        "Expression": {
+                          "SourceRef": {
+                            "Source": "l"
+                          }
+                        },
+                        "Property": "nome_loja"
+                      }
+                    }
+                  ],
+                  "Values": [
+                    [
+                      {
+                        "Literal": {
+                          "Value": "'Ipê Brasília'"
+                        }
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "howCreated": "Drillthrough"
+      }
+    ]
+  },
+  "pageBinding": {
+    "name": "1cbc23a5460a0a204105",
+    "type": "Drillthrough",
+    "parameters": [
+      {
+        "name": "e3f01a420da831338920",
+        "boundFilter": "0604739067b2b791c1a0",
+        "asAggregation": false,
+        "qnaSingleSelectRequired": false,
+        "fieldExpr": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Lojas"
+              }
+            },
+            "Property": "nome_loja"
+          }
+        }
+      }
+    ]
+  },
   "visualInteractions": [
     {
       "source": "f88082e0ce917ea9610e",
@@ -14,16 +94,6 @@
     {
       "source": "f88082e0ce917ea9610e",
       "target": "ed83775b912f98132c9b",
-      "type": "NoFilter"
-    },
-    {
-      "source": "f88082e0ce917ea9610e",
-      "target": "4209c23bb8db26e766ca",
-      "type": "NoFilter"
-    },
-    {
-      "source": "f88082e0ce917ea9610e",
-      "target": "6f4dfff880cea38c728e",
       "type": "NoFilter"
     },
     {
@@ -89,16 +159,6 @@
     {
       "source": "34062d02c721afede9d0",
       "target": "ed83775b912f98132c9b",
-      "type": "NoFilter"
-    },
-    {
-      "source": "34062d02c721afede9d0",
-      "target": "4209c23bb8db26e766ca",
-      "type": "NoFilter"
-    },
-    {
-      "source": "34062d02c721afede9d0",
-      "target": "6f4dfff880cea38c728e",
       "type": "NoFilter"
     },
     {

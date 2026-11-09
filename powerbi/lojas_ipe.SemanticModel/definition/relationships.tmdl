@@ -81,3 +81,4 @@ relationship Previsão_setor_Setores_setor
 relationship 'Referência da rede_sk_tempo_Calendário_sk_tempo'
 	fromColumn: 'Referência da rede'.sk_tempo
 	toColumn: Calendário.sk_tempo
+

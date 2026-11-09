@@ -638,7 +638,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Comparativo de lojas (clique com o botão direito na loja → Detalhe da loja)'"
+                  "Value": "'Comparativo de lojas (clique com o botão direito na loja → Detalhe da loja ou Diagnóstico da loja)'"
                 }
               }
             },

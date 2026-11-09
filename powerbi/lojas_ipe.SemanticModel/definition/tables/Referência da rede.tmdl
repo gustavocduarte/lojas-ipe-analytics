@@ -94,3 +94,4 @@ table 'Referência da rede'
 				    dw_vw_referencia_rede_dia
 
 	annotation PBI_ResultType = Table
+

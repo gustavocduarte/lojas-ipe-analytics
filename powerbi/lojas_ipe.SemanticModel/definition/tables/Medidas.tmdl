@@ -737,12 +737,6 @@ table Medidas
 		displayFolder: 6. Textos
 		lineageTag: 7fb6f830-4291-48e2-ad2c-0b3bd4b7030c
 
-	/// Margem da rede no período. Vem de Referência da rede (sem loja, por causa do RLS), não de ALLSELECTED(Lojas).
-	measure 'Margem % da rede' = DIVIDE(SUM('Referência da rede'[receita]) - SUM('Referência da rede'[custo]), SUM('Referência da rede'[receita]))
-		formatString: 0.0%
-		displayFolder: 1. Vendas
-		lineageTag: 8eb881e6-5ab3-4b98-a802-3e7f9c7ed913
-
 	/// Margem % da loja menos a margem % de todas as lojas do contexto, em pontos percentuais (+1,2 p.p. = 1,2 ponto acima da rede).
 	measure 'Margem vs rede (p.p.)' = IF(NOT ISBLANK([Margem %]), ([Margem %] - [Margem % da rede]) * 100)
 		formatString: +0.0\ \p\.\p\.;-0.0\ \p\.\p\.;0.0\ \p\.\p\.
@@ -764,15 +758,11 @@ table Medidas
 		displayFolder: 4. Formatação
 		lineageTag: 573d44cf-92d6-479f-ace8-73c22f7aa36b
 
-	column _
-		isHidden
-		lineageTag: c8c9ba0c-0854-4eb6-b153-4a6132a05ff3
-		isNameInferred
-		sourceColumn: [_]
-
-	partition Medidas = calculated
-		mode: import
-		source = ROW("_", BLANK())
+	/// Margem da rede no período. Vem de Referência da rede (sem loja, por causa do RLS), não de ALLSELECTED(Lojas).
+	measure 'Margem % da rede' = DIVIDE(SUM('Referência da rede'[receita]) - SUM('Referência da rede'[custo]), SUM('Referência da rede'[receita]))
+		formatString: 0.0%
+		displayFolder: 1. Vendas
+		lineageTag: 8eb881e6-5ab3-4b98-a802-3e7f9c7ed913
 
 	/// Parâmetro do banco (etl.parametros_negocio): queda de cupons vs ano anterior que vira atenção (e alta igual que vira ponto forte).
 	measure 'Limite: queda de cupons' = LOOKUPVALUE('Parâmetros do diagnóstico'[valor], 'Parâmetros do diagnóstico'[chave], "diag_cupons_queda")
@@ -1127,7 +1117,7 @@ table Medidas
 		lineageTag: edca6efa-5643-4af6-81b0-35a18a805ac7
 
 	/// Texto do diagnóstico: situação, contexto de loja nova, até 2 causas, até 2 pontos fortes e o contexto da meta. Mesma regra de src/diagnostico.py.
-	measure 'Veredito' =
+	measure Veredito =
 			VAR cob = [Cobertura da meta até o dia]
 			VAR abertura = MIN(Lojas[data_abertura])
 			VAR natenc = [Atenções (qtde)]
@@ -1292,3 +1282,18 @@ table Medidas
 	measure 'Cor do tema (forte)' = IF([Uma loja escolhida] = 1 && [Pontos fortes (qtde)] > 0, "#242424", "#FFFFFF")
 		displayFolder: 4. Formatação
 		lineageTag: 119469b4-6d55-4d75-9a6d-38aee603bef3
+
+	column _
+		isHidden
+		lineageTag: c8c9ba0c-0854-4eb6-b153-4a6132a05ff3
+		isNameInferred
+		sourceColumn: [_]
+
+	partition Medidas = calculated
+		mode: import
+		source = ROW("_", BLANK())
+
+	/// Cabeçalho das páginas de loja (Detalhe e Diagnóstico): nome da loja do filtro de detalhamento.
+	measure 'Loja escolhida (cabeçalho)' = IF(HASONEVALUE(Lojas[nome_loja]), "Loja: " & SELECTEDVALUE(Lojas[nome_loja]), "Escolha uma loja: botão direito numa loja na página Lojas")
+		displayFolder: 6. Textos
+		lineageTag: 1aa01d3b-dd6e-41ff-82d9-520f1c0f4f81

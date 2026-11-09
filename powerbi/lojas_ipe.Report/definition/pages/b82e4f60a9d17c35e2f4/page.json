@@ -178,16 +178,6 @@
     },
     {
       "source": "d7a2f6c1e48b905a3b6e",
-      "target": "b7e1d4a92c60385f1e4a",
-      "type": "NoFilter"
-    },
-    {
-      "source": "d7a2f6c1e48b905a3b6e",
-      "target": "c5d97e2a60b14f83a9e7",
-      "type": "NoFilter"
-    },
-    {
-      "source": "d7a2f6c1e48b905a3b6e",
       "target": "ef3b337665a61c3b9f33",
       "type": "NoFilter"
     },
@@ -196,5 +186,85 @@
       "target": "f1df313cd5dae0e4bfcb",
       "type": "NoFilter"
     }
-  ]
+  ],
+  "filterConfig": {
+    "filters": [
+      {
+        "name": "ba5a7a6cd341a2494f1b",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Lojas"
+              }
+            },
+            "Property": "nome_loja"
+          }
+        },
+        "type": "Categorical",
+        "filter": {
+          "Version": 2,
+          "From": [
+            {
+              "Name": "l",
+              "Entity": "Lojas",
+              "Type": 0
+            }
+          ],
+          "Where": [
+            {
+              "Condition": {
+                "In": {
+                  "Expressions": [
+                    {
+                      "Column": {
+                        "Expression": {
+                          "SourceRef": {
+                            "Source": "l"
+                          }
+                        },
+                        "Property": "nome_loja"
+                      }
+                    }
+                  ],
+                  "Values": [
+                    [
+                      {
+                        "Literal": {
+                          "Value": "'Ipê Brasília'"
+                        }
+                      }
+                    ]
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "howCreated": "Drillthrough"
+      }
+    ]
+  },
+  "pageBinding": {
+    "name": "fbedef5e844a911d2f37",
+    "type": "Drillthrough",
+    "parameters": [
+      {
+        "name": "26b2544064fb3adc1e5f",
+        "boundFilter": "ba5a7a6cd341a2494f1b",
+        "asAggregation": false,
+        "qnaSingleSelectRequired": false,
+        "fieldExpr": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Lojas"
+              }
+            },
+            "Property": "nome_loja"
+          }
+        }
+      }
+    ]
+  }
 }

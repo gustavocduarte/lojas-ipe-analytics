@@ -13,8 +13,8 @@ table 'Indicadores do diagnóstico'
 
 	column Ordem
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
 		lineageTag: 40af1e7a-a8a4-4e64-baaf-f747b79c6122
 		summarizeBy: none
 		sourceColumn: [Ordem]
@@ -24,3 +24,4 @@ table 'Indicadores do diagnóstico'
 	partition 'Indicadores do diagnóstico' = calculated
 		mode: import
 		source = DATATABLE("Indicador", STRING, "Ordem", INTEGER, {{"Fluxo de cupons", 1}, {"Ticket médio", 2}, {"Desconto médio", 3}, {"Setores", 4}, {"Equipe", 5}, {"Meta", 6}})
+
