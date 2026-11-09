@@ -82,3 +82,13 @@ R$ 372.449 vendidos; agora é R$ 362.218.
 
 Os dias da rede ficam um pouco abaixo de 45% porque os dias de evento (Black Friday, Natal) vencem a meta
 por muito, e os demais ficam perto dela.
+
+## Melhoria futura (não implementada): encolher a tendência da loja
+
+Diagnóstico de dez/2025 (1 a 15): Ipê Niterói ficou em 142,4% e Ipê Porto Alegre em 120,5% da meta.
+Em Niterói a tendência de 3 meses (0,964) não viu o salto do Eletro (+62% sobre dez/2024); em Porto Alegre
+a tendência de 0,930 veio de três meses fracos e a meta herdou a quinzena forte de dez/2024 (50,1% do mês
+nos dias 1 a 15, contra 46,0% do calendário). O clip de 0,90–1,25 não atuou; é variação por loja, sem viés
+na rede (102,8%).
+Ideia: usar `0,5 × tendência da loja + 0,5 × tendência da rede`, o que reduz a dispersão por loja sem mexer
+na média. Decisão atual: manter como está; avaliar com `scripts/simular_metas.py` antes de qualquer mudança.

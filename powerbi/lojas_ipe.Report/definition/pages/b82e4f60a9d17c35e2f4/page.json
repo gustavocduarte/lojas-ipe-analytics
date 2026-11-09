@@ -44,7 +44,7 @@
     {
       "source": "6491238d0f6b491d0dfa",
       "target": "d7a2f6c1e48b905a3b6e",
-      "type": "DataFilter"
+      "type": "NoFilter"
     },
     {
       "source": "2dd87d9698e803039fcc",

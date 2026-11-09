@@ -293,3 +293,52 @@ Em visuais que não são tabela nem matriz, uma coluna solta em `Tooltips` vira 
 ### Regra de interações: visual de detalhe de vendedor não filtra os KPIs da loja
 
 O gráfico "Vendedores: cobertura da meta até o dia" (Detalhe da loja) tem interação **Nenhum** (`NoFilter`) com todos os outros visuais da página; os outros visuais continuam filtrando ele. Senão, clicar numa barra faz os cartões compararem a receita do vendedor com a meta da loja (cobertura 31,7%, "loja sem histórico") e a venda diária fica toda vermelha. Vale para qualquer visual de detalhe de vendedor novo.
+
+### Referência da rede vem de tabela agregada, por causa do RLS
+
+Médias da rede (ticket médio, desconto médio) **não** podem vir de `CALCULATE(..., ALL(Lojas))`: com segurança por loja (RLS) o gerente só enxerga a própria loja, e a "rede" viraria a loja dele. Padrão:
+
+- View agregada **sem loja** no dw (`dw.vw_referencia_rede_dia`: data, receita, cupons, unidades, desconto, receita bruta; só concluídas), importada como a tabela `Referência da rede`.
+- Relacionamento **só com `Calendário`** (por `sk_tempo`), nunca com `Lojas`; o papel de RLS filtra `Lojas` e não chega nela.
+- As medidas da rede somam essa tabela com o mesmo período da medida da loja (`DATESMTD`): `Ticket médio da rede até o dia`, `Desconto médio da rede até o dia`.
+- A view não tem setor de propósito: um cupom pode ter itens de vários setores, então cupons por setor não somam. Uma referência por setor precisaria de outra view (e de outro cuidado com cupons).
+- Conferência (1 a 15/12/2025): ticket médio da rede R$ 128,39 e desconto médio da rede 4,70%, iguais ao cálculo sem RLS.
+
+### Página Diagnóstico da loja (etapa 4)
+
+- Limites vêm do banco: `etl.parametros_negocio` (chaves `diag_*`, `sql/ddl/25_parametros_diagnostico.sql`) → `dw.vw_parametros_diagnostico` → tabela `Parâmetros do diagnóstico` → medidas `Limite: ...`. Nada fixo no DAX.
+- Sinais: `Sinal: fluxo|ticket|desconto|setor fraco|setor forte|equipe|meta` (+1 ponto forte, −1 atenção, 0 neutro, em branco sem base). Loja em maturação (aberta há menos de 12 meses) mostra "sem base" nos indicadores de ano anterior.
+- `Veredito` = situação, contexto de loja nova, até 2 atenções (prioridade: setor fraco, equipe, fluxo, ticket, desconto), até 2 pontos fortes (setor forte, ticket, fluxo, equipe, desconto) e o contexto da meta. A referência em Python (`src/diagnostico.py`, `scripts/diagnostico_loja.py`) usa as mesmas regras; compare os dois.
+- Tabela de indicadores: tabela desconectada `Indicadores do diagnóstico` (6 linhas) e medidas `Indicador: loja|referência|limite|sinal|situação` que mudam por `SELECTEDVALUE(Ordem)`.
+- Interações: setores, vendedores e tabela de indicadores têm `NoFilter` para os outros visuais (clicar neles mudaria o diagnóstico).
+- **Drill-through (pendente):** `pageBinding` em `Lojas[nome_loja]`, aplicado à mão no Power BI e copiado para cá.
+
+### Regra do validador: expressão de várias linhas no TMDL
+
+Em medida (ou coluna calculada) cuja expressão começa na linha seguinte (`measure 'X' =`), **toda linha não vazia da expressão, inclusive a primeira, começa com tab** e fica mais recuada que a linha da medida (o padrão do projeto é 3 tabs). Uma primeira linha colada na margem (por exemplo `SWITCH(`) faz o Power BI recusar abrir o projeto com "Recuo inválido". O `validar.py` confere todos os `.tmdl` (`TMDL expressões multilinha`) e tem um autoteste que garante que o arquivo com esse erro seria detectado; ele pegou as 4 medidas `Indicador: ...` da versão anterior.
+
+### Texto longo ou com quebra de linha → tabela de uma coluna com wordWrap, não cartão
+
+O `cardVisual` corta texto longo numa linha ("...") e mostra o rótulo da medida junto com o título. Para veredito e listas use `tableEx`:
+
+- Uma coluna (a medida de texto), `values.wordWrap = true`, `values.fontSize` 14 (12 nas listas), `total.totals = false`, `grid.gridHorizontal/gridVertical = false`, `grid.rowPadding` 4D, `columnWidth` explícito (`autoSizeColumnWidth = false`), título do visual no lugar do rótulo.
+- **Cabeçalho:** o schema (`tableEx.columnHeaders`) não tem opção de esconder o cabeçalho; aproximação: `fontColor` e `backColor` brancos e `fontSize` 8D (é o único texto de tabela abaixo de 12pt, e é invisível). Se achar a propriedade certa no Power BI, aplicar à mão e registrar aqui.
+- **Uma linha por item:** não depender de `UNICHAR(10)` dentro da célula. Use uma tabela desconectada de itens (`Itens de atenção`, `Itens fortes`: colunas `Tema` e `Ordem`, `Tema` ordenada por `Ordem`) e uma medida que devolve o texto do item da linha com `SELECTEDVALUE(Ordem)`; linhas sem item ficam em branco e a tabela as oculta (`SUMMARIZECOLUMNS` descarta linhas com todas as medidas em branco).
+- **Tabela com `wordWrap` só quebra com largura de coluna fixa (`autoSizeColumnWidth = false`)** e `columnWidth` por seletor (`metadata` = `queryRef`). Regra prática: soma das larguras = largura do visual menos ~40 px (barra de rolagem e margens); caso contrário aparece rolagem horizontal. Altura do visual = título (~35) + cabeçalho (~30) + linhas; 3 linhas de fonte 14 pedem ~150 px.
+- Cartões de rótulo: o nome da medida é o rótulo do cartão (`Meta vs venda do ano anterior`, `Fluxo de cupons vs ano anterior`); não usar sufixos como "(texto)" em medida exibida.
+
+### Metas de vendedor não são por setor: visual de setor não filtra visual de vendedor
+
+A meta do vendedor é da loja inteira, não de um setor. Se um clique no gráfico de setores filtrar o gráfico de vendedores, a venda do setor é comparada com a meta total do vendedor e a cobertura sai errada (ex.: 7,8%). Por isso, nas páginas Detalhe da loja e Diagnóstico da loja, `visualInteractions` tem `NoFilter` de Setores para Vendedores (cartões e venda diária podem continuar filtrados por setor).
+
+### Formatação condicional em tabela (`tableEx`)
+
+A cor por linha (`values[].properties.fontColor` com `solid.color.expr.Measure`) só vale por linha com o seletor `{"data": [{"dataViewWildcard": {"matchingOption": 1}}], "metadata": "<queryRef da coluna>"}`; só com `metadata` o Power BI ignora a medida (em cartão basta `metadata`). Cores da Situação: verde `#2E7D32` ponto forte, vermelho `#C62828` atenção, âmbar `#B26A00` contexto da meta (folgada/apertada, não é mérito), cinza `#6B7280` neutro ou sem base. Para esconder o tema quando a lista só tem a mensagem, a medida de cor devolve branco (`Cor do tema (atenção)`/`(forte)`).
+
+### Medidas de "rede" e o RLS
+
+Referência da rede sem loja: `Referência da rede` (ticket, desconto e, agora, `custo` para `Margem % da rede`). Ainda dependem de `ALLSELECTED(Lojas)`/`ALLSELECTED(Setores)` e quebrariam com RLS por loja (o gerente passaria a ver a si mesmo como a "rede"): `Posição da loja no ranking`, `Cobertura da pior loja`, `Pior loja`, `Posição no ranking (modo)`, `Participação da loja %` e `Participação do setor %` (esta só pelo denominador de setores, que não depende de loja). O ranking entre lojas e a participação na rede só fazem sentido para a Matriz; para o gerente devem sumir ou usar uma tabela agregada sem loja, como `Referência da rede`.
+
+O gráfico de vendedores não fica na página Diagnóstico da loja: ele já existe no Detalhe da loja (e entrará na página Vendedores), e a linha Equipe da tabela de indicadores resume a equipe. Com 15 vendedores (São Paulo) o gráfico rolava mesmo no menor tamanho. Na linha de baixo do Diagnóstico, Pontos de atenção e Pontos fortes dividem a largura (924 px cada, 24 px entre eles).
+
+Medidas "vs rede": devolver BLANK() quando a medida da loja é vazia (`IF(NOT ISBLANK([Margem %]), ...)`); sem isso, ao selecionar uma loja num gráfico as outras mostram "vazio − rede" (ex.: 30,0 p.p.).

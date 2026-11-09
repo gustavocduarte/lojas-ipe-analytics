@@ -190,13 +190,6 @@
                 }
               }
             },
-            "end": {
-              "expr": {
-                "Literal": {
-                  "Value": "1.2D"
-                }
-              }
-            },
             "gridlineShow": {
               "expr": {
                 "Literal": {

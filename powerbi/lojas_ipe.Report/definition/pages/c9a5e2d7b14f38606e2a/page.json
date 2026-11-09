@@ -4,5 +4,37 @@
   "displayName": "Comparação de lojas",
   "displayOption": "FitToPage",
   "height": 1080,
-  "width": 1920
+  "width": 1920,
+  "visualInteractions": [
+    {
+      "source": "d4b7fae36a2c8b594bad",
+      "target": "c3a6e9d25f1b7a483a9c",
+      "type": "NoFilter"
+    },
+    {
+      "source": "d4b7fae36a2c8b594bad",
+      "target": "e5c80b47b3d9ac6a5cbe",
+      "type": "NoFilter"
+    },
+    {
+      "source": "d4b7fae36a2c8b594bad",
+      "target": "f6d91c58c4eabd7b6dcf",
+      "type": "NoFilter"
+    },
+    {
+      "source": "d4b7fae36a2c8b594bad",
+      "target": "b2f5d8c14e0a69372f8b",
+      "type": "NoFilter"
+    },
+    {
+      "source": "e5c80b47b3d9ac6a5cbe",
+      "target": "c3a6e9d25f1b7a483a9c",
+      "type": "HighlightFilter"
+    },
+    {
+      "source": "f6d91c58c4eabd7b6dcf",
+      "target": "c3a6e9d25f1b7a483a9c",
+      "type": "HighlightFilter"
+    }
+  ]
 }

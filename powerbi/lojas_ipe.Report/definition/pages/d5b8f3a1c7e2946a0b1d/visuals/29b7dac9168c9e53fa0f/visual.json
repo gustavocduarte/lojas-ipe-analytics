@@ -1,0 +1,117 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
+  "name": "29b7dac9168c9e53fa0f",
+  "position": {
+    "x": 24,
+    "y": 1032,
+    "z": 17,
+    "height": 32,
+    "width": 1872,
+    "tabOrder": 17
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "Limites vêm do banco (parâmetros diag_*); médias da rede de dw.vw_referencia_rede_dia. ",
+                    "textStyle": {
+                      "fontFamily": "Segoe UI",
+                      "fontSize": "12pt",
+                      "color": "#5b6b7c"
+                    }
+                  },
+                  {
+                    "value": "Verde",
+                    "textStyle": {
+                      "fontFamily": "Segoe UI",
+                      "fontSize": "12pt",
+                      "color": "#2e7d32",
+                      "fontWeight": "bold"
+                    }
+                  },
+                  {
+                    "value": " = ponto forte, ",
+                    "textStyle": {
+                      "fontFamily": "Segoe UI",
+                      "fontSize": "12pt",
+                      "color": "#5b6b7c"
+                    }
+                  },
+                  {
+                    "value": "vermelho",
+                    "textStyle": {
+                      "fontFamily": "Segoe UI",
+                      "fontSize": "12pt",
+                      "color": "#c62828",
+                      "fontWeight": "bold"
+                    }
+                  },
+                  {
+                    "value": " = atenção, ",
+                    "textStyle": {
+                      "fontFamily": "Segoe UI",
+                      "fontSize": "12pt",
+                      "color": "#5b6b7c"
+                    }
+                  },
+                  {
+                    "value": "âmbar",
+                    "textStyle": {
+                      "fontFamily": "Segoe UI",
+                      "fontSize": "12pt",
+                      "color": "#b26a00",
+                      "fontWeight": "bold"
+                    }
+                  },
+                  {
+                    "value": " = contexto da meta, cinza = neutro ou sem base.",
+                    "textStyle": {
+                      "fontFamily": "Segoe UI",
+                      "fontSize": "12pt",
+                      "color": "#5b6b7c"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

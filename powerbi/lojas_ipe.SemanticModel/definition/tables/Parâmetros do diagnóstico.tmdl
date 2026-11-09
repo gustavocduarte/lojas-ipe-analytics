@@ -1,0 +1,42 @@
+/// Limites do painel de diagnóstico da loja, vindos do banco (dw.vw_parametros_diagnostico <- etl.parametros_negocio, chaves diag_*). Nada fixo no DAX.
+table 'Parâmetros do diagnóstico'
+	lineageTag: 0864cfdc-21ce-42f1-833c-24d100fbce88
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: e424ea20-d251-4f14-a4c2-f96f16fdb5e7
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	column valor
+		dataType: double
+		isHidden
+		formatString: 0.000
+		lineageTag: 8d680b4b-141f-4bbc-869e-bb2e91729074
+		summarizeBy: none
+		sourceColumn: valor
+
+		annotation SummarizationSetBy = Automatic
+
+	column descricao
+		dataType: string
+		isHidden
+		lineageTag: 756d2dab-1f39-4951-9bb9-a1ee4af683bf
+		summarizeBy: none
+		sourceColumn: descricao
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'dw vw_parametros_diagnostico' = m
+		mode: import
+		source =
+				let
+				    Fonte = PostgreSQL.Database("localhost", "lojas_ipe_dw"),
+				    dw_vw_parametros_diagnostico = Fonte{[Schema="dw",Item="vw_parametros_diagnostico"]}[Data]
+				in
+				    dw_vw_parametros_diagnostico
+
+	annotation PBI_ResultType = Table

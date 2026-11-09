@@ -1,0 +1,26 @@
+/// Tabela sem relação com o resto: uma linha por tipo de atenção, na ordem de prioridade do veredito. A medida Item de atenção preenche cada linha.
+table 'Itens de atenção'
+	lineageTag: 35117a29-d27c-4280-98c9-14622c9daff5
+
+	column Tema
+		dataType: string
+		lineageTag: b9a40f1e-d38e-4626-8db9-897d822cdb29
+		summarizeBy: none
+		sourceColumn: [Tema]
+		sortByColumn: Ordem
+
+		annotation SummarizationSetBy = Automatic
+
+	column Ordem
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: be6058e6-b0bf-44aa-be84-72d35daf178c
+		summarizeBy: none
+		sourceColumn: [Ordem]
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'Itens de atenção' = calculated
+		mode: import
+		source = DATATABLE("Tema", STRING, "Ordem", INTEGER, {{"Setores", 1}, {"Equipe", 2}, {"Fluxo", 3}, {"Ticket", 4}, {"Desconto", 5}})

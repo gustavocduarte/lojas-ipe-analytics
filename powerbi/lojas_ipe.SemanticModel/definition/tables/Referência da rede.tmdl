@@ -1,0 +1,96 @@
+/// Totais da rede por dia, SEM loja (dw.vw_referencia_rede_dia). Referência de ticket, desconto e margem da rede que não some quando o RLS limita a loja: relacionada só com Calendário.
+table 'Referência da rede'
+	lineageTag: 24d5231e-dab1-44f7-85b7-8623db0472fa
+
+	column sk_tempo
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: c82cb87d-5be3-409f-8e15-96762fb93d9b
+		summarizeBy: none
+		sourceColumn: sk_tempo
+
+		annotation SummarizationSetBy = Automatic
+
+	column data
+		dataType: dateTime
+		isHidden
+		formatString: Long Date
+		lineageTag: ddf8d0bb-f72f-4de2-b136-e6d9fef7f431
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column receita
+		dataType: double
+		isHidden
+		formatString: "R$" #,0.00
+		lineageTag: 115de833-c126-47f9-bc7a-7e81ddb9ec33
+		summarizeBy: sum
+		sourceColumn: receita
+
+		annotation SummarizationSetBy = Automatic
+
+	column cupons
+		dataType: int64
+		isHidden
+		formatString: #,0
+		lineageTag: 7001fb8b-e6ab-4d59-94c3-407d5f3d4d61
+		summarizeBy: sum
+		sourceColumn: cupons
+
+		annotation SummarizationSetBy = Automatic
+
+	column unidades
+		dataType: int64
+		isHidden
+		formatString: #,0
+		lineageTag: 8b3e6f4c-8a75-43cf-8c64-a5c4d493f9ab
+		summarizeBy: sum
+		sourceColumn: unidades
+
+		annotation SummarizationSetBy = Automatic
+
+	column desconto
+		dataType: double
+		isHidden
+		formatString: "R$" #,0.00
+		lineageTag: 75c2425a-e061-4969-820a-71e6df236c60
+		summarizeBy: sum
+		sourceColumn: desconto
+
+		annotation SummarizationSetBy = Automatic
+
+	column receita_bruta
+		dataType: double
+		isHidden
+		formatString: "R$" #,0.00
+		lineageTag: 7ee03244-dd70-46a4-86d7-d1cbbb13f1f4
+		summarizeBy: sum
+		sourceColumn: receita_bruta
+
+		annotation SummarizationSetBy = Automatic
+
+	column custo
+		dataType: double
+		isHidden
+		formatString: "R$" #,0.00
+		lineageTag: 326e12d3-835e-4a2e-a060-ebeac1455871
+		summarizeBy: sum
+		sourceColumn: custo
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'dw vw_referencia_rede_dia' = m
+		mode: import
+		source =
+				let
+				    Fonte = PostgreSQL.Database("localhost", "lojas_ipe_dw"),
+				    dw_vw_referencia_rede_dia = Fonte{[Schema="dw",Item="vw_referencia_rede_dia"]}[Data]
+				in
+				    dw_vw_referencia_rede_dia
+
+	annotation PBI_ResultType = Table

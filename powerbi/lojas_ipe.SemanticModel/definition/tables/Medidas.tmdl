@@ -737,8 +737,14 @@ table Medidas
 		displayFolder: 6. Textos
 		lineageTag: 7fb6f830-4291-48e2-ad2c-0b3bd4b7030c
 
+	/// Margem da rede no período. Vem de Referência da rede (sem loja, por causa do RLS), não de ALLSELECTED(Lojas).
+	measure 'Margem % da rede' = DIVIDE(SUM('Referência da rede'[receita]) - SUM('Referência da rede'[custo]), SUM('Referência da rede'[receita]))
+		formatString: 0.0%
+		displayFolder: 1. Vendas
+		lineageTag: 8eb881e6-5ab3-4b98-a802-3e7f9c7ed913
+
 	/// Margem % da loja menos a margem % de todas as lojas do contexto, em pontos percentuais (+1,2 p.p. = 1,2 ponto acima da rede).
-	measure 'Margem vs rede (p.p.)' = ([Margem %] - CALCULATE([Margem %], ALLSELECTED(Lojas))) * 100
+	measure 'Margem vs rede (p.p.)' = IF(NOT ISBLANK([Margem %]), ([Margem %] - [Margem % da rede]) * 100)
 		formatString: +0.0\ \p\.\p\.;-0.0\ \p\.\p\.;0.0\ \p\.\p\.
 		displayFolder: 1. Vendas
 		lineageTag: 6cdf5117-37a8-4ae7-8d40-cffb408cec97
@@ -768,3 +774,521 @@ table Medidas
 		mode: import
 		source = ROW("_", BLANK())
 
+	/// Parâmetro do banco (etl.parametros_negocio): queda de cupons vs ano anterior que vira atenção (e alta igual que vira ponto forte).
+	measure 'Limite: queda de cupons' = LOOKUPVALUE('Parâmetros do diagnóstico'[valor], 'Parâmetros do diagnóstico'[chave], "diag_cupons_queda")
+		formatString: 0.0%
+		displayFolder: 7. Diagnóstico
+		lineageTag: 36635d64-afc0-4835-979b-cdc97f8071a7
+
+	/// Parâmetro do banco: ticket médio abaixo desta fração do ticket da rede é atenção.
+	measure 'Limite: ticket mínimo' = LOOKUPVALUE('Parâmetros do diagnóstico'[valor], 'Parâmetros do diagnóstico'[chave], "diag_ticket_minimo")
+		formatString: 0.0%
+		displayFolder: 7. Diagnóstico
+		lineageTag: bc1804a9-bc88-45d2-b358-78af626b8a44
+
+	/// Parâmetro do banco: ticket médio acima desta fração do ticket da rede é ponto forte.
+	measure 'Limite: ticket forte' = LOOKUPVALUE('Parâmetros do diagnóstico'[valor], 'Parâmetros do diagnóstico'[chave], "diag_ticket_forte")
+		formatString: 0.0%
+		displayFolder: 7. Diagnóstico
+		lineageTag: 3ac2d8a0-ae55-4c82-852d-538d34d94617
+
+	/// Parâmetro do banco: diferença de desconto médio para a rede (fração do bruto) que vira atenção ou ponto forte.
+	measure 'Limite: desconto (p.p.)' = LOOKUPVALUE('Parâmetros do diagnóstico'[valor], 'Parâmetros do diagnóstico'[chave], "diag_desconto_pp")
+		formatString: 0.0%
+		displayFolder: 7. Diagnóstico
+		lineageTag: 8d4358d0-4057-44ca-8e2e-2b943ff50a6d
+
+	/// Parâmetro do banco: setor com cobertura da meta abaixo desta fração é fraco.
+	measure 'Limite: setor fraco' = LOOKUPVALUE('Parâmetros do diagnóstico'[valor], 'Parâmetros do diagnóstico'[chave], "diag_setor_fraco")
+		formatString: 0.0%
+		displayFolder: 7. Diagnóstico
+		lineageTag: c2b8e4ba-1914-4b66-aeb3-4fc14681c5c3
+
+	/// Parâmetro do banco: setor com cobertura da meta a partir desta fração é forte.
+	measure 'Limite: setor forte' = LOOKUPVALUE('Parâmetros do diagnóstico'[valor], 'Parâmetros do diagnóstico'[chave], "diag_setor_forte")
+		formatString: 0.0%
+		displayFolder: 7. Diagnóstico
+		lineageTag: f75d890c-f59f-472c-9764-7d39729f98f4
+
+	/// Parâmetro do banco: fração de vendedores abaixo da meta que vira atenção.
+	measure 'Limite: equipe abaixo' = LOOKUPVALUE('Parâmetros do diagnóstico'[valor], 'Parâmetros do diagnóstico'[chave], "diag_equipe_abaixo")
+		formatString: 0.0%
+		displayFolder: 7. Diagnóstico
+		lineageTag: e6bb8753-d561-49fe-ada9-df690f8e5c90
+
+	/// Parâmetro do banco: fração de vendedores acima da meta que vira ponto forte.
+	measure 'Limite: equipe acima' = LOOKUPVALUE('Parâmetros do diagnóstico'[valor], 'Parâmetros do diagnóstico'[chave], "diag_equipe_acima")
+		formatString: 0.0%
+		displayFolder: 7. Diagnóstico
+		lineageTag: 9a519813-eb2d-4b1b-a0eb-3a9ec66ef7fa
+
+	/// Parâmetro do banco: meta abaixo (folgada) ou acima (apertada) da venda do ano anterior por esta fração.
+	measure 'Limite: meta folgada ou apertada' = LOOKUPVALUE('Parâmetros do diagnóstico'[valor], 'Parâmetros do diagnóstico'[chave], "diag_meta_folga")
+		formatString: 0.0%
+		displayFolder: 7. Diagnóstico
+		lineageTag: fc22303d-28f2-4483-9a82-70c9ca225ffb
+
+	/// 1 quando há exatamente uma loja no contexto; o diagnóstico só vale para uma loja.
+	measure 'Uma loja escolhida' = IF(HASONEVALUE(Lojas[nome_loja]), 1, 0)
+		formatString: 0
+		displayFolder: 7. Diagnóstico
+		lineageTag: c9d3c738-c407-4914-b5a1-4f67f34ac98e
+
+	/// 1 se a loja abriu há menos de 12 meses antes da posição (ainda sem ano anterior).
+	measure 'Loja em maturação' = IF([Uma loja escolhida] = 1 && MIN(Lojas[data_abertura]) > EDATE([Posição], -12), 1, 0)
+		formatString: 0
+		displayFolder: 7. Diagnóstico
+		lineageTag: 34c8d213-1f70-4f43-9597-99ac8af436f9
+
+	/// Cupons do mês até o dia, no mesmo período do ano anterior; em branco quando a loja não tinha vendas então (sem base).
+	measure 'Cupons acumulados ano anterior' =
+			VAR c = CALCULATE([Cupons acumulados no mês], SAMEPERIODLASTYEAR('Calendário'[data]))
+			VAR r = CALCULATE([Receita acumulada no mês], SAMEPERIODLASTYEAR('Calendário'[data]))
+			RETURN IF(r > 0, c)
+		formatString: #,0
+		displayFolder: 7. Diagnóstico
+		lineageTag: 56c7e512-c7a5-4bf4-87b0-6a7a76b31bf4
+
+	/// Cupons do mês até o dia ÷ mesmo período do ano anterior − 1. Em branco sem base.
+	measure 'Cupons vs ano anterior %' =
+			VAR ant = [Cupons acumulados ano anterior]
+			RETURN IF(NOT ISBLANK(ant), DIVIDE([Cupons acumulados no mês], ant) - 1)
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: 7. Diagnóstico
+		lineageTag: cac5dac2-a874-4b11-bc94-62a62a5d543e
+
+	/// Receita do mês até o dia no mesmo período do ano anterior; em branco quando não houve venda.
+	measure 'Receita acumulada ano anterior' =
+			VAR r = CALCULATE([Receita acumulada no mês], SAMEPERIODLASTYEAR('Calendário'[data]))
+			RETURN IF(r > 0, r)
+		formatString: "R$" #,0.00
+		displayFolder: 7. Diagnóstico
+		lineageTag: e81f242d-8ca7-4810-918c-92ae9bc7b9cd
+
+	/// Meta até o dia ÷ venda do mesmo período do ano anterior − 1: negativa = meta folgada, positiva = meta apertada.
+	measure 'Meta vs venda do ano anterior %' =
+			VAR ant = [Receita acumulada ano anterior]
+			RETURN IF(NOT ISBLANK(ant), DIVIDE([Meta acumulada até o dia], ant) - 1)
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: 7. Diagnóstico
+		lineageTag: 641db62f-732f-4950-896d-3b82c52a03b7
+
+	/// Receita do mês até o dia ÷ cupons do mês até o dia.
+	measure 'Ticket médio até o dia' = DIVIDE([Receita acumulada no mês], [Cupons acumulados no mês])
+		formatString: "R$" #,0.00
+		displayFolder: 7. Diagnóstico
+		lineageTag: db85155a-5b28-45b8-9db9-961db183a8f9
+
+	/// Ticket médio da rede no mês até o dia. Vem de Referência da rede (sem loja, por causa do RLS), não de ALL(Lojas).
+	measure 'Ticket médio da rede até o dia' =
+			DIVIDE(
+			    CALCULATE(SUM('Referência da rede'[receita]), DATESMTD('Calendário'[data])),
+			    CALCULATE(SUM('Referência da rede'[cupons]), DATESMTD('Calendário'[data]))
+			)
+		formatString: "R$" #,0.00
+		displayFolder: 7. Diagnóstico
+		lineageTag: 3cf08a06-8262-4597-a60d-d8cac02e9f7e
+
+	/// Ticket médio da loja ÷ ticket médio da rede (1,10 = 10% acima).
+	measure 'Ticket vs rede (razão)' = DIVIDE([Ticket médio até o dia], [Ticket médio da rede até o dia])
+		formatString: 0.000
+		displayFolder: 7. Diagnóstico
+		lineageTag: 848205f2-b1c5-4501-9f91-1a64a1013e68
+
+	/// Desconto ÷ valor bruto das concluídas, no mês até o dia.
+	measure 'Desconto médio até o dia' =
+			DIVIDE(
+			    CALCULATE([Desconto], DATESMTD('Calendário'[data])),
+			    CALCULATE([Receita bruta das concluídas], DATESMTD('Calendário'[data]))
+			)
+		formatString: 0.00%
+		displayFolder: 7. Diagnóstico
+		lineageTag: 1bcd6f83-a3fc-4194-8b69-ce63aa0ac647
+
+	/// Desconto médio da rede no mês até o dia (Referência da rede, sem loja).
+	measure 'Desconto médio da rede até o dia' =
+			DIVIDE(
+			    CALCULATE(SUM('Referência da rede'[desconto]), DATESMTD('Calendário'[data])),
+			    CALCULATE(SUM('Referência da rede'[receita_bruta]), DATESMTD('Calendário'[data]))
+			)
+		formatString: 0.00%
+		displayFolder: 7. Diagnóstico
+		lineageTag: 23b69975-e8a5-459f-9ee6-59643f7b23d2
+
+	/// Desconto médio da loja − desconto médio da rede (fração do bruto; 0,005 = 0,5 p.p.).
+	measure 'Desconto vs rede (diferença)' = IF([Uma loja escolhida] = 1 && NOT ISBLANK([Desconto médio até o dia]), [Desconto médio até o dia] - [Desconto médio da rede até o dia])
+		formatString: +0.00%;-0.00%;0.00%
+		displayFolder: 7. Diagnóstico
+		lineageTag: d3d0c2cd-ac91-4dd9-b7fb-04ce0ad560bf
+
+	/// Receita do mês até o dia ÷ meta até o dia, no setor do contexto. Em branco se não há meta.
+	measure 'Cobertura do setor' =
+			VAR meta = [Meta acumulada até o dia]
+			RETURN IF(meta > 0, DIVIDE(COALESCE([Receita acumulada no mês], 0), meta))
+		formatString: 0.0%
+		displayFolder: 7. Diagnóstico
+		lineageTag: ad43d955-7026-4a1a-b6c2-5615b22d118c
+
+	/// Receita − meta do mês até o dia, no setor do contexto.
+	measure 'Contribuição do setor (R$)' = COALESCE([Receita acumulada no mês], 0) - COALESCE([Meta acumulada até o dia], 0)
+		formatString: "R$" #,0
+		displayFolder: 7. Diagnóstico
+		lineageTag: bb92b0db-9c4d-4c6a-9fb8-e6e7d268e7af
+
+	/// Setores da loja com cobertura abaixo do limite de setor fraco.
+	measure 'Setores fracos (qtde)' = COUNTROWS(FILTER(VALUES(Setores[setor]), VAR c = [Cobertura do setor] RETURN NOT ISBLANK(c) && c < [Limite: setor fraco])) + 0
+		formatString: 0
+		displayFolder: 7. Diagnóstico
+		lineageTag: 0bace525-0221-4c8a-98bb-86bd78fb43f5
+
+	/// Setores da loja com cobertura a partir do limite de setor forte.
+	measure 'Setores fortes (qtde)' = COUNTROWS(FILTER(VALUES(Setores[setor]), VAR c = [Cobertura do setor] RETURN NOT ISBLANK(c) && c >= [Limite: setor forte])) + 0
+		formatString: 0
+		displayFolder: 7. Diagnóstico
+		lineageTag: 12457df4-8abd-4da0-ab5f-c7e0bbc01388
+
+	/// Setores fracos do mais fraco ao menos fraco, com a cobertura: "Eletro (60%), Limpeza (61%)".
+	measure 'Setores fracos (lista)' =
+			CONCATENATEX(
+			    FILTER(ADDCOLUMNS(VALUES(Setores[setor]), "@cob", [Cobertura do setor]), NOT ISBLANK([@cob]) && [@cob] < [Limite: setor fraco]),
+			    Setores[setor] & " (" & FORMAT([@cob], "0%", "pt-BR") & ")",
+			    ", ",
+			    [@cob], ASC
+			)
+		displayFolder: 7. Diagnóstico
+		lineageTag: f90facef-f1a9-49dc-8291-196842f01782
+
+	/// Setores fortes do mais forte ao menos forte, com a cobertura.
+	measure 'Setores fortes (lista)' =
+			CONCATENATEX(
+			    FILTER(ADDCOLUMNS(VALUES(Setores[setor]), "@cob", [Cobertura do setor]), NOT ISBLANK([@cob]) && [@cob] >= [Limite: setor forte]),
+			    Setores[setor] & " (" & FORMAT([@cob], "0%", "pt-BR") & ")",
+			    ", ",
+			    [@cob], DESC
+			)
+		displayFolder: 7. Diagnóstico
+		lineageTag: f4078a20-b9d5-40aa-b327-ae4cb4d0c6e4
+
+	/// Setor com a maior diferença positiva entre receita e meta no mês até o dia; "nenhum" se nenhum setor passou da meta.
+	measure 'Setor que mais puxa' =
+			VAR t = ADDCOLUMNS(VALUES(Setores[setor]), "@c", [Contribuição do setor (R$)])
+			VAR maximo = MAXX(t, [@c])
+			RETURN
+			    IF(
+			        [Uma loja escolhida] = 0, BLANK(),
+			        IF(maximo > 0, MAXX(TOPN(1, t, [@c], DESC), Setores[setor]) & " (+R$ " & FORMAT(maximo, "#,0", "pt-BR") & ")", "nenhum")
+			    )
+		displayFolder: 7. Diagnóstico
+		lineageTag: 7b28572f-b9ec-4947-a7bc-035842eeb926
+
+	/// Setor com a maior diferença negativa entre receita e meta no mês até o dia; "nenhum" se nenhum setor ficou abaixo da meta.
+	measure 'Setor que mais derruba' =
+			VAR t = ADDCOLUMNS(VALUES(Setores[setor]), "@c", [Contribuição do setor (R$)])
+			VAR minimo = MINX(t, [@c])
+			RETURN
+			    IF(
+			        [Uma loja escolhida] = 0, BLANK(),
+			        IF(minimo < 0, MAXX(TOPN(1, t, [@c], ASC), Setores[setor]) & " (-R$ " & FORMAT(-minimo, "#,0", "pt-BR") & ")", "nenhum")
+			    )
+		displayFolder: 7. Diagnóstico
+		lineageTag: e6246202-6388-4bba-98a2-06a69ad68b3a
+
+	/// Vendedores da loja com meta no mês até o dia.
+	measure 'Vendedores com meta (qtde)' = COUNTROWS(FILTER(CALCULATETABLE(VALUES(Vendedores[cod_vendedor]), TREATAS(VALUES(Lojas[sk_loja]), Vendedores[sk_loja])), [Meta acumulada até o dia (vendedor)] > 0)) + 0
+		formatString: 0
+		displayFolder: 7. Diagnóstico
+		lineageTag: b3c36f9a-fe16-4e13-adaf-54886f4f6686
+
+	/// Vendedores da loja cuja receita no mês até o dia é menor que a meta deles (sem venda conta como abaixo).
+	measure 'Vendedores abaixo da meta (qtde)' = COUNTROWS(FILTER(FILTER(CALCULATETABLE(VALUES(Vendedores[cod_vendedor]), TREATAS(VALUES(Lojas[sk_loja]), Vendedores[sk_loja])), [Meta acumulada até o dia (vendedor)] > 0), COALESCE([Receita acumulada no mês], 0) < [Meta acumulada até o dia (vendedor)])) + 0
+		formatString: 0
+		displayFolder: 7. Diagnóstico
+		lineageTag: 44151b76-7dea-4c5d-a2bd-e4d34f8af622
+
+	/// Vendedores abaixo da meta ÷ vendedores com meta.
+	measure 'Vendedores abaixo da meta %' = DIVIDE([Vendedores abaixo da meta (qtde)], [Vendedores com meta (qtde)])
+		formatString: 0%
+		displayFolder: 7. Diagnóstico
+		lineageTag: ba6f1157-81f5-422b-a540-18b0b37a7ba6
+
+	/// Fluxo de cupons vs ano anterior. +1 ponto forte, -1 atenção, 0 neutro, em branco sem base.
+	measure 'Sinal: fluxo' = IF([Uma loja escolhida] = 0, BLANK(), VAR v = [Cupons vs ano anterior %] RETURN IF(ISBLANK(v), BLANK(), IF(v <= -[Limite: queda de cupons], -1, IF(v >= [Limite: queda de cupons], 1, 0))))
+		formatString: 0
+		displayFolder: 7. Diagnóstico
+		lineageTag: 6cf1b36c-f4a3-4a23-ad9b-a650bf380f9e
+
+	/// Ticket médio vs rede. +1 ponto forte, -1 atenção, 0 neutro, em branco sem base.
+	measure 'Sinal: ticket' = IF([Uma loja escolhida] = 0, BLANK(), VAR r = [Ticket vs rede (razão)] RETURN IF(ISBLANK(r), BLANK(), IF(r < [Limite: ticket mínimo], -1, IF(r >= [Limite: ticket forte], 1, 0))))
+		formatString: 0
+		displayFolder: 7. Diagnóstico
+		lineageTag: 18a560dc-5837-45f0-8081-3d63aa96818b
+
+	/// Desconto médio vs rede. +1 ponto forte, -1 atenção, 0 neutro, em branco sem base.
+	measure 'Sinal: desconto' = IF([Uma loja escolhida] = 0, BLANK(), VAR d = [Desconto vs rede (diferença)] RETURN IF(ISBLANK(d), BLANK(), IF(d >= [Limite: desconto (p.p.)], -1, IF(d <= -[Limite: desconto (p.p.)], 1, 0))))
+		formatString: 0
+		displayFolder: 7. Diagnóstico
+		lineageTag: f1275fb2-878d-43da-bc61-f5ca4416979f
+
+	/// Setores fracos. +1 ponto forte, -1 atenção, 0 neutro, em branco sem base.
+	measure 'Sinal: setor fraco' = IF([Uma loja escolhida] = 0, BLANK(), IF([Setores fracos (qtde)] > 0, -1, 0))
+		formatString: 0
+		displayFolder: 7. Diagnóstico
+		lineageTag: 3c36da3a-7b5a-42bf-a981-a6c606b97e7b
+
+	/// Setores fortes. +1 ponto forte, -1 atenção, 0 neutro, em branco sem base.
+	measure 'Sinal: setor forte' = IF([Uma loja escolhida] = 0, BLANK(), IF([Setores fortes (qtde)] > 0, 1, 0))
+		formatString: 0
+		displayFolder: 7. Diagnóstico
+		lineageTag: 61ebcacc-0315-42d7-9f5b-44dedbe39038
+
+	/// Equipe. +1 ponto forte, -1 atenção, 0 neutro, em branco sem base.
+	measure 'Sinal: equipe' = IF([Uma loja escolhida] = 0, BLANK(), VAR n = [Vendedores com meta (qtde)] VAR p = [Vendedores abaixo da meta %] RETURN IF(n = 0, BLANK(), IF(p >= [Limite: equipe abaixo], -1, IF(1 - p >= [Limite: equipe acima], 1, 0))))
+		formatString: 0
+		displayFolder: 7. Diagnóstico
+		lineageTag: 7dd4f389-5cef-40ea-aaca-1d482d112a0e
+
+	/// Meta vs venda do ano anterior (+1 folgada, -1 apertada). +1 ponto forte, -1 atenção, 0 neutro, em branco sem base.
+	measure 'Sinal: meta' = IF([Uma loja escolhida] = 0, BLANK(), VAR v = [Meta vs venda do ano anterior %] RETURN IF(ISBLANK(v), BLANK(), IF(v <= -[Limite: meta folgada ou apertada], 1, IF(v >= [Limite: meta folgada ou apertada], -1, 0))))
+		formatString: 0
+		displayFolder: 7. Diagnóstico
+		lineageTag: a853dafd-9d7a-4a49-8998-21edab36d255
+
+	/// Frase do fluxo de cupons.
+	measure 'Texto: fluxo' = VAR v = [Cupons vs ano anterior %] RETURN IF([Sinal: fluxo] < 0, "o fluxo de cupons caiu " & FORMAT(-v, "0.0%", "pt-BR"), IF([Sinal: fluxo] > 0, "o fluxo de cupons cresceu " & FORMAT(v, "0.0%", "pt-BR")))
+		displayFolder: 7. Diagnóstico
+		lineageTag: 48494df7-1fa8-453a-94de-db5b23e3811a
+
+	/// Frase do ticket médio vs rede.
+	measure 'Texto: ticket' = VAR r = [Ticket vs rede (razão)] RETURN IF([Sinal: ticket] < 0, "o ticket médio está " & FORMAT(1 - r, "0.0%", "pt-BR") & " abaixo da rede", IF([Sinal: ticket] > 0, "o ticket médio está " & FORMAT(r - 1, "0.0%", "pt-BR") & " acima da rede"))
+		displayFolder: 7. Diagnóstico
+		lineageTag: 98a9274d-7ff3-4569-91c7-d5655a0bff2b
+
+	/// Frase do desconto médio vs rede.
+	measure 'Texto: desconto' = VAR d = [Desconto vs rede (diferença)] RETURN IF([Sinal: desconto] < 0, "o desconto médio está " & FORMAT(d * 100, "0.0", "pt-BR") & " p.p. acima da rede", IF([Sinal: desconto] > 0, "o desconto médio está " & FORMAT(ABS(d) * 100, "0.0", "pt-BR") & " p.p. abaixo da rede"))
+		displayFolder: 7. Diagnóstico
+		lineageTag: fb38df0b-5eec-4d59-b5c9-a39b9abaade8
+
+	/// Frase dos setores fracos.
+	measure 'Texto: setor fraco' = IF([Sinal: setor fraco] < 0, [Setores fracos (lista)] & " abaixo de " & FORMAT([Limite: setor fraco], "0%", "pt-BR") & " da meta")
+		displayFolder: 7. Diagnóstico
+		lineageTag: 77f452ec-c65e-4acb-ae0d-fa66208dbee1
+
+	/// Frase dos setores fortes.
+	measure 'Texto: setor forte' = IF([Sinal: setor forte] > 0, [Setores fortes (lista)] & " acima de " & FORMAT([Limite: setor forte], "0%", "pt-BR") & " da meta")
+		displayFolder: 7. Diagnóstico
+		lineageTag: 7039db9d-572e-41a8-b88e-e0edb212a114
+
+	/// Frase da equipe.
+	measure 'Texto: equipe' = VAR n = [Vendedores com meta (qtde)] VAR b = [Vendedores abaixo da meta (qtde)] RETURN IF([Sinal: equipe] < 0, b & " de " & n & " vendedores abaixo da meta", IF([Sinal: equipe] > 0, (n - b) & " de " & n & " vendedores acima da meta"))
+		displayFolder: 7. Diagnóstico
+		lineageTag: 7fd9a134-ac76-49ec-94a3-4796cddbdc11
+
+	/// Frase do contexto da meta.
+	measure 'Texto: meta' = VAR v = [Meta vs venda do ano anterior %] RETURN IF([Sinal: meta] > 0, "meta " & FORMAT(-v, "0.0%", "pt-BR") & " abaixo da venda do ano anterior (folgada)", IF([Sinal: meta] < 0, "meta " & FORMAT(v, "0.0%", "pt-BR") & " acima da venda do ano anterior (apertada)"))
+		displayFolder: 7. Diagnóstico
+		lineageTag: 2e112656-4b57-4d38-8570-704307ba09a0
+
+	/// Causas (sinal -1) em ordem de prioridade: setor fraco, equipe, fluxo, ticket, desconto. Só as 2 primeiras entram no veredito.
+	measure 'Atenções (lista)' =
+			VAR t = UNION(
+					ROW("o", 1, "s", [Sinal: setor fraco], "t", [Texto: setor fraco]),
+					ROW("o", 2, "s", [Sinal: equipe], "t", [Texto: equipe]),
+					ROW("o", 3, "s", [Sinal: fluxo], "t", [Texto: fluxo]),
+					ROW("o", 4, "s", [Sinal: ticket], "t", [Texto: ticket]),
+					ROW("o", 5, "s", [Sinal: desconto], "t", [Texto: desconto])
+				)
+			RETURN CONCATENATEX(TOPN(2, FILTER(t, [s] = -1), [o], ASC), [t], "; ", [o], ASC)
+		displayFolder: 7. Diagnóstico
+		lineageTag: d300113a-4ae4-4795-ad7b-0c8a21a7d175
+
+	/// Pontos fortes (sinal +1) em ordem de prioridade: setor forte, ticket, fluxo, equipe, desconto. Só os 2 primeiros entram no veredito.
+	measure 'Pontos fortes (lista)' =
+			VAR t = UNION(
+					ROW("o", 1, "s", [Sinal: setor forte], "t", [Texto: setor forte]),
+					ROW("o", 2, "s", [Sinal: ticket], "t", [Texto: ticket]),
+					ROW("o", 3, "s", [Sinal: fluxo], "t", [Texto: fluxo]),
+					ROW("o", 4, "s", [Sinal: equipe], "t", [Texto: equipe]),
+					ROW("o", 5, "s", [Sinal: desconto], "t", [Texto: desconto])
+				)
+			RETURN CONCATENATEX(TOPN(2, FILTER(t, [s] = 1), [o], ASC), [t], "; ", [o], ASC)
+		displayFolder: 7. Diagnóstico
+		lineageTag: b56ceac6-ba12-4a5e-a4fc-611c50b00c41
+
+	/// Quantidade de sinais de atenção.
+	measure 'Atenções (qtde)' = COUNTROWS(FILTER(UNION(ROW("s", [Sinal: setor fraco]), ROW("s", [Sinal: equipe]), ROW("s", [Sinal: fluxo]), ROW("s", [Sinal: ticket]), ROW("s", [Sinal: desconto])), [s] = -1)) + 0
+		formatString: 0
+		displayFolder: 7. Diagnóstico
+		lineageTag: fb9eddf0-d03b-4da4-837d-92fe59a1b77a
+
+	/// Quantidade de pontos fortes (no máximo 2 entram no veredito).
+	measure 'Pontos fortes (qtde)' = COUNTROWS(FILTER(UNION(ROW("s", [Sinal: setor forte]), ROW("s", [Sinal: ticket]), ROW("s", [Sinal: fluxo]), ROW("s", [Sinal: equipe]), ROW("s", [Sinal: desconto])), [s] = 1)) + 0
+		formatString: 0
+		displayFolder: 7. Diagnóstico
+		lineageTag: edca6efa-5643-4af6-81b0-35a18a805ac7
+
+	/// Texto do diagnóstico: situação, contexto de loja nova, até 2 causas, até 2 pontos fortes e o contexto da meta. Mesma regra de src/diagnostico.py.
+	measure 'Veredito' =
+			VAR cob = [Cobertura da meta até o dia]
+			VAR abertura = MIN(Lojas[data_abertura])
+			VAR natenc = [Atenções (qtde)]
+			VAR nforte = MIN([Pontos fortes (qtde)], 2)
+			VAR p1 = IF(cob >= 1, "Acima", "Abaixo") & " da meta (" & FORMAT(cob, "0.0%", "pt-BR") & ")."
+			VAR p2 = IF([Loja em maturação] = 1, " Loja em maturação: aberta em " & FORMAT(abertura, "dd/mm/yyyy", "pt-BR") & ", sem ano anterior; meta estimada com o histórico curto da loja e de lojas de formato semelhante.")
+			VAR p3 = IF(natenc > 0, " Atenção: " & [Atenções (lista)] & ".", IF(cob < 1, " Sem causa clara nos indicadores (variação do período)."))
+			VAR p4 = IF(nforte > 0, " " & IF(nforte = 1, "Ponto forte", "Pontos fortes") & ": " & [Pontos fortes (lista)] & ".")
+			VAR p5 = IF(NOT ISBLANK([Sinal: meta]) && [Sinal: meta] <> 0, " Contexto: " & [Texto: meta] & ".")
+			RETURN
+			    IF(
+			        [Uma loja escolhida] = 0, "Escolha uma loja para ver o diagnóstico.",
+			        IF(ISBLANK(cob), "Sem meta no período.", p1 & p2 & p3 & p4 & p5)
+			    )
+		displayFolder: 7. Diagnóstico
+		lineageTag: c7163f34-1b60-42fe-8ac0-88a6f5912989
+
+	/// Para o cartão: variação de cupons ou "sem base".
+	measure 'Fluxo de cupons vs ano anterior' = IF([Uma loja escolhida] = 0, BLANK(), IF(ISBLANK([Cupons vs ano anterior %]), "sem base", FORMAT([Cupons vs ano anterior %], "+0.0%;-0.0%;0.0%", "pt-BR")))
+		displayFolder: 7. Diagnóstico
+		lineageTag: 4b30ad1f-5b17-4990-82de-c545b6a68d7f
+
+	/// Para o cartão: meta vs venda do ano anterior ou "sem base".
+	measure 'Meta vs venda do ano anterior' = IF([Uma loja escolhida] = 0, BLANK(), IF(ISBLANK([Meta vs venda do ano anterior %]), "sem base", FORMAT([Meta vs venda do ano anterior %], "+0.0%;-0.0%;0.0%", "pt-BR")))
+		displayFolder: 7. Diagnóstico
+		lineageTag: c50f7b65-9c7b-490f-9e7d-ace3249ca9e8
+
+	/// Verde (ponto forte), vermelho (atenção) ou cinza (neutro/sem base) para o cartão de fluxo de cupons.
+	measure 'Cor do sinal: fluxo' = VAR s = [Sinal: fluxo] RETURN IF(ISBLANK(s), "#6B7280", IF(s > 0, "#2E7D32", IF(s < 0, "#C62828", "#374151")))
+		displayFolder: 4. Formatação
+		lineageTag: ec240369-4b8e-42b8-b540-94cfd77adb79
+
+	/// Valor da loja para o indicador da linha (tabela do diagnóstico).
+	measure 'Indicador: loja' =
+			IF([Uma loja escolhida] = 0, BLANK(), SWITCH(
+			    SELECTEDVALUE('Indicadores do diagnóstico'[Ordem]),
+			    1, IF(ISBLANK([Cupons vs ano anterior %]), "sem base", FORMAT([Cupons vs ano anterior %], "+0.0%;-0.0%;0.0%", "pt-BR") & " (" & COALESCE([Cupons acumulados no mês], 0) & " cupons)"),
+			    2, FORMAT([Ticket médio até o dia], "R$ #,0.00", "pt-BR"),
+			    3, FORMAT([Desconto médio até o dia], "0.00%", "pt-BR"),
+			    4, [Setores fracos (qtde)] & " fraco(s) · " & [Setores fortes (qtde)] & " forte(s)",
+			    5, [Vendedores abaixo da meta (qtde)] & " de " & [Vendedores com meta (qtde)] & " abaixo da meta",
+			    6, FORMAT([Meta acumulada até o dia], "R$ #,0", "pt-BR") & IF(ISBLANK([Meta vs venda do ano anterior %]), " (sem base)", " (" & FORMAT([Meta vs venda do ano anterior %], "+0.0%;-0.0%;0.0%", "pt-BR") & ")"),
+			    BLANK()
+			))
+		displayFolder: 7. Diagnóstico
+		lineageTag: 91c81be9-36a9-48eb-b5fd-c242831bc42a
+
+	/// Referência (rede ou ano anterior) do indicador da linha.
+	measure 'Indicador: referência' =
+			IF([Uma loja escolhida] = 0, BLANK(), SWITCH(
+			    SELECTEDVALUE('Indicadores do diagnóstico'[Ordem]),
+			    1, IF(ISBLANK([Cupons acumulados ano anterior]), "sem ano anterior", "ano anterior: " & [Cupons acumulados ano anterior]),
+			    2, "rede: " & FORMAT([Ticket médio da rede até o dia], "R$ #,0.00", "pt-BR") & " (" & FORMAT([Ticket vs rede (razão)] - 1, "+0.0%;-0.0%;0.0%", "pt-BR") & ")",
+			    3, "rede: " & FORMAT([Desconto médio da rede até o dia], "0.00%", "pt-BR") & " (" & FORMAT([Desconto vs rede (diferença)] * 100, "+0.00;-0.00;0.00", "pt-BR") & " p.p.)",
+			    4, IF([Setores fracos (qtde)] > 0, "fracos: " & [Setores fracos (lista)], "nenhum setor fraco"),
+			    5, FORMAT([Vendedores abaixo da meta %], "0%", "pt-BR") & " da equipe abaixo",
+			    6, IF(ISBLANK([Receita acumulada ano anterior]), "sem ano anterior", "venda ano anterior: " & FORMAT([Receita acumulada ano anterior], "R$ #,0", "pt-BR")),
+			    BLANK()
+			))
+		displayFolder: 7. Diagnóstico
+		lineageTag: e8c558eb-4af6-499a-981c-185e32afc62f
+
+	/// Limite (vindo do banco) do indicador da linha.
+	measure 'Indicador: limite' =
+			SWITCH(
+			    SELECTEDVALUE('Indicadores do diagnóstico'[Ordem]),
+			    1, "queda ≥ " & FORMAT([Limite: queda de cupons], "0%", "pt-BR"),
+			    2, "< " & FORMAT([Limite: ticket mínimo], "0%", "pt-BR") & " da rede",
+			    3, "≥ " & FORMAT([Limite: desconto (p.p.)] * 100, "0.0", "pt-BR") & " p.p. acima da rede",
+			    4, "< " & FORMAT([Limite: setor fraco], "0%", "pt-BR") & " fraco · ≥ " & FORMAT([Limite: setor forte], "0%", "pt-BR") & " forte",
+			    5, "≥ " & FORMAT([Limite: equipe abaixo], "0%", "pt-BR") & " abaixo",
+			    6, "± " & FORMAT([Limite: meta folgada ou apertada], "0%", "pt-BR"),
+			    BLANK()
+			)
+		displayFolder: 7. Diagnóstico
+		lineageTag: b2c4d6b4-787f-485c-bf87-15f290694c5e
+
+	/// Sinal (+1/-1/0) do indicador da linha; em branco sem base.
+	measure 'Indicador: sinal' =
+			SWITCH(
+			    SELECTEDVALUE('Indicadores do diagnóstico'[Ordem]),
+			    1, [Sinal: fluxo],
+			    2, [Sinal: ticket],
+			    3, [Sinal: desconto],
+			    4, IF([Sinal: setor fraco] < 0, -1, [Sinal: setor forte]),
+			    5, [Sinal: equipe],
+			    6, [Sinal: meta],
+			    BLANK()
+			)
+		formatString: 0
+		displayFolder: 7. Diagnóstico
+		lineageTag: a576cf6c-366d-4e04-b93c-7240e7590a28
+
+	/// Atenção, Ponto forte, Neutro ou Sem base (na meta: Meta folgada, Meta apertada).
+	measure 'Indicador: situação' =
+			VAR s = [Indicador: sinal]
+			VAR meta = SELECTEDVALUE('Indicadores do diagnóstico'[Ordem]) = 6
+			RETURN
+			    IF(
+			        [Uma loja escolhida] = 0, BLANK(),
+			        IF(ISBLANK(s), "Sem base", IF(meta, IF(s > 0, "Meta folgada", IF(s < 0, "Meta apertada", "Neutro")), IF(s > 0, "Ponto forte", IF(s < 0, "Atenção", "Neutro"))))
+			    )
+		displayFolder: 7. Diagnóstico
+		lineageTag: 2eefd268-f330-4d8a-86bd-eac8150dd746
+
+	/// Cor do texto da situação: verde (ponto forte), vermelho (atenção), cinza (sem base ou neutro).
+	measure 'Cor da situação' = VAR s = [Indicador: sinal] VAR meta = SELECTEDVALUE('Indicadores do diagnóstico'[Ordem]) = 6 RETURN IF(ISBLANK(s), "#6B7280", IF(meta, IF(s = 0, "#6B7280", "#B26A00"), IF(s > 0, "#2E7D32", IF(s < 0, "#C62828", "#6B7280"))))
+		displayFolder: 4. Formatação
+		lineageTag: 92524b71-6d4c-4fa3-b4db-cb729503c6ec
+
+	/// Título do painel com a loja escolhida.
+	measure 'Título do diagnóstico' = IF([Uma loja escolhida] = 1, "Diagnóstico · " & SELECTEDVALUE(Lojas[nome_loja]), "Diagnóstico da loja · escolha uma loja")
+		displayFolder: 7. Diagnóstico
+		lineageTag: e6a0ca8c-bc3b-44a7-a189-19abb18996c3
+
+	/// Um item de atenção por linha da tabela 'Itens de atenção' (linhas sem item ficam em branco e a tabela as oculta).
+	measure 'Item de atenção' =
+			IF(
+			    [Uma loja escolhida] = 0, IF(SELECTEDVALUE('Itens de atenção'[Ordem]) = 1, "Escolha uma loja."),
+			    IF(
+			        [Atenções (qtde)] = 0, IF(SELECTEDVALUE('Itens de atenção'[Ordem]) = 1, "Nenhum ponto de atenção."),
+			        SWITCH(
+			            SELECTEDVALUE('Itens de atenção'[Ordem]),
+			        1, IF([Sinal: setor fraco] < 0, "• " & [Texto: setor fraco]),
+			        2, IF([Sinal: equipe] < 0, "• " & [Texto: equipe]),
+			        3, IF([Sinal: fluxo] < 0, "• " & [Texto: fluxo]),
+			        4, IF([Sinal: ticket] < 0, "• " & [Texto: ticket]),
+			        5, IF([Sinal: desconto] < 0, "• " & [Texto: desconto]),
+			            BLANK()
+			        )
+			    )
+			)
+		displayFolder: 7. Diagnóstico
+		lineageTag: 77b4e759-04c7-4eb6-b48a-37855be2d030
+
+	/// Um ponto forte por linha da tabela 'Itens fortes' (linhas sem item ficam em branco e a tabela as oculta).
+	measure 'Item forte' =
+			IF(
+			    [Uma loja escolhida] = 0, IF(SELECTEDVALUE('Itens fortes'[Ordem]) = 1, "Escolha uma loja."),
+			    IF(
+			        [Pontos fortes (qtde)] = 0, IF(SELECTEDVALUE('Itens fortes'[Ordem]) = 1, "Nenhum ponto forte."),
+			        SWITCH(
+			            SELECTEDVALUE('Itens fortes'[Ordem]),
+			        1, IF([Sinal: setor forte] > 0, "• " & [Texto: setor forte]),
+			        2, IF([Sinal: ticket] > 0, "• " & [Texto: ticket]),
+			        3, IF([Sinal: fluxo] > 0, "• " & [Texto: fluxo]),
+			        4, IF([Sinal: equipe] > 0, "• " & [Texto: equipe]),
+			        5, IF([Sinal: desconto] > 0, "• " & [Texto: desconto]),
+			            BLANK()
+			        )
+			    )
+			)
+		displayFolder: 7. Diagnóstico
+		lineageTag: 37fd41cb-d3cf-4506-99de-2a5a1c91f3c4
+
+	/// Cor do tema da lista: branco quando não há item (só a mensagem aparece, sem tema).
+	measure 'Cor do tema (atenção)' = IF([Uma loja escolhida] = 1 && [Atenções (qtde)] > 0, "#242424", "#FFFFFF")
+		displayFolder: 4. Formatação
+		lineageTag: 8436a83c-4869-4e56-945d-fbe8369fb2e9
+
+	/// Cor do tema da lista: branco quando não há item (só a mensagem aparece, sem tema).
+	measure 'Cor do tema (forte)' = IF([Uma loja escolhida] = 1 && [Pontos fortes (qtde)] > 0, "#242424", "#FFFFFF")
+		displayFolder: 4. Formatação
+		lineageTag: 119469b4-6d55-4d75-9a6d-38aee603bef3
