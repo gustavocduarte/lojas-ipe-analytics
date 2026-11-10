@@ -4,21 +4,22 @@ Todo modelo tem a mesma assinatura: recebe o painel de treino e os dias a prever
 matriz (n_series, n_dias_alvo); séries sem histórico suficiente voltam NaN.
 
 - ingenua: o mesmo dia da semana um ano antes (364 dias). Linha de base.
-- decomposicao: nível recente x fator do dia da semana x fator de feriado x fator do mês x
-  tendência amortecida. Os fatores são aprendidos por setor, juntando as lojas com histórico longo.
+- decomposicao: nível recente x fator do dia da semana x fator de feriado x Black Friday x fator do
+  mês x tendência amortecida. Os fatores são aprendidos por setor, juntando as lojas com
+  histórico longo.
 - holt_winters: nível + tendência amortecida + sazonalidade semanal (aditiva), uma série por vez.
 - holt_winters_mensal: o Holt-Winters corrigido pelo fator do mês da decomposição.
 """
 
 import math
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
 
 from src import config
-from src.calendario import feriados_do_periodo
+from src.calendario import black_friday, feriados_do_periodo
 from src.previsao.painel import Painel
 
 DIAS_POR_MES = 30.4375
@@ -38,11 +39,16 @@ def _janela_natal(datas: pd.DatetimeIndex) -> np.ndarray:
     return np.asarray((chave >= m1 * 100 + d1) & (chave <= m2 * 100 + d2))
 
 
-def _fator_natal(datas: pd.DatetimeIndex, sem_calendario: np.ndarray) -> float:
+def _fator_natal(
+    datas: pd.DatetimeIndex, sem_calendario: np.ndarray, base_excluida: np.ndarray | None = None
+) -> float:
     """Razão média da janela pré-Natal com os dias de referência logo antes dela, em cada ano cuja
     janela está inteira nos dados (1,0 se nenhum). `sem_calendario` já vem sem dia da semana e
-    feriado."""
+    feriado; os dias de `base_excluida` (cauda da Black Friday) não entram na referência."""
     serie = pd.Series(sem_calendario, index=datas)
+    serie_base = (
+        serie if base_excluida is None else serie.where(~pd.Series(base_excluida, index=datas))
+    )
     razoes = []
     for ano in sorted(set(datas.year)):
         (m1, d1), (m2, d2) = config.PREVISAO_NATAL_JANELA
@@ -51,10 +57,48 @@ def _fator_natal(datas: pd.DatetimeIndex, sem_calendario: np.ndarray) -> float:
         if base_ini < datas[0] or fim > datas[-1]:
             continue
         janela = serie[ini:fim].mean()
-        base = serie[base_ini : ini - pd.Timedelta(days=1)].mean()
+        base = serie_base[base_ini : ini - pd.Timedelta(days=1)].mean()
         if base > 0 and janela > 0:
             razoes.append(janela / base)
     return float(np.mean(razoes)) if razoes else 1.0
+
+
+def _deslocamento_black_friday(datas: pd.DatetimeIndex) -> tuple[np.ndarray, np.ndarray]:
+    """Dias que cada data está da Black Friday do seu ano (só a DATA da campanha, que se conhece
+    com antecedência) e se cai na janela de config.PREVISAO_BLACK_FRIDAY_JANELA."""
+    sextas = {ano: pd.Timestamp(black_friday(ano)) for ano in set(datas.year)}
+    deslocamento = np.array([(d - sextas[d.year]).days for d in datas], dtype=int)
+    ini, fim = config.PREVISAO_BLACK_FRIDAY_JANELA
+    return deslocamento, (deslocamento >= ini) & (deslocamento <= fim)
+
+
+def _fatores_black_friday(datas: pd.DatetimeIndex, sem_calendario: np.ndarray) -> dict[int, float]:
+    """Efeito de cada dia da janela da Black Friday, estimado no histórico: razão do dia pela média
+    dos dias de referência logo antes da janela, em cada ano com a janela inteira nos dados.
+    `sem_calendario` já vem sem dia da semana e feriado. Encolhe para 1 (em log) com peso
+    n / (n + K), K = config.PREVISAO_BLACK_FRIDAY_K (0 = efeito inteiro do histórico), n = anos
+    observados; nenhum parâmetro do gerador entra aqui."""
+    serie = pd.Series(sem_calendario, index=datas)
+    ini, fim = config.PREVISAO_BLACK_FRIDAY_JANELA
+    razoes: dict[int, list[float]] = {}
+    for ano in sorted(set(datas.year)):
+        sexta = pd.Timestamp(black_friday(ano))
+        janela_ini = sexta + pd.Timedelta(days=ini)
+        base_ini = janela_ini - pd.Timedelta(days=config.PREVISAO_BLACK_FRIDAY_DIAS_BASE)
+        if base_ini < datas[0] or sexta + pd.Timedelta(days=fim) > datas[-1]:
+            continue
+        base = serie[base_ini : janela_ini - pd.Timedelta(days=1)].mean()
+        if not base > 0:
+            continue
+        for k in range(ini, fim + 1):
+            valor = serie.get(sexta + pd.Timedelta(days=k), np.nan)
+            if valor > 0:
+                razoes.setdefault(k, []).append(valor / base)
+    k_bf = config.PREVISAO_BLACK_FRIDAY_K
+    return {
+        k: math.exp(len(v) / (len(v) + k_bf) * math.log(float(np.mean(v))))
+        for k, v in razoes.items()
+    }
 
 
 def _series_previsiveis(painel: Painel) -> np.ndarray:
@@ -88,6 +132,14 @@ class Fatores:
     mes: np.ndarray  # 12, janeiro = 0, média 1
     crescimento_mensal: float  # variação em log por mês
     natal: float = 1.0  # janela pré-Natal contra os dias anteriores do mesmo mês
+    black_friday: dict[int, float] = field(default_factory=dict)  # dias desde a Black Friday
+
+    def fator_black_friday(self, datas: pd.DatetimeIndex) -> np.ndarray:
+        """Fator de cada data (1,0 fora da janela da Black Friday ou sem histórico dela)."""
+        if not self.black_friday:
+            return np.ones(len(datas))
+        deslocamento, na_janela = _deslocamento_black_friday(datas)
+        return np.where(na_janela, [self.black_friday.get(int(k), 1.0) for k in deslocamento], 1.0)
 
     def feriado(self, nome: str | None) -> float:
         if nome is None:
@@ -109,10 +161,11 @@ def estimar_fatores(datas: pd.DatetimeIndex, soma: np.ndarray) -> Fatores:
     eh_feriado = np.array([n is not None for n in nomes])
     valido = np.isfinite(razao)
     na_janela_natal = _janela_natal(datas)
+    na_janela_bf = _deslocamento_black_friday(datas)[1]
 
     f_dia = np.ones(7)
     for d in range(7):
-        usados = valido & ~eh_feriado & ~na_janela_natal & (dia_semana == d)
+        usados = valido & ~eh_feriado & ~na_janela_natal & ~na_janela_bf & (dia_semana == d)
         if usados.any():
             f_dia[d] = razao[usados].mean()
     f_dia /= f_dia.mean()
@@ -129,7 +182,11 @@ def estimar_fatores(datas: pd.DatetimeIndex, soma: np.ndarray) -> Fatores:
 
     f_feriado = np.array([por_nome.get(n, geral) if n is not None else 1.0 for n in nomes])
     sem_calendario = serie.to_numpy() / (f_dia[dia_semana] * f_feriado)
-    f_natal = _fator_natal(datas, sem_calendario)
+    f_bf = _fatores_black_friday(datas, sem_calendario)
+    desloc_bf = _deslocamento_black_friday(datas)[0]
+    fator_bf = np.where(na_janela_bf, [f_bf.get(int(k), 1.0) for k in desloc_bf], 1.0)
+    sem_calendario = sem_calendario / fator_bf  # fora do fator do mês e do Natal
+    f_natal = _fator_natal(datas, sem_calendario, na_janela_bf)
     sem_calendario = np.where(na_janela_natal, sem_calendario / f_natal, sem_calendario)
     agrupado = pd.DataFrame({"d": sem_calendario}).groupby([datas.year, datas.month])["d"]
     mensal = agrupado.agg(["mean", "count"])
@@ -148,7 +205,7 @@ def estimar_fatores(datas: pd.DatetimeIndex, soma: np.ndarray) -> Fatores:
         n = len(sobras[mes])
         log_mes[mes] = n / (n + config.PREVISAO_SUAVIZACAO_MENSAL_K) * (media - centro)
     f_mes = np.exp(log_mes)
-    return Fatores(f_dia, geral, por_nome, f_mes / f_mes.mean(), crescimento, f_natal)
+    return Fatores(f_dia, geral, por_nome, f_mes / f_mes.mean(), crescimento, f_natal, f_bf)
 
 
 def _fatores_por_setor(painel: Painel) -> dict[str, Fatores]:
@@ -186,6 +243,7 @@ def prever_decomposicao(painel: Painel, alvo: pd.DatetimeIndex) -> np.ndarray:
             f.dia_semana[datas_janela.day_of_week]
             * np.array([f.feriado(x) for x in nomes_janela])
             * np.where(_janela_natal(datas_janela), f.natal, 1.0)
+            * f.fator_black_friday(datas_janela)
             * f.mes[datas_janela.month - 1]
             * np.exp(f.crescimento_mensal * meses_janela)
         )
@@ -193,6 +251,7 @@ def prever_decomposicao(painel: Painel, alvo: pd.DatetimeIndex) -> np.ndarray:
             f.dia_semana[alvo.day_of_week]
             * np.array([f.feriado(x) for x in nomes_alvo])
             * np.where(_janela_natal(alvo), f.natal, 1.0)
+            * f.fator_black_friday(alvo)
             * f.mes[alvo.month - 1]
             * np.exp(f.crescimento_mensal * _soma_amortecida(meses_alvo))
         )

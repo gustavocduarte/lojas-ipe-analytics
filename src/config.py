@@ -465,6 +465,12 @@ PREVISAO_SUAVIZACAO_MENSAL_K = 0.1
 PREVISAO_SUAVIZACAO_FERIADO_K = 1.0  # idem para o fator de cada feriado
 # janela pré-Natal (mês, dia) inclusive; o fator é a razão dela com os dias anteriores do mesmo mês
 PREVISAO_NATAL_JANELA = ((12, 15), (12, 24))
+# Black Friday: só a DATA da campanha é conhecida de antemão; o efeito de cada dia da janela
+# (dias desde a sexta-feira) é estimado no histórico, nunca lido dos parâmetros do gerador
+PREVISAO_BLACK_FRIDAY_JANELA = (-7, 7)
+# K = 0: o efeito inteiro do ano anterior (sem encolhimento), como o fator de pré-Natal
+PREVISAO_BLACK_FRIDAY_K = 0.0
+PREVISAO_BLACK_FRIDAY_DIAS_BASE = 14  # dias imediatamente antes da janela usados como referência
 PREVISAO_NATAL_DIAS_BASE = 14  # dias imediatamente antes da janela que servem de referência
 PREVISAO_AMORTECIMENTO_MENSAL = 0.9  # a tendência perde 10% do ritmo a cada mês à frente
 PREVISAO_HW_PERIODO = 7
