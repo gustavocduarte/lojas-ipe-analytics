@@ -171,10 +171,11 @@ def test_cdf_da_forma_e_nao_decrescente():
 
 
 # --- sem vazamento: cortes de teste ---------------------------------------------------------------
-def _cortes(rng, mudar=None):
-    """Lojas 1 e 2 em seis meses; cortes a 26, 20, 14, 8 e 2 dias do fim, e o último."""
+def _cortes(rng, mudar=None, meses=MESES):
+    """Lojas 1 e 2 em seis meses (ou nos `meses` dados); cortes a 26, 20, 14, 8 e 2 dias do fim e
+    o último."""
     linhas = []
-    for mes in MESES:
+    for mes in meses:
         for sk in (1, 2):
             for k in (26, 20, 14, 8, 2, 0):
                 total_resto = 40.0 * k
@@ -226,6 +227,51 @@ def test_so_passado_usa_so_meses_fechados_anteriores_e_o_primeiro_mes_fica_sem_b
     )
     fim = com_p[com_p["dias_restantes"] == 0]  # último dia: 0 ou 1, também em janeiro
     assert set(fim["probabilidade"].unique()) <= {0.0, 1.0}
+
+
+MESES_9 = pd.to_datetime([f"2025-{m:02d}-01" for m in range(1, 10)])
+
+
+def test_janela_recente_guarda_os_ultimos_n_meses_distintos():
+    a = _amostras(np.random.default_rng(3), meses=MESES_9, por_mes=2)
+    ultimos = prob.janela_recente(a, 6)
+    assert sorted(ultimos["mes"].unique()) == list(MESES_9[3:])
+    assert len(prob.janela_recente(a, None)) == len(a)
+    poucos = a[a["mes"] < MESES_9[4]]
+    assert len(prob.janela_recente(poucos, 6)) == len(poucos)  # menos de 6 meses: fica tudo
+    assert prob.janela_recente(a.iloc[0:0], 6).empty
+
+
+def test_so_passado_usa_so_os_ultimos_6_meses_e_exige_o_minimo_de_3():
+    assert config.PROB_JANELA_MESES == 6 and config.PROB_MESES_MINIMOS == 3
+    base = _cortes(np.random.default_rng(21), meses=MESES_9)
+    a, modelos = prob.calcular_probabilidades(base, "so_passado")
+    assert modelos[MESES_9[8]].n_meses == 6  # março a agosto: fora janeiro e fevereiro
+    assert modelos[MESES_9[8]].meses_ate == MESES_9[7]
+    assert modelos[MESES_9[3]].n_meses == 3  # o mínimo: jan, fev e mar
+    # com 2 meses de passado não há base; com 3, há
+    cedo = a[(a["mes"] == MESES_9[2]) & (a["dias_restantes"] > 0)]
+    ok = a[(a["mes"] == MESES_9[3]) & (a["dias_restantes"] > 0)]
+    assert (cedo["motivo_sem_base"] == "sem_amostra_erro").all() and cedo[
+        "probabilidade"
+    ].isna().all()
+    assert ok["probabilidade"].notna().all()
+    # um desfecho antigo (jan) está fora da janela de setembro: nada muda lá, mas muda em abril
+    velho = base.copy()
+    m = velho["mes"] == MESES_9[0]
+    velho.loc[m, "real_resto"] = velho.loc[m, "real_resto"] * 0.3
+    b, _ = prob.calcular_probabilidades(velho, "so_passado")
+    set_ = a["mes"] == MESES_9[8]
+    pd.testing.assert_series_equal(a.loc[set_, "probabilidade"], b.loc[set_, "probabilidade"])
+    abril = (a["mes"] == MESES_9[3]) & (a["dias_restantes"] > 0)
+    assert not np.allclose(a.loc[abril, "probabilidade"], b.loc[abril, "probabilidade"])
+    # sem janela (todo o passado) o desfecho de janeiro chega até setembro
+    c, _ = prob.calcular_probabilidades(base, "so_passado", janela_meses=None)
+    d, _ = prob.calcular_probabilidades(velho, "so_passado", janela_meses=None)
+    assert not np.allclose(
+        c.loc[set_ & (c["dias_restantes"] > 0), "probabilidade"],
+        d.loc[set_ & (d["dias_restantes"] > 0), "probabilidade"],
+    )
 
 
 def test_leave_one_month_out_tira_o_mes_avaliado_mas_usa_os_posteriores():

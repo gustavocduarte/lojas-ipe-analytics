@@ -91,8 +91,8 @@ python -m src.simulador backtest --gravar            # v1: p25 diário, trocas r
 python -m src.simulador backtest-v2 --gravar         # v2: fatia semanal encolhida, curva do percentil
 ```
 **Modelos** (só numpy/pandas, leves): `ingenua` (mesmo dia da semana um ano antes), `decomposicao`
-(nível recente x dia da semana x feriado x **janela pré-Natal (15 a 24/12)** x mês x tendência amortecida;
-fatores aprendidos por setor nas lojas com histórico longo), `holt_winters` (semanal, aditivo, tendência amortecida, feito à mão) e
+(nível recente x dia da semana x feriado x **janela pré-Natal (15 a 24/12)** x **Black Friday** x mês x
+tendência amortecida; fatores aprendidos por setor nas lojas com histórico longo), `holt_winters` (semanal, aditivo, tendência amortecida, feito à mão) e
 `holt_winters_mensal` (o anterior corrigido pelo fator do mês). Séries são a receita líquida diária de
 vendas concluídas por loja e setor (90 séries).
 
@@ -166,6 +166,24 @@ fim da `dim_tempo`.
   soma dos dias bate com a meta do mês (o último dia absorve o resto do arredondamento). As metas são o
   esperado do período, não o realizado do mês: ver `docs/metodologia_metas.md`.
 * **Evolução** (relatório) = acumulado do mês / acumulado do mesmo período do ano anterior - 1.
+
+### Black Friday e probabilidade de bater a meta (Fase 5, etapa 5)
+
+**Black Friday no modelo.** A decomposição conhece só a **data** da Black Friday (calendário) e estima o
+efeito de cada dia da janela (±7 dias) pelo histórico, sem encolhimento (K = 0), sem nenhum parâmetro do
+gerador (um teste varre `src/previsao` e falha se algum for usado). No rolling-origin da rede, o WAPE do
+dia caiu de 19,1% para 16,2% e o do mês de 4,4% para 4,1%. Dezembro (pré-Natal e 25 a 31/12) segue
+subestimado; a tentativa de tratar o Natal dia a dia piorou e foi revertida. Tudo em
+`docs/metodologia_previsao_eventos.md`.
+
+**Probabilidade de a receita do mês fechar >= meta** (`python -m src.previsao probabilidade [--gravar]`,
+`dw.previsao_probabilidade_meta`/`_calibracao`/`previsao_erro_resto`; método em
+`docs/metodologia_probabilidade.md`). Em cada dia, o realizado até ali mais o previsto do resto do mês
+vezes um erro estimado dos **últimos 6 meses fechados** (mínimo de 3), por faixa de dias que faltam,
+com encolhimento da loja para o conjunto das lojas e a rede com dispersão própria. Sem 28 dias de
+histórico ou sem meta, a loja fica **sem base** (NULL, nunca 50%). Em 2025, `so_passado`: Brier das
+lojas 0,106 (50% constante: 0,250), ECE 0,046. **Limitação:** o viés é conservador: previsto médio
+44% contra 48% observado (rede: 45% contra 56%, sobre 9 meses). É sempre exibida como **estimativa**.
 
 ## Dashboard Power BI (Fase 5)
 O relatório é um **projeto `.pbip`** em `powerbi/`, versionado em texto: `lojas_ipe.Report` (páginas e visuais em PBIR/JSON) e `lojas_ipe.SemanticModel` (tabelas, relações e medidas em TMDL). O cache dos dados (`.pbi/`, `cache.abf`) fica fora do git.

@@ -16,9 +16,10 @@ dos resíduos padronizados z = (ln R - mu) / sigma, juntos de todas as lojas e f
 No último dia do mês não há o que prever: P é exatamente 0 ou 1. Meta já batida: P = 1.
 
 Sem vazamento do futuro (duas formas, escolhidas por `esquema`):
-  - "so_passado": a distribuição do erro de um mês usa SÓ meses já fechados e anteriores a ele. É
-    a probabilidade que vai para o painel (em qualquer data de referência d, só entram meses que
-    terminaram antes de d, porque o desfecho de um corte só é conhecido no fim do seu mês).
+  - "so_passado": a distribuição do erro de um mês usa SÓ meses já fechados e anteriores a ele, os
+    últimos config.PROB_JANELA_MESES (mínimo config.PROB_MESES_MINIMOS). É a probabilidade que vai
+    para o painel (em qualquer data de referência d, só entram meses que terminaram antes de d,
+    porque o desfecho de um corte só é conhecido no fim do seu mês).
   - "leave_one_month_out": a do mês avaliado sai do ajuste, mas entram meses POSTERIORES a ele.
     Serve só para medir a calibração com mais meses (é otimista); nunca vai para o painel.
 
@@ -195,10 +196,26 @@ def probabilidade_do_corte(
     return float(1.0 - modelo.cdf(z)), None
 
 
+def janela_recente(amostras: pd.DataFrame, meses: int | None) -> pd.DataFrame:
+    """Amostras dos últimos `meses` meses distintos (todas, se `meses` é None). O erro do resto do
+    mês muda de nível ao longo do ano; a média de todo o passado fica presa aos primeiros meses."""
+    if meses is None or not len(amostras):
+        return amostras
+    ultimos = sorted(amostras["mes"].unique())[-meses:]
+    return amostras[amostras["mes"].isin(ultimos)]
+
+
 def calcular_probabilidades(
-    cortes: pd.DataFrame, esquema: str, k: float = config.PROB_SHRINKAGE_K
+    cortes: pd.DataFrame,
+    esquema: str,
+    k: float = config.PROB_SHRINKAGE_K,
+    janela_meses: int | None = config.PROB_JANELA_MESES,
 ) -> tuple[pd.DataFrame, dict[pd.Timestamp, ModeloErro]]:
-    """Probabilidade de cada linha de `cortes`. Devolve também o modelo de cada mês (só passado)."""
+    """Probabilidade de cada linha de `cortes`. Devolve também o modelo de cada mês (só passado).
+
+    `so_passado` ajusta o erro (mu, sigma, forma) só com os últimos `janela_meses` meses fechados
+    antes do mês avaliado (mínimo `PROB_MESES_MINIMOS` dentro da janela). `leave_one_month_out`
+    usa todos os outros meses: é só medida de calibração, sem janela."""
     if esquema not in config.PROB_ESQUEMAS:
         raise ValueError(f"esquema desconhecido: {esquema}")
     amostras = amostras_de_erro(cortes)
@@ -206,7 +223,8 @@ def calcular_probabilidades(
     partes = []
     for mes, grupo in cortes.groupby("mes", sort=True):
         if esquema == "so_passado":
-            treino = amostras[amostras["mes"] < mes]  # só meses que terminaram antes deste
+            passado = amostras[amostras["mes"] < mes]  # só meses que terminaram antes deste
+            treino = janela_recente(passado, janela_meses)
         else:
             treino = amostras[amostras["mes"] != mes]
         modelo = ajustar_erro(treino, k)

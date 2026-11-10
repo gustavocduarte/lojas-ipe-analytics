@@ -24,6 +24,9 @@ P = P(R ≥ (meta − realizado até d) / previsto do resto)
 - **Erro do resto:** `ln R` por faixa de **dias que faltam** (1–5, 6–10, 11–15, 16–22, 23–31;
   `PROB_FAIXAS_DIAS`). O erro com 25 dias a vencer é maior que com 3, e a probabilidade herda isso.
   Medir o erro só no que falta (e não no total) faz a incerteza **encolher sozinha** ao longo do mês.
+- **Janela:** o erro (`mu`, `sigma` e forma) usa só os **últimos 6 meses fechados** antes do mês
+  avaliado (`PROB_JANELA_MESES`, mínimo de 3). O viés do resto do mês muda de nível ao longo do ano e
+  a média de todo o passado ficava presa aos primeiros meses (escolha da V2; ver seção 6).
 - **Viés e dispersão (`mu`, `sigma`)** por loja e faixa, **encolhidos** para o conjunto das lojas com
   peso `n / (n + K)`, `K = 4`: `mu = w·mu_loja + (1−w)·mu_conjunto` e
   `sigma² = w·sigma_loja² + (1−w)·sigma_conjunto²`. O `n` é o número de **meses distintos** observados
@@ -49,7 +52,7 @@ dois esquemas, e o código os separa pelo parâmetro `esquema`:
 
 | Esquema | O que entra no ajuste do erro para avaliar o mês M | Para que serve |
 |---|---|---|
-| `so_passado` | só meses **fechados e anteriores a M** | é a probabilidade que vai **para o painel**; é a que se teria tido naquele dia |
+| `so_passado` | só meses **fechados e anteriores a M**, os **últimos 6** (`PROB_JANELA_MESES`; mínimo de 3 na janela) | é a probabilidade que vai **para o painel**; é a que se teria tido naquele dia |
 | `leave_one_month_out` | todos os meses fechados **exceto M**, **inclusive meses posteriores a M** | só mede a calibração com mais meses; **é otimista** e nunca vai para o painel |
 
 Em `so_passado`, para qualquer data de referência `d` só entram meses que terminaram **antes** de
@@ -117,7 +120,78 @@ probabilidade é sempre exibida como estimativa.
 A gravação é idempotente: cada procedure (`dw.gravar_probabilidade_*`, `dw.gravar_erro_resto`)
 substitui o que é seu (as probabilidades, no intervalo de datas pedido).
 
-## 6. Resultados
+## 6. Resultados (esquema `so_passado`, o do painel)
 
-*(Preenchido na geração: lojas e cortes sem base, curva de confiabilidade, Brier, ECE e a validação
-de 1 a 15/12/2025.)*
+Modelo de previsão: decomposição com **Black Friday** (efeito inteiro do ano anterior, K = 0; ver
+`docs/metodologia_previsao_eventos.md`). Probabilidade: a **V2** (erro nos últimos 6 meses fechados,
+mínimo de 3, encolhimento mantido). A escolha da V2 foi decidida antes de repetir a medição final
+(diagnóstico em ABR a DEZ/2025, só 9 meses); a calibração documentada é a de `so_passado`.
+`leave_one_month_out` usa meses posteriores e nunca é a calibração do painel.
+
+**Sem base em 2025.** Só a Ipê Brasília (loja nova): 29 de 5.414 cortes de loja, de 03/03 a
+31/03/2025 (`loja_nova`); nesses cortes a rede fica sem a Brasília na conta (29 de 365 cortes).
+Em `so_passado`, jan a mar/2025 não têm 3 meses fechados de passado: 1.130 cortes de loja e 85 da
+rede (`sem_amostra_erro`). Nunca 50%.
+
+**Curva de confiabilidade, lojas** (3.732 cortes avaliáveis; 135 pares loja-mês; IC de Wilson de 90%
+com o n de pares loja-mês).
+
+| Faixa | Previsto médio | Observado | n cortes | n loja-mês | IC 90% |
+|---|---|---|---|---|---|
+| 0–10% | 2,8% | 3,4% | 1027 | 67 | 1,2–9,2 |
+| 10–20% | 14,3% | 12,8% | 374 | 74 | 7,7–20,6 |
+| 20–30% | 24,9% | 19,6% | 250 | 67 | 12,9–28,7 |
+| 30–40% | 34,9% | 47,9% | 263 | 64 | 37,9–58,1 |
+| 40–50% | 44,9% | 55,1% | 234 | 61 | 44,7–65,2 |
+| 50–60% | 54,8% | 66,7% | 198 | 59 | 56,0–75,8 |
+| 60–70% | 64,9% | 78,2% | 211 | 61 | 68,4–85,6 |
+| 70–80% | 75,5% | 84,5% | 232 | 59 | 75,2–90,7 |
+| 80–90% | 85,1% | 87,4% | 254 | 59 | 78,6–92,9 |
+| 90–100% | 97,8% | 99,3% | 689 | 68 | 94,9–99,9 |
+
+**Resumo.**
+
+| Nível | Cortes | Loja-mês | Brier | 50% constante | Frequência histórica | ECE | Previsto médio | Observado |
+|---|---|---|---|---|---|---|---|---|
+| Lojas | 3.732 | 135 | 0,1059 | 0,2500 | 0,2495 | 0,0460 | 44,3% | 47,9% |
+| Rede | 264 | 9 | 0,1663 | 0,2500 | 0,2468 | 0,1235 | 44,8% | 55,7% |
+
+Brier das lojas por dias que faltam: 0,069 (1–5), 0,075 (6–10), 0,089 (11–15), 0,115 (16–22), 0,145
+(23–31), sempre melhor que o 50% (0,25); ECE de 0,048 a 0,085. A rede tem só 9 desfechos
+independentes (IC de 30 a 50 pontos por faixa): o Brier dela não permite concluir nada fino.
+
+**Viés por mês** (`dif` = ln R realizado − `mu` usado; positivo = o resto do mês foi subestimado).
+
+| Mês | Lojas: previsto | observado | mu usado | ln R real | dif | Rede: dif |
+|---|---|---|---|---|---|---|
+| 04/2025 | 37,4% | 41,0% | −0,073 | +0,029 | +0,102 | +0,101 |
+| 05/2025 | 47,6% | 49,8% | −0,045 | −0,057 | −0,012 | −0,058 |
+| 06/2025 | 42,2% | 43,8% | −0,049 | −0,064 | −0,016 | −0,027 |
+| 07/2025 | 53,8% | 62,2% | −0,050 | +0,018 | +0,069 | +0,043 |
+| 08/2025 | 44,5% | 50,1% | −0,028 | −0,003 | +0,025 | +0,048 |
+| 09/2025 | 43,8% | 37,7% | −0,020 | +0,034 | +0,054 | +0,018 |
+| 10/2025 | 39,7% | 36,3% | −0,007 | +0,022 | +0,029 | +0,018 |
+| 11/2025 | 35,6% | 39,3% | −0,008 | −0,025 | −0,017 | −0,014 |
+| 12/2025 | 54,1% | 71,2% | −0,003 | +0,098 | +0,101 | +0,109 |
+
+**Limitação conhecida: viés conservador remanescente.** Mesmo com a janela de 6 meses, as lojas
+batem a meta mais do que a probabilidade indica: previsto médio 44,3% contra 47,9% observado, e nas
+faixas de 30 a 80% o observado fica 9 a 13 pontos acima do previsto (a faixa de 20–30% fica abaixo).
+Na rede a diferença é maior (44,8% contra 55,7%), mas sobre 9 meses. A causa são os meses em que o
+resto do mês é subestimado (abril, julho, dezembro: `dif` ≈ +0,07 a +0,10; em dezembro, o pré-Natal e
+a semana de 25 a 31/12, ver `docs/metodologia_previsao_eventos.md`). A probabilidade é
+**estimativa conservadora**: o painel diz "estimativa" e não corrige esse viés.
+
+**Validação 1 a 15/12/2025.** Todas bateram a meta no fim do mês. Probabilidade em 01/12, 08/12 e
+15/12:
+
+| | Probabilidade | Desfecho |
+|---|---|---|
+| Rede | 22% / 59% / 50% | 107,0% da meta |
+| Ipê Brasília | 10% / 9% / 10% | 107,2% da meta |
+| Ipê Niterói | 90% / 96% / 100% | 127,0% da meta |
+| Ipê Porto Alegre | 61% / 93% / 93% | 131,9% da meta |
+| Ipê Recife | 76% / 40% / 31% | 122,3% da meta |
+
+A Brasília (loja nova, ~9 meses de histórico) e a Recife tiveram probabilidade baixa em meses que
+bateram a meta: coerente com o viés conservador acima, e dois casos não provam nada isoladamente.

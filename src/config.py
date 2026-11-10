@@ -498,6 +498,8 @@ PROB_PRIMEIRO_CORTE = date(2025, 1, 1)  # 1º corte com 12 meses de histórico (
 PROB_SHRINKAGE_K = 4
 # meses fechados anteriores necessários para estimar o erro; menos que isso = sem base
 PROB_MESES_MINIMOS = 3
+# o erro (mu, sigma e forma) usa só os últimos N meses fechados (esquema so_passado)
+PROB_JANELA_MESES = 6
 PROB_SIGMA_MINIMO = 0.005  # piso da dispersão de ln R (evita dividir por quase zero)
 # faixas de "dias que faltam para fechar o mês" (inclusive); no último dia (0) não há incerteza
 PROB_FAIXAS_DIAS = ((1, 5), (6, 10), (11, 15), (16, 22), (23, 31))
