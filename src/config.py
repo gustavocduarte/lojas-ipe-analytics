@@ -484,6 +484,22 @@ PREVISAO_MODELO_BASE = "ingenua"
 PREVISAO_VERSAO_MODELO = 1
 CASAS_PREVISAO = 2
 
+# --- Probabilidade de bater a meta do mês (Fase 5, etapa 5) -------------------------------------
+PROB_MODELO = "decomposicao"  # modelo reajustado em cada corte diário (o que venceu o backtest)
+PROB_VERSAO = 1  # sobe quando o método muda; entra na coluna `versao` das tabelas
+PROB_PRIMEIRO_CORTE = date(2025, 1, 1)  # 1º corte com 12 meses de histórico (nada do futuro)
+# peso da loja = n / (n + K), com n = meses distintos observados (mesmo K do simulador)
+PROB_SHRINKAGE_K = 4
+# meses fechados anteriores necessários para estimar o erro; menos que isso = sem base
+PROB_MESES_MINIMOS = 3
+PROB_SIGMA_MINIMO = 0.005  # piso da dispersão de ln R (evita dividir por quase zero)
+# faixas de "dias que faltam para fechar o mês" (inclusive); no último dia (0) não há incerteza
+PROB_FAIXAS_DIAS = ((1, 5), (6, 10), (11, 15), (16, 22), (23, 31))
+PROB_FAIXAS_CALIBRACAO = 10  # faixas de probabilidade de 10 em 10 pontos percentuais
+PROB_Z_IC = 1.645  # intervalo de Wilson de 90%
+PROB_QUANTIS_FORMA = 101  # quantis (0 a 100%) da forma dos resíduos padronizados gravados no banco
+PROB_ESQUEMAS = ("so_passado", "leave_one_month_out")
+
 # --- Relatório Excel (Fase 4) -------------------------------------------------------------------
 DIR_VBA = RAIZ_PROJETO / "vba"
 ARQ_MODELO_XLSM = (

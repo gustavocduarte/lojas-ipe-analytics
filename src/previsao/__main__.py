@@ -4,6 +4,8 @@
     python -m src.previsao gerar         # prevê os 3 meses seguintes ao último dia com venda
     python -m src.previsao gerar --corte 2025-12-15 --ate 2025-12-31   # cenário de corte simulado
     python -m src.previsao gerar --gravar    # grava a previsão e o backtest no dw (idempotente)
+    python -m src.previsao probabilidade     # probabilidade de bater a meta do mês (relatório)
+    python -m src.previsao probabilidade --gravar   # e grava no dw (idempotente)
 
 Códigos de saída: 0 = ok; 2 = erro de uso; 3 = erro de execução (banco, memória insuficiente...).
 """
@@ -20,7 +22,14 @@ from src import banco, config
 from src.calendario import ultimo_dia_do_mes
 from src.logs import configurar_logging
 from src.memoria import MemoriaInsuficiente, verificar_memoria_livre
-from src.previsao import backtest, dados, geracao, relatorio
+from src.previsao import (
+    backtest,
+    dados,
+    geracao,
+    probabilidade_execucao,
+    probabilidade_relatorio,
+    relatorio,
+)
 
 log = logging.getLogger("src.previsao")
 
@@ -45,6 +54,18 @@ def _criar_parser() -> argparse.ArgumentParser:
     gerar.add_argument("--meses", type=int, default=config.PREVISAO_HORIZONTE_MESES)
     gerar.add_argument("--gravar", action="store_true", help="grava previsão e backtest no dw")
     gerar.add_argument("-v", "--detalhado", action="store_true")
+    prob = sub.add_parser(
+        "probabilidade", help="probabilidade de bater a meta do mês (um corte por dia)"
+    )
+    prob.add_argument("--inicio", type=_data, help="1º corte (padrão: config.PROB_PRIMEIRO_CORTE)")
+    prob.add_argument("--fim", type=_data, help="último corte (padrão: último dia com venda)")
+    prob.add_argument("--gravar", action="store_true", help="grava no dw (idempotente)")
+    prob.add_argument("--detalhe-de", type=_data, help="início da tabela dia a dia do relatório")
+    prob.add_argument("--detalhe-ate", type=_data, help="fim da tabela dia a dia do relatório")
+    prob.add_argument(
+        "--lojas", default="", help="nomes das lojas do detalhe, separados por vírgula"
+    )
+    prob.add_argument("-v", "--detalhado", action="store_true")
     return parser
 
 
@@ -95,6 +116,19 @@ def _gerar(conexao: psycopg.Connection, args) -> int:
     return config.CODIGO_SAIDA_OK
 
 
+def _probabilidade(conexao: psycopg.Connection, args) -> int:
+    resultado = probabilidade_execucao.executar(conexao, args.inicio, args.fim)
+    detalhe = None
+    if args.detalhe_de and args.detalhe_ate:
+        detalhe = (args.detalhe_de, args.detalhe_ate)
+    nomes = [n.strip() for n in args.lojas.split(",") if n.strip()]
+    print(probabilidade_relatorio.montar(resultado, detalhe=detalhe, lojas=nomes))
+    if args.gravar:
+        linhas = probabilidade_execucao.gravar(conexao, resultado)
+        print(f"gravado no dw: {linhas}")
+    return config.CODIGO_SAIDA_OK
+
+
 def principal(
     argv: Sequence[str] | None = None,
     *,
@@ -113,6 +147,8 @@ def principal(
         conexao = conexao or banco.conectar()
         if args.comando == "backtest":
             return _backtest(conexao)
+        if args.comando == "probabilidade":
+            return _probabilidade(conexao, args)
         return _gerar(conexao, args)
     except ValueError as erro:
         log.error("erro de uso: %s", erro)

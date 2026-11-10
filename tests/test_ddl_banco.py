@@ -35,6 +35,9 @@ TABELAS_DW = {
     "alerta_historico",
     "previsao_vendas",
     "previsao_backtest",
+    "previsao_probabilidade_meta",
+    "previsao_probabilidade_calibracao",
+    "previsao_erro_resto",
 }
 TABELAS_STG = {
     "lojas",
