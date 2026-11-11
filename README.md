@@ -1,293 +1,93 @@
 # Lojas Ipê — Análise Comercial e Financeira
 
-> README provisório — a documentação completa vem na Fase 6.
+Projeto de portfólio de Análise de Dados / BI: uma rede varejista **fictícia** de 15 lojas no Brasil, com **dados 100% sintéticos**, do arquivo bruto ao dashboard — gerador de dados, ETL com validações, data warehouse em PostgreSQL, previsão de vendas, alertas de anomalia, relatório Excel e Power BI.
 
-Projeto de portfólio de Análise de Dados / BI sobre uma rede varejista **fictícia** com ~15 lojas no Brasil.
-Responde a três perguntas: como as vendas estão contra as metas por loja e setor, como as despesas realizadas
-se comparam ao orçado e à previsão por centro de custo, e quais lançamentos são suspeitos.
+## Perguntas de negócio que ele responde
 
-**Stack:** PostgreSQL 18 · Python 3.12+ · Excel/VBA · Power BI Desktop (Power Query/M e DAX).
+- **As vendas estão batendo a meta?** Por loja, setor e dia, com cobertura da meta até o dia.
+- **Quais lojas puxam e quais derrubam o resultado, e por quê?** Crescimento de receita contra o ano anterior, margem, fluxo de cupons, equipe e setores.
+- **Como o mês deve fechar?** Realizado até hoje mais a previsão dos dias restantes, com faixa baixa e alta.
+- **Qual a chance de bater a meta do mês?** Uma probabilidade por loja e para a rede, sempre apresentada como *estimativa*.
+- **Quais lançamentos são suspeitos?** Regras de anomalia em SQL que geram alertas rastreáveis.
 
-## Fases
-| Fase | Conteúdo | Situação |
-|---|---|---|
-| 0 | Setup do repositório | feita |
-| 1 | Modelo dimensional + gerador de dados sintéticos | feita |
-| 2 | ETL com validações de qualidade e carga via procedures | feita (aguarda revisão) |
-| 3 | Regras de anomalia em SQL e tabela de alertas | feita (aguarda revisão) |
-| 4 | Previsão de vendas, relatório Excel e macro VBA | feita (aguarda revisão) |
-| 5 | Dashboard Power BI (projeto `.pbip`) | em andamento: página "Vendas vs Meta" aprovada |
-| 6 | Documentação final | a fazer |
+## O que o dashboard mostra
+
+![Vendas vs Meta](docs/img/vendas_vs_meta.png)
+*Vendas vs Meta: acumulado do mês contra a meta e a projeção, cobertura por loja e desempenho por setor.*
+
+![Comparação de lojas](docs/img/comparacao_lojas.png)
+*Comparação de lojas: quem cresce em receita e em margem, e de onde vem a receita (região, UF, loja, setor).*
+
+![Diagnóstico da loja](docs/img/diagnostico_loja.png)
+*Diagnóstico da loja: veredito, indicadores contra a rede e o ano anterior, setores e equipe.*
+
+## Arquitetura
+
+```mermaid
+flowchart LR
+    G["Gerador de dados sintéticos<br/>(Python)"] --> CSV["CSV / Excel<br/>data/raw"]
+    CSV --> STG["stg<br/>texto cru + rejeitados"]
+    STG --> ETL["ETL<br/>limpeza, validação, procedures"]
+    ETL --> DW[("dw<br/>esquema estrela<br/>PostgreSQL")]
+    DW --> AL["Alertas<br/>regras em SQL"]
+    DW --> PR["Previsão e probabilidade<br/>(numpy/pandas)"]
+    AL --> DW
+    PR --> DW
+    DW --> V["Views"]
+    V --> PBI["Power BI<br/>(.pbip em texto)"]
+    DW --> XLS["Relatório Excel<br/>(+ macros VBA)"]
+```
+
+**Stack:** PostgreSQL 18 · Python 3.12+ (pandas, numpy, SQLAlchemy, psycopg 3, openpyxl) · SQL e PL/pgSQL · Power BI (Power Query/M e DAX) · Excel/VBA · pytest e ruff · GitHub Actions.
+
+Detalhes do contrato de entrada em [`docs/contrato_de_entrada.md`](docs/contrato_de_entrada.md); o restante da documentação técnica (ETL, alertas, previsão, simulador, relatório Excel) está em [`docs/referencia_tecnica.md`](docs/referencia_tecnica.md).
+
+## Decisões técnicas
+
+1. **Previsão sem vazamento do futuro.** *Problema:* um modelo de previsão pode "colar" no gerador de dados e acertar por trapaça. *Solução:* o módulo de previsão só enxerga o painel até a data de corte e, por teste, é proibido de importar o gerador ou o calendário comercial dele ([`tests/previsao/test_black_friday.py`](tests/previsao/test_black_friday.py): `test_o_modulo_de_previsao_nao_usa_parametros_do_gerador`). O efeito da Black Friday, por exemplo, é aprendido do histórico e só a data vem do calendário ([`docs/metodologia_previsao_eventos.md`](docs/metodologia_previsao_eventos.md)).
+2. **Backtest para escolher o modelo.** *Problema:* "parece bom" não é critério. *Solução:* quatro abordagens (ingênua, decomposição, dois Holt-Winters) comparadas com treino até 30/06/2025 e teste de julho a dezembro. A decomposição venceu: no total da rede, o erro da previsão mensal ficou em cerca de 3% (a abordagem ingênua errou quase o dobro). Esse erro é levemente otimista, porque o modelo foi escolhido no próprio backtest (números em [`docs/metodologia_previsao_eventos.md`](docs/metodologia_previsao_eventos.md) e em [`docs/referencia_tecnica.md`](docs/referencia_tecnica.md)).
+3. **Probabilidade calibrada e validada.** *Problema:* uma probabilidade só vale se for calibrada. *Solução:* o erro do resto do mês é estimado nos últimos 6 meses fechados, usando só o que se sabia na época. A probabilidade de bater a meta foi validada contra 9 meses de histórico e acerta bem mais que um chute de 50% (o erro cai de 0,25 para cerca de 0,11 nas lojas). Sem histórico ou sem meta, o resultado é "sem base", nunca 50% (detalhes em [`docs/metodologia_probabilidade.md`](docs/metodologia_probabilidade.md)).
+4. **Previsão vigente por corte e teste de consistência.** *Problema:* versões diferentes do modelo convivem no banco, e quem lê podia misturá-las. *Solução:* a view `dw.vw_previsao_vigente` escolhe, para cada corte, a versão gerada por último, sem apagar o histórico. O comando `python -m src.previsao verificar` (somente leitura) refaz a previsão em memória e compara com o que está gravado, com tolerância de R$ 0,01 por loja; ele falha se a versão gravada não for a atual.
+5. **Gravação atômica.** *Problema:* a probabilidade grava em três tabelas, e uma falha no meio deixava o banco com metade do resultado. *Solução:* as três gravações rodam numa só transação, com um commit no final e rollback em qualquer erro. Há teste de falha forçada na terceira gravação, que confirma que o banco fica idêntico ao de antes.
+6. **Testes e CI com fluxo por pull request.** *Problema:* mudança direta no `main` sem revisão. *Solução:* 812 testes (incluindo os que usam um PostgreSQL descartável) rodam no GitHub Actions em Python 3.12 e 3.14, com ruff. Cada mudança entra por branch e pull request, com merge `squash`, e o `main` exige os checks `testes (3.12)` e `testes (3.14)` verdes.
+
+## Limitações
+
+- **Dados sintéticos.** Nomes, valores e comportamentos vêm de um gerador; as conclusões de negócio não valem para nenhuma empresa real.
+- **A previsão subestima o fim de dezembro (Natal).** Na validação de várias origens, o total de 25 a 31/12 sai com viés de −14,4% e o de dezembro, −7,0%. Uma tentativa de modelar o Natal dia a dia piorou o resultado e foi revertida ([`docs/metodologia_previsao_eventos.md`](docs/metodologia_previsao_eventos.md)): há só um ano de histórico de Natal.
+- **A probabilidade tende a ser conservadora.** Nas lojas, o previsto médio é 44,3% contra 47,9% observado; na rede, 44,8% contra 55,7%, mas sobre apenas 9 meses, então não permite conclusão fina.
+- **A área em m² das lojas ainda não é realista:** é um cadastro fixo e fictício, e a venda por m² que sai dele não deve ser lida como diagnóstico.
+- **Ainda em andamento:** o Power BI está em construção (ver os próximos passos), e a probabilidade de bater a meta já está no banco, mas **ainda não tem visual** no dashboard.
 
 ## Como rodar
+
+Requisitos: Python 3.12 ou mais novo, PostgreSQL 18 e, para o dashboard, Power BI Desktop (Windows). O banco do projeto usa um usuário próprio; o [`.env.example`](.env.example) só traz os **nomes** das variáveis, e o `.env` real nunca vai para o git.
+
 ```
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-copy .env.example .env        # preencher com os dados do seu PostgreSQL
-python -m src.gerador         # gera os CSVs em data/raw/
-python -m src.banco           # cria as tabelas no banco do .env
-pytest                        # testes (sem banco)
+copy .env.example .env             # preencha com os dados do seu PostgreSQL
+python -m src.gerador              # gera os CSVs em data/raw/
+python -m src.banco                # cria as tabelas no banco do .env
+python -m src.banco --procedures   # procedures de carga e funções
+python -m src.etl carregar         # lê, limpa, valida e carrega o dw
+python -m src.banco --views        # views para o Power BI
+python -m src.previsao gerar --gravar   # previsão de 3 meses
+python -m src.relatorios fechamento     # relatório Excel em data/processed/
+pytest                             # testes sem banco (pytest -m banco inclui os de banco)
 ```
 
-## ETL (Fase 2)
-```
-python -m src.banco --procedures                  # cria/atualiza as procedures de carga
-python -m src.etl fontes                          # lista as fontes mapeadas (config/fontes/)
-python -m src.etl carregar                        # lê, limpa, valida e carrega as fontes padrão
-python -m src.etl carregar --fonte lojas_ipe_erp --entidade lojas   # só uma entidade
-python -m src.etl carregar --completo             # relê também os arquivos que não mudaram
-```
-Cada execução é uma *carga* (tabela `etl.cargas`) e gera um relatório de qualidade em
-`data/processed/relatorio_carga_NNNN.json` (e na tabela `etl.relatorios_qualidade`).
-Por padrão a carga é **incremental**: arquivos com o mesmo conteúdo (hash) de uma carga já
-concluída não são relidos. Códigos de saída: 0 ok · 1 validação estrutural reprovou (o dw não
-muda) · 2 erro de uso · 3 erro de execução (banco, arquivo, memória, outra carga em andamento)
-· 4 dados carregados, mas a geração dos alertas falhou (a carga fica `concluida`; reavalie com
-`python -m src.etl alertas`).
-Durante a carga uma vigia confere a memória livre; se ela ficar abaixo de 0,4 GB por mais de
-alguns segundos seguidos (`src/config.py`), a consulta é cancelada, o dw volta ao que era e o
-comando sai com 3.
-O piso padrão é 0,40 GB (`MEMORIA_LIVRE_MINIMA_GB`). Por causa dos 4 GB de RAM da máquina, a
-variável de ambiente `LOJAS_IPE_PISO_MEMORIA_GB` permite baixá-lo em uma única execução; na
-regeração dos dados com a lotação por setor (gerador e ETL) foi usado 0,25 GB, com a vigia ligada
-e cópia de segurança de `data/raw`. O padrão no código e nos testes continua 0,40 GB.
-O contrato de entrada está em `docs/contrato_de_entrada.md`.
+O dashboard fica em [`powerbi/lojas_ipe.pbip`](powerbi/lojas_ipe.pbip) (versionado em texto); a senha do PostgreSQL é pedida pelo Power BI e fica só no Windows. Convenções do dashboard em [`docs/powerbi_padroes.md`](docs/powerbi_padroes.md); macros do relatório Excel em [`docs/macro_vba.md`](docs/macro_vba.md).
 
-### Fonte de "outra empresa" (prova de generalidade)
-O gerador também cria `data/raw/outra_empresa/vendas_2024-03.xlsx`: uma planilha com colunas de
-nomes diferentes ("Nº Cupom", "Dt. Emissão", "Vlr. Líquido"...), cabeçalho na linha 3, linha de
-total no fim e uma aba extra ("Resumo") que deve ser ignorada. O mapeamento
-`config/fontes/outra_empresa.yaml` a leva ao mesmo contrato de entrada; por isso o resultado no dw
-é igual ao do CSV do ERP para o mesmo mês (há um teste para isso). Essa fonte só é carregada
-quando pedida (`python -m src.etl carregar --fonte outra_empresa`), para não misturar empresas.
+## Próximos passos
 
-## Alertas (Fase 3)
-```
-python -m src.etl alertas                # reavalia as regras (ex.: depois de mudar um parâmetro)
-python -m src.banco --views              # cria/atualiza as views para o Power BI
-```
-Os sinais da carga viram **alertas** persistentes em `dw.alertas`: tipo, severidade (baixa, média,
-alta, crítica), data, loja, vendedor ou centro de custo, valor envolvido, regra que disparou,
-explicação legível ("desconto de 32,0% acima do limite de 18%"), carga que o gerou e status
-(`novo`, `em_analise`, `resolvido`, `falso_positivo`). As regras são SQL e todos os limites ficam em
-`etl.parametros_negocio`. Rodar de novo não duplica nada e um alerta já tratado não volta como novo;
-quem trata usa `CALL dw.tratar_alerta(sk_alerta, 'resolvido', 'usuario', 'observação')`, que guarda o
-histórico. Um estouro de orçamento causado por outro alerta (valor atípico, documento repetido,
-centro errado) é um alerta *derivado*, ligado à origem, e não entra na contagem do painel.
-Views: `dw.vw_alertas_detalhe`, `vw_alertas_por_tipo`, `vw_alertas_por_loja`,
-`vw_alertas_tendencia_mensal` e `vw_alertas_resumo`.
+Visuais da probabilidade de bater a meta no Power BI, segurança por loja (RLS) e pipeline de dados na nuvem. Os dois últimos estão **planejados e ainda não implementados**; o roadmap completo está em [`docs/referencia_tecnica.md`](docs/referencia_tecnica.md#roadmap).
 
-## Previsão de vendas (Fase 4)
-```
-python -m src.banco 15_previsao.sql 16_pesos_meta_diaria.sql 17_previsao_agregada.sql   # num banco que já tem os anteriores
-python -m src.banco --procedures ; python -m src.banco --views
-python -m src.previsao backtest                    # compara as abordagens (treino até 30/06/2025)
-python -m src.previsao gerar --gravar              # 3 meses depois do último dia com venda
-python -m src.previsao gerar --corte 2025-12-15 --ate 2025-12-31 --gravar   # corte simulado
-# Lotação por setor (preparação do simulador de troca de setor): desempenho e backtest
-# CALL dw.gravar_desempenho_vendedor_setor();  -- fatia semanal encolhida (v2) e p25 diário (v1, referência)
-python -m src.simulador backtest --gravar            # v1: p25 diário, trocas reais e placebo
-python -m src.simulador backtest-v2 --gravar         # v2: fatia semanal encolhida, curva do percentil
-```
-**Modelos** (só numpy/pandas, leves): `ingenua` (mesmo dia da semana um ano antes), `decomposicao`
-(nível recente x dia da semana x feriado x **janela pré-Natal (15 a 24/12)** x **Black Friday** x mês x
-tendência amortecida; fatores aprendidos por setor nas lojas com histórico longo), `holt_winters` (semanal, aditivo, tendência amortecida, feito à mão) e
-`holt_winters_mensal` (o anterior corrigido pelo fator do mês). Séries são a receita líquida diária de
-vendas concluídas por loja e setor (90 séries).
+## Uso de IA
 
-**Backtest** treinando até 30/06/2025 e prevendo 01/07 a 31/12/2025. WAPE = soma dos erros absolutos /
-soma do real; viés = soma do previsto / soma do real - 1. "L×S" junta os erros de todas as lojas e
-setores; "rede" compara o total.
+Desenvolvi este projeto com o Claude Code como ferramenta de programação. As decisões de modelagem e de negócio, a revisão de cada mudança e a aprovação de cada commit são escolhas minhas. O projeto tem 812 testes automatizados que rodam no CI a cada pull request.
 
-| Abordagem | WAPE mês L×S | WAPE dia L×S | WAPE mês rede | WAPE dia rede | Viés mês rede |
-|---|---|---|---|---|---|
-| **decomposicao** (escolhida) | **17,8%** | **71,1%** | **3,4%** | **20,0%** | -0,3% |
-| ingenua | 19,6% | 90,2% | 5,7% | 21,5% | -5,5% |
-| holt_winters_mensal | 26,8% | 71,7% | 14,8% | 21,9% | -14,8% |
-| holt_winters | 34,4% | 73,4% | 21,8% | 29,9% | -20,9% |
+## Autor
 
-O erro diário por loja e setor é alto porque a série é esparsa (vários dias sem venda de um setor numa
-loja); o erro mensal e o da rede são os que servem para decidir. A escolha é pelo menor WAPE mensal por
-loja e setor. **Ressalva:** como o modelo foi escolhido pelo próprio backtest e não há dados para um
-período de validação separado (são 24 meses), o WAPE informado é levemente otimista. Com 18 meses de
-treino a sazonalidade anual vem de um ano só para julho a dezembro; por isso o Holt-Winters semanal (sem
-componente anual) perde, e a sazonalidade anual fica com a ingênua e com o fator mensal da decomposição.
-
-**Faixa baixa/alta:** percentis 10 e 90 da razão real/previsto do backtest, por granularidade e setor
-(alvo: ~80% dos valores reais dentro). A cobertura é medida fora da amostra (faixa calibrada num backtest
-anterior, treino até 31/03/2025) e na amostra; está em `dw.previsao_backtest` e no relatório do comando.
-A faixa da **rede** e a de cada **loja** (soma dos setores) não são a soma das faixas das séries, que seria
-larga demais (os erros se compensam): são calibradas nos resíduos no próprio total
-(`src/previsao/faixa_agregada.py`) e gravadas em `dw.previsao_vendas` com `nivel = 'rede'` (`sk_loja` e
-`setor` nulos) e `nivel = 'loja'` (`setor` nulo); as séries são `nivel = 'loja_setor'`.
-
-**Backtest de várias origens** (`src/previsao/rolling.py`): seis meses dão só 6 pontos mensais, pouco para
-um percentil. Por isso as faixas (rede, loja e setor) são calibradas nos resíduos de **9 origens mensais**
-(31/01/2025 a 30/09/2025), cada uma treinando só até o fim do mês e prevendo os 3 meses seguintes (o horizonte
-da previsão de 2026). Cada ponto é fora da amostra do modelo. A cobertura "fora da amostra" usa, para cada
-origem, uma faixa calibrada só com origens cujo período previsto não se sobrepõe ao dela; "na amostra" usa
-todas (otimista). A escolha do modelo continua a do backtest original (treino até 30/06/2025).
-
-| Cobertura da faixa (alvo 80%) | Fora da amostra | Pontos | Na amostra |
-|---|---|---|---|
-| Rede, dia | 79,0% | 823 | 79,8% |
-| Rede, mês | 74,1% | 27 | 77,8% |
-| Loja (total), dia: mín / mediana / máx | 64,9% / 82,3% / 88,0% | 642 a 823 por loja | 64,6% / 82,0% / 87,7% |
-| Loja (total), mês: mín / mediana / máx | 48,1% / 85,2% / 96,3% | 21 a 27 por loja | 51,9% / 85,2% / 100% |
-| Loja x setor, dia (média) | 83,2% | 72.620 | 83,3% |
-| Loja x setor, mês (média) | 79,0% | 2.382 | 79,8% |
-
-Antes (um só backtest) a faixa mensal da rede cobria 50% fora da amostra; a de loja x setor cobria 84,3% (dia)
-e 88,1% (mês), larga demais, e passou a vir também das 9 origens. Os 27 pontos mensais da rede se sobrepõem
-(a mesma data cai em até 3 origens), então a incerteza sobre a cobertura mensal continua grande; as lojas
-novas têm menos pontos.
-
-**Onde fica:** `dw.previsao_vendas` (dia e mês, por loja e setor, com faixa, `versao_modelo`,
-`treino_ate`, `gerado_em` e o WAPE do backtest da série) e `dw.previsao_backtest`. Gravar duas vezes não
-duplica (`CALL dw.gravar_previsao`/`gravar_backtest`). As datas previstas são `DATE` porque passam do
-fim da `dim_tempo`.
-
-**Fechamentos** (a data de referência é sempre um parâmetro; as views usam `dw.data_referencia()`, o
-último dia com venda):
-* `dw.fn_projecao_fechamento_mes(data)` / `dw.vw_projecao_fechamento_mes`: **projeção = realizado do mês
-  até a data + previsão dos dias restantes** (previsão gerada com `treino_ate` igual à data). Cobertura
-  projetada = projeção / meta do mês. No último dia do mês a projeção é o realizado.
-* `dw.fn_projecao_despesas_ano(data)` / `dw.vw_projecao_despesas_ano`: **projeção do ano = realizado até a
-  data + orçado do que falta x fator**, com fator = realizado / orçado do período já passado, limitado a
-  [0,7; 1,3] (`projecao_fator_min/max` em `etl.parametros_negocio`). O orçado do mês da data é repartido
-  pela fração dos dias. O fator **não conta** os lançamentos de alertas vigentes de documento repetido (a
-  cópia), valor atípico ou centro incompatível, salvo os marcados como falso positivo; esses lançamentos
-  continuam no realizado somado à projeção. Com o corte em 30/06/2025, nenhum centro ficou no teto (antes,
-  L02-PES e L02-TER ficavam em 1,30) e o desvio total da projeção contra o realizado de 2025 caiu de +1,9% para +0,6%.
-* `dw.vw_meta_vendas_diaria` e `dw.vw_meta_vendedor_diaria`: meta do mês repartida pelos dias com o peso
-  do calendário comercial (`etl.pesos_calendario`: dia da semana, feriados, Natal, Black Friday, Dia das
-  Mães, Carnaval, volta às aulas e setor; sem linha ali, os pesos simples de dia da semana e feriado); a
-  soma dos dias bate com a meta do mês (o último dia absorve o resto do arredondamento). As metas são o
-  esperado do período, não o realizado do mês: ver `docs/metodologia_metas.md`.
-* **Evolução** (relatório) = acumulado do mês / acumulado do mesmo período do ano anterior - 1.
-
-### Black Friday e probabilidade de bater a meta (Fase 5, etapa 5)
-
-**Black Friday no modelo.** A decomposição conhece só a **data** da Black Friday (calendário) e estima o
-efeito de cada dia da janela (±7 dias) pelo histórico, sem encolhimento (K = 0), sem nenhum parâmetro do
-gerador (um teste varre `src/previsao` e falha se algum for usado). No rolling-origin da rede, o WAPE do
-dia caiu de 19,1% para 16,2% e o do mês de 4,4% para 4,1%. Dezembro (pré-Natal e 25 a 31/12) segue
-subestimado; a tentativa de tratar o Natal dia a dia piorou e foi revertida. Tudo em
-`docs/metodologia_previsao_eventos.md`.
-
-**Probabilidade de a receita do mês fechar >= meta** (`python -m src.previsao probabilidade [--gravar]`,
-`dw.previsao_probabilidade_meta`/`_calibracao`/`previsao_erro_resto`; método em
-`docs/metodologia_probabilidade.md`). Em cada dia, o realizado até ali mais o previsto do resto do mês
-vezes um erro estimado dos **últimos 6 meses fechados** (mínimo de 3), por faixa de dias que faltam,
-com encolhimento da loja para o conjunto das lojas e a rede com dispersão própria. Sem 28 dias de
-histórico ou sem meta, a loja fica **sem base** (NULL, nunca 50%). Em 2025, `so_passado`: Brier das
-lojas 0,106 (50% constante: 0,250), ECE 0,046. **Limitação:** o viés é conservador: previsto médio
-44% contra 48% observado (rede: 45% contra 56%, sobre 9 meses). É sempre exibida como **estimativa**.
-
-## Dashboard Power BI (Fase 5)
-O relatório é um **projeto `.pbip`** em `powerbi/`, versionado em texto: `lojas_ipe.Report` (páginas e visuais em PBIR/JSON) e `lojas_ipe.SemanticModel` (tabelas, relações e medidas em TMDL). O cache dos dados (`.pbi/`, `cache.abf`) fica fora do git.
-
-**Como abrir e atualizar:** abra `powerbi/lojas_ipe.pbip` no Power BI Desktop e clique em **Atualizar**. A fonte é o PostgreSQL local (`PostgreSQL.Database("localhost","lojas_ipe_dw")`); a senha do usuário `lojas_ipe` é pedida uma vez e fica guardada **só no Windows** (credenciais do Power BI), nunca no projeto.
-
-**Tema:** `powerbi/lojas_ipe.Report/StaticResources/RegisteredResources/tema_lojas_ipe.json` (fundo `#F3F5F8`, visuais brancos com borda `#E3E7ED`, azul `#2F6DB5` realizado, laranja `#C55A11` meta, cinza `#9AA5B1` projeção, verde/vermelho só para status; Segoe UI).
-
-**Medidas** (tabela `Medidas`, por pasta):
-* **1. Vendas:** Receita, Custo, Margem, Margem %, Quantidade, Cupons, Ticket médio, Itens por cupom, Desconto, Taxa de cancelamento.
-* **2. Tempo:** Receita ano anterior, Evolução vs ano anterior, Receita acumulada no mês, Receita acumulada no ano.
-* **3. Metas:** Meta do período, Meta do mês, Meta acumulada até o dia, Cobertura do período, Cobertura da meta até o dia, % da meta do mês atingido, Diferença para a meta do dia % e as versões "(vendedor)".
-* **4. Formatação:** Cor da cobertura, Cor da cobertura do período, Cor da evolução, Cor da diferença (devolvem `#RRGGBB`).
-* **5. Projeção:** Posição, Receita realizada até a posição, Meta do mês da posição, Previsto restante do mês, Projeção de fechamento, Cobertura projetada, Ritmo necessário por dia, Receita/Meta/Projeção/Cobertura acumulada (linha).
-* **6. Textos:** Contexto da receita, da projeção e do ritmo (subtítulos dos cartões).
-
-**Fórmulas:** *cobertura* = receita ÷ meta do período; *projeção de fechamento* = realizado até a posição + previsão restante de `dw.previsao_vendas` (corte igual à posição); *ritmo necessário por dia* = (meta do mês − realizado) ÷ dias médios restantes (meta restante ÷ meta de um dia médio, como no Excel); *diferença para a meta do dia* = (receita − meta) ÷ meta.
-
-**Método para o que o Power BI não documenta:** editar o PBIR em texto com o Power BI fechado; para uma propriedade incerta, aplicá-la **à mão uma vez** no Power BI, salvar, ler o `visual.json` gravado e copiar o padrão. Os padrões confirmados estão em `docs/powerbi_padroes.md`.
-
-## Simulador de troca de setor (preparação da Fase 5)
-Dado um vendedor e um setor de destino, quanto ele venderia por semana? O gerador lota cada vendedor
-em um setor (`dw.vendedor_setor_historico`, com início, fim e motivo) e reatribui parte dos cupons para
-quem está lotado no setor do item de maior receita; cerca de 20% dos vendedores trocam de setor entre
-07/2024 e 06/2025. Os totais por loja × setor × dia não mudam, só o vendedor do cupom.
-
-**v1 (referência, não adotado):** percentil 25 da venda diária nos dias lotado, com os dias sem venda
-contando zero. Em 83% dos pares o p25 é zero: a projeção sai quase nula (viés -97%).
-
-**v2 (adotado):** *fatia* semanal = venda do vendedor no setor ÷ venda total do setor na loja, nas
-semanas (segunda a domingo) em que ele esteve lotado a semana inteira. A fatia é encolhida para a média
-dos outros lotados no setor, `(n × própria + k × média) ÷ (n + k)`, com n = semanas de histórico e
-k = 4 (maior k dentro de 0,5 p.p. do menor WAPE no backtest). Projeção semanal = fatia × venda prevista
-do setor na loja na semana (a previsão já traz sazonalidade e limita a demanda). O *conservador* é o
-percentil 10% da distribuição das fatias semanais (o p5, mais pessimista, também é reportado). Sem histórico no setor, vale
-a fatia média dos lotados (loja; senão rede), com confiança baixa.
-
-**Diluição:** quem entra num setor divide a venda com a equipe que já está lá, então a fatia média dos
-lotados superestima o recém-chegado (viés de +45% nas trocas). A fatia de quem ainda não está lotado no
-destino é multiplicada por `n ÷ (n + 1)`, com n = outros vendedores ativos lotados no setor na loja
-(`fator_diluicao`; 1 para quem já está lá ou se ninguém está lotado). O ajuste foi adotado porque não mexe
-no placebo (todos já estão lotados) e reduz o viés das trocas. Uma renormalização completa das fatias da
-equipe (somando 1) exigiria estimar a fatia de todos juntos; `n ÷ (n + 1)` é a mesma ideia, mais simples.
-
-**Backtest** (46 trocas reais e 44 vendedores sem troca em datas sorteadas; projeta 4 e 8 semanas a
-partir do dia anterior à troca, usando só o que se sabia ali). Cobertura = parcela em que o real ficou
-igual ou acima do projetado; "total" compara a soma das 4 ou 8 semanas de cada troca (1 número por troca),
-"semanal" compara semana a semana.
-
-| Trocas, 56 dias | Cobertura | WAPE | Viés |
-|---|---|---|---|
-| Semanal: central, antes da diluição | 27,7% | 92,5% | +45,4% |
-| Semanal: central, depois | 49,2% | 71,2% | -15,8% |
-| Semanal: **conservador p10 (oficial)**, depois | 75,8% | 77,4% | -61,5% |
-| Semanal: conservador p5, depois | 84,2% | 81,9% | -72,2% |
-| Semanal: ingênuo | 41,0% | 105,6% | -6,9% |
-| Total das 8 semanas: central, antes | 28,3% | 67,5% | +45,4% |
-| Total das 8 semanas: central, depois | 56,5% | 52,5% | -15,8% |
-| Total das 8 semanas: conservador p10 (oficial) / p5, depois | 89,1% / 93,5% | 65,7% / 73,4% | -61,5% / -72,2% |
-| Total das 8 semanas: ingênuo | 45,7% | 98,8% | -6,9% |
-
-No placebo o ajuste não muda nada (central 65,5% de WAPE e +4,8% de viés em 56 dias, semanal; o
-ingênuo tem 72,2% e +16,4%). O p25 diário (v1) segue em 95% de cobertura com viés de -97%. Os números de
-28 dias estão em `dw.simulador_backtest` (colunas `escala` e `diluicao`) e a curva do percentil em
-`dw.simulador_backtest_curva`.
-
-**Como usar no Power BI:** mostrar sempre a faixa conservador–central e a confiança
-(`confianca_fatia`, `semanas_de_historico`), nunca um número único. A venda semanal de um vendedor num
-setor é muito volátil (WAPE de 50% a 70% mesmo no melhor método); o central é uma expectativa e o
-conservador um piso (o oficial é o p10, com ~75% de cobertura semanal nas trocas; o p5 é mais pessimista). O gabarito de habilidade
-(`_habilidade_verdadeira.csv`) só entra na análise: a correlação entre a fatia estimada (relativa à dos
-colegas) e a habilidade verdadeira é 0,29 (Pearson) e 0,35 (Spearman) com 149 pares de 13 semanas ou mais
-(o p25 diário dava 0,22 e 0,19).
-
-## Relatório Excel e macros (Fase 4)
-```
-python -m src.relatorios fechamento                                 # mês/dia da referência
-python -m src.relatorios fechamento --mes 2025-12 --dia 2025-12-15
-```
-Gera `data/processed/fechamento_AAAA-MM.xlsx` com dez abas (as duas últimas, ocultas, só apoiam as macros):
-**Resumo da rede** (a página do PDF, A4 paisagem: quatro cartões — venda acumulada, cobertura da meta até o
-dia, projeção de fechamento e evolução contra o ano anterior —, gráfico de venda por dia contra a meta (os
-dias depois da posição mostram a venda projetada, a mesma projeção do cartão, em barras cinza-claro), as
-cinco lojas de maior e de menor cobertura, os alertas abertos por severidade, separados em "No mês" e
-"Total em aberto", e o top 5 de produtos do mês), **Diário** (venda, meta, cobertura e acumulado por dia), **Lojas** (venda e meta do dia, acumulado, cobertura, evolução contra
-o ano anterior, projeção), **Vendedores** (ranking, meta, cobertura, ritmo necessário por dia — o que falta da meta do mês dividido pelos dias que restam, contados em dias de meta média —, setor principal e % da receita nele), **Produtos** (top 20 da
-rede no mês até a posição, com margem, participação, participação acumulada e classe ABC — A até 80% da
-receita acumulada, B até 95%, C o resto, limites em `config` —, receita, participação, margem e evolução
-por setor e o gráfico da participação por setor), **Alertas abertos** (só
-independentes com data até o dia de posição, do mais grave ao menos; cancelamento alto só com janela
-fechada antes do mês da posição e uma vez por vendedor, com "N janelas seguidas desde mm/aaaa") **Previsão** (por loja, com faixa e erro do backtest), **Previsão diária** (a rede dia a dia, com a faixa
-baixa e alta calibrada no total da rede, e o gráfico) e **Dados por loja** (oculta: por loja, o top 5 de
-produtos do mês e a receita média por dia da semana e por faixa horária nos últimos 90 dias até a posição) e
-**Dados por vendedor** (oculta: todos os vendedores em formato longo, para a macro da aba do vendedor).
-Todas as consultas respeitam a data de posição (nada depois do dia) e só contam vendas concluídas.
-Os títulos de seção seguem um estilo único (13 pt, negrito, azul do cabeçalho, mesclado na largura da
-tabela, com borda inferior grossa colada ao cabeçalho), igual no Python e na macro.
-Formatos brasileiros, cabeçalho fixo, filtros e verde/vermelho na cobertura e na evolução. A cor de
-status usa a **cobertura da meta até o dia** (acumulado ÷ meta acumulada até o dia); a razão com a meta do
-mês inteiro aparece como "% da meta do mês atingido", sem cor, porque no meio do mês ela ficaria sempre
-vermelha. Os números
-são conferidos contra consultas independentes ao dw nos testes.
-
-Com `vba/modelo_fechamento.xlsm` presente a saída é `.xlsm` com três macros (`GerarAbaDaLoja`,
-`GerarAbaDoVendedor`, `ExportarResumoPDF`, atalhos `Ctrl+Shift+L`, `Ctrl+Shift+V` e `Ctrl+Shift+P`). O modelo é criado uma vez, à mão, no Excel
-(passo a passo, segurança de macros e roteiro de teste em `docs/macro_vba.md`); sem ele o relatório sai
-como `.xlsx`.
+**Gustavo Carvalho Duarte** · [LinkedIn](https://www.linkedin.com/in/gustavo-cduarte/) · [GitHub](https://github.com/gustavocduarte)
