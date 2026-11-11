@@ -6,6 +6,7 @@
     python -m src.previsao gerar --gravar    # grava a previsão e o backtest no dw (idempotente)
     python -m src.previsao probabilidade     # probabilidade de bater a meta do mês (relatório)
     python -m src.previsao probabilidade --gravar   # e grava no dw (idempotente)
+    python -m src.previsao verificar         # a previsão gravada bate com o modelo atual?
 
 Códigos de saída: 0 = ok; 2 = erro de uso; 3 = erro de execução (banco, memória insuficiente...).
 """
@@ -24,6 +25,7 @@ from src.logs import configurar_logging
 from src.memoria import MemoriaInsuficiente, verificar_memoria_livre
 from src.previsao import (
     backtest,
+    consistencia,
     dados,
     geracao,
     probabilidade_execucao,
@@ -66,6 +68,10 @@ def _criar_parser() -> argparse.ArgumentParser:
         "--lojas", default="", help="nomes das lojas do detalhe, separados por vírgula"
     )
     prob.add_argument("-v", "--detalhado", action="store_true")
+    verif = sub.add_parser(
+        "verificar", help="confere se cada corte gravado bate com o modelo atual (só leitura)"
+    )
+    verif.add_argument("-v", "--detalhado", action="store_true")
     return parser
 
 
@@ -129,6 +135,14 @@ def _probabilidade(conexao: psycopg.Connection, args) -> int:
     return config.CODIGO_SAIDA_OK
 
 
+def _verificar(conexao: psycopg.Connection) -> int:
+    ultimo = dados.ultimo_dia_com_venda(conexao)
+    painel = dados.ler_painel(conexao, dados.primeiro_dia_com_venda(conexao), ultimo)
+    resultado = consistencia.verificar(conexao, painel)
+    print(consistencia.relatorio(resultado))
+    return config.CODIGO_SAIDA_OK if resultado["ok"].all() else config.CODIGO_SAIDA_ERRO_DE_EXECUCAO
+
+
 def principal(
     argv: Sequence[str] | None = None,
     *,
@@ -149,6 +163,8 @@ def principal(
             return _backtest(conexao)
         if args.comando == "probabilidade":
             return _probabilidade(conexao, args)
+        if args.comando == "verificar":
+            return _verificar(conexao)
         return _gerar(conexao, args)
     except ValueError as erro:
         log.error("erro de uso: %s", erro)

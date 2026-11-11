@@ -15,13 +15,12 @@ DROP VIEW IF EXISTS dw.vw_simulador_troca;
 CREATE VIEW dw.vw_simulador_troca AS
 WITH ref AS (SELECT max(data_referencia) AS data_referencia FROM dw.desempenho_vendedor_setor),
 ultima AS (
-    SELECT versao_modelo, treino_ate FROM dw.previsao_vendas
-    WHERE nivel = 'loja_setor' AND granularidade = 'dia'
-    ORDER BY treino_ate DESC, gerado_em DESC LIMIT 1),
+    SELECT max(treino_ate) AS treino_ate FROM dw.vw_previsao_vigente
+    WHERE nivel = 'loja_setor' AND granularidade = 'dia'),
 semanal AS (
     SELECT p.sk_loja, p.setor, (p.data - r.data_referencia - 1) / 7 + 1 AS semana,
            min(p.data) AS semana_inicio, sum(p.valor_previsto) AS demanda_prevista
-    FROM dw.previsao_vendas p JOIN ultima u USING (versao_modelo, treino_ate)
+    FROM dw.vw_previsao_vigente p JOIN ultima u USING (treino_ate)
     CROSS JOIN ref r
     WHERE p.nivel = 'loja_setor' AND p.granularidade = 'dia' AND p.data > r.data_referencia
     GROUP BY p.sk_loja, p.setor, (p.data - r.data_referencia - 1) / 7 + 1

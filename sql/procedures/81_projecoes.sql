@@ -11,8 +11,8 @@ LANGUAGE sql STABLE AS $$
 $$;
 
 -- Fechamento do mês de p_ref, por loja e setor: realizado até p_ref + previsão dos dias restantes.
--- A previsão usada é a gerada com corte exatamente em p_ref (dw.previsao_vendas.treino_ate), e a
--- mais recente se houver mais de uma versão. Sem previsão para os dias que faltam, previsto_restante
+-- A previsão usada é a vigente do corte exatamente em p_ref (dw.vw_previsao_vigente: a versão do
+-- modelo gerada mais recentemente para aquele corte). Sem previsão para os dias que faltam, previsto_restante
 -- fica NULL (tem_previsao = FALSE). faixa_* soma as faixas diárias: é mais larga que a faixa real.
 CREATE OR REPLACE FUNCTION dw.fn_projecao_fechamento_mes(p_ref DATE)
 RETURNS TABLE (
@@ -34,15 +34,10 @@ LANGUAGE sql STABLE AS $$
         WHERE v.status = 'Concluída' AND t.data BETWEEN l.inicio AND p_ref
         GROUP BY v.sk_loja, p.setor
     ),
-    versao AS (
-        SELECT versao_modelo FROM dw.previsao_vendas
-        WHERE nivel = 'loja_setor' AND treino_ate = p_ref ORDER BY gerado_em DESC, versao_modelo LIMIT 1
-    ),
     previsto AS (
         SELECT f.sk_loja, f.setor, sum(f.valor_previsto) AS valor, sum(f.valor_baixo) AS baixo,
                sum(f.valor_alto) AS alto
-        FROM dw.previsao_vendas f
-        JOIN versao USING (versao_modelo)
+        FROM dw.vw_previsao_vigente f
         CROSS JOIN limites l
         WHERE f.nivel = 'loja_setor' AND f.granularidade = 'dia' AND f.treino_ate = p_ref AND f.data > p_ref
           AND f.data <= l.fim

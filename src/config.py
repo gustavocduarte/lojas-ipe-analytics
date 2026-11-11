@@ -487,7 +487,7 @@ PREVISAO_QUANTIL_ALTO = 0.90
 PREVISAO_COBERTURA_ALVO = 0.80
 PREVISAO_NIVEIS = ("rede", "loja", "setor", "loja_setor")
 PREVISAO_MODELO_BASE = "ingenua"
-PREVISAO_VERSAO_MODELO = 1
+PREVISAO_VERSAO_MODELO = 2  # 2: Black Friday no modelo (as linhas @1 ficam como histórico)
 CASAS_PREVISAO = 2
 
 # --- Probabilidade de bater a meta do mês (Fase 5, etapa 5) -------------------------------------

@@ -61,9 +61,11 @@ def _inteiros(linhas, posicoes: tuple[int, ...]):
 
 
 def gravar_probabilidades(
-    conexao: psycopg.Connection, com_p: pd.DataFrame, inicio: date, fim: date
-) -> int:
-    """Substitui as probabilidades de [inicio, fim] desta versão. Devolve as linhas gravadas."""
+    conexao: psycopg.Connection, com_p: pd.DataFrame, inicio: date, fim: date,
+    *, confirmar: bool = True,
+) -> int:  # fmt: skip
+    """Substitui as probabilidades de [inicio, fim] desta versão. Devolve as linhas gravadas.
+    Com `confirmar=False` não faz commit nem rollback: quem chamou decide (gravação atômica)."""
     quadro = formatar_probabilidades(com_p)
     quadro = quadro[
         (quadro["data_referencia"] >= pd.Timestamp(inicio))
@@ -80,14 +82,18 @@ def gravar_probabilidades(
         linhas = _inteiros(_linhas(quadro, COLUNAS_PROBABILIDADE), (1, 4, 11, 12))
         geracao._copiar(conexao, "tmp_prob_meta", COLUNAS_PROBABILIDADE, linhas)
         conexao.execute("CALL dw.gravar_probabilidade_meta(%s, %s, %s)", (versao(), inicio, fim))
-        conexao.commit()
+        if confirmar:
+            conexao.commit()
     except Exception:
-        conexao.rollback()
+        if confirmar:
+            conexao.rollback()
         raise
     return len(quadro)
 
 
-def gravar_calibracao(conexao: psycopg.Connection, calibracao: pd.DataFrame) -> int:
+def gravar_calibracao(
+    conexao: psycopg.Connection, calibracao: pd.DataFrame, *, confirmar: bool = True
+) -> int:
     try:
         conexao.execute(
             "CREATE TEMP TABLE tmp_prob_calibracao (esquema VARCHAR(20), nivel VARCHAR(5),"
@@ -100,14 +106,18 @@ def gravar_calibracao(conexao: psycopg.Connection, calibracao: pd.DataFrame) -> 
         linhas = _inteiros(_linhas(calibracao, COLUNAS_CALIBRACAO), (2, 8, 9))
         geracao._copiar(conexao, "tmp_prob_calibracao", COLUNAS_CALIBRACAO, linhas)
         conexao.execute("CALL dw.gravar_probabilidade_calibracao(%s)", (versao(),))
-        conexao.commit()
+        if confirmar:
+            conexao.commit()
     except Exception:
-        conexao.rollback()
+        if confirmar:
+            conexao.rollback()
         raise
     return len(calibracao)
 
 
-def gravar_erro_resto(conexao: psycopg.Connection, ajuste: pd.DataFrame) -> int:
+def gravar_erro_resto(
+    conexao: psycopg.Connection, ajuste: pd.DataFrame, *, confirmar: bool = True
+) -> int:
     quadro = ajuste.copy()
     quadro["sk_loja"] = quadro["sk_loja"].where(quadro["sk_loja"] != REDE, None)
     try:
@@ -121,8 +131,10 @@ def gravar_erro_resto(conexao: psycopg.Connection, ajuste: pd.DataFrame) -> int:
         linhas = _inteiros(_linhas(quadro, COLUNAS_ERRO), (1, 2, 3, 5, 6))
         geracao._copiar(conexao, "tmp_prob_erro", COLUNAS_ERRO, linhas)
         conexao.execute("CALL dw.gravar_erro_resto(%s)", (versao(),))
-        conexao.commit()
+        if confirmar:
+            conexao.commit()
     except Exception:
-        conexao.rollback()
+        if confirmar:
+            conexao.rollback()
         raise
     return len(quadro)

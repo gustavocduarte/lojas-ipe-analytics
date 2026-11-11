@@ -60,9 +60,20 @@ def executar(
 
 
 def gravar(conexao: psycopg.Connection, r: ResultadoProbabilidade) -> dict[str, int]:
-    """Grava as três tabelas (substitui o que for desta versão no período)."""
-    return {
-        "probabilidades": gravacao.gravar_probabilidades(conexao, r.so_passado, r.inicio, r.fim),
-        "calibracao": gravacao.gravar_calibracao(conexao, r.calibracao),
-        "erro_resto": gravacao.gravar_erro_resto(conexao, prob.linhas_do_ajuste(r.modelos)),
-    }
+    """Grava as três tabelas (substitui o que for desta versão no período) numa única transação:
+    ou ficam as três, ou nenhuma."""
+    try:
+        linhas = {
+            "probabilidades": gravacao.gravar_probabilidades(
+                conexao, r.so_passado, r.inicio, r.fim, confirmar=False
+            ),
+            "calibracao": gravacao.gravar_calibracao(conexao, r.calibracao, confirmar=False),
+            "erro_resto": gravacao.gravar_erro_resto(
+                conexao, prob.linhas_do_ajuste(r.modelos), confirmar=False
+            ),
+        }
+        conexao.commit()
+    except Exception:
+        conexao.rollback()
+        raise
+    return linhas

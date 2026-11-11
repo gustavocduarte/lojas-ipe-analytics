@@ -1,4 +1,4 @@
-/// Previsão diária de receita por loja e setor (dw.previsao_vendas, nível loja_setor), com uma linha por corte (treino_ate). As medidas usam o corte igual à posição do relatório.
+/// Previsão diária de receita por loja e setor (dw.vw_previsao_vigente, nível loja_setor), com uma linha por corte (treino_ate). As medidas usam o corte igual à posição do relatório.
 table Previsão
 	lineageTag: fe310866-8557-4410-b036-5ea31aaefb7c
 
@@ -99,13 +99,11 @@ table Previsão
 		source =
 				let
 				    Fonte = PostgreSQL.Database("localhost", "lojas_ipe_dw"),
-				    dw_previsao_vendas = Fonte{[Schema="dw",Item="previsao_vendas"]}[Data],
-				    // série prevista (loja x setor) por dia; as faixas de loja e rede somadas não servem para somar
-				    Dia = Table.SelectRows(dw_previsao_vendas, each [nivel] = "loja_setor" and [granularidade] = "dia"),
-				    // se um mesmo corte tiver mais de uma versão do modelo, fica a mais recente (como dw.fn_projecao_fechamento_mes)
-				    Escolhida = Table.Group(Dia, {"treino_ate"}, {{"versao_escolhida", each Table.Max(_, "gerado_em")[versao_modelo], type text}}),
-				    Unido = Table.NestedJoin(Dia, {"treino_ate", "versao_modelo"}, Escolhida, {"treino_ate", "versao_escolhida"}, "e", JoinKind.Inner),
-				    Colunas = Table.SelectColumns(Unido, {"data", "sk_loja", "setor", "valor_previsto", "valor_baixo", "valor_alto", "treino_ate", "versao_modelo"}),
+				    dw_vw_previsao_vigente = Fonte{[Schema="dw",Item="vw_previsao_vigente"]}[Data],
+				    // série prevista (loja x setor) por dia; as faixas de loja e rede somadas não servem para somar.
+				    // A view já traz só a versão mais recente de cada corte (mesma regra de dw.fn_projecao_fechamento_mes)
+				    Dia = Table.SelectRows(dw_vw_previsao_vigente, each [nivel] = "loja_setor" and [granularidade] = "dia"),
+				    Colunas = Table.SelectColumns(Dia, {"data", "sk_loja", "setor", "valor_previsto", "valor_baixo", "valor_alto", "treino_ate", "versao_modelo"}),
 				    ComChave = Table.AddColumn(Colunas, "sk_tempo", each Date.Year([data]) * 10000 + Date.Month([data]) * 100 + Date.Day([data]), Int64.Type),
 				    Tipos = Table.TransformColumnTypes(ComChave, {{"data", type date}, {"treino_ate", type date}, {"sk_loja", Int64.Type}, {"valor_previsto", type number}, {"valor_baixo", type number}, {"valor_alto", type number}})
 				in
