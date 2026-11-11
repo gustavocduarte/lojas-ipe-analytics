@@ -23,6 +23,9 @@ PostgreSQL 18 (local) + Python 3.12+ (pandas, sqlalchemy, psycopg 3, python-dote
 ## Restrição de memória
 O computador tem 3,9 GB de RAM e costuma ter ~0,5 GB livres.
 - Antes de qualquer etapa pesada (gerar dados, carga no banco), conferir a memória livre. **Abaixo de 0,4 GB não rodar**: avisar o usuário e esperar. O gerador já faz essa checagem (`src/memoria.py`). O ETL também: confere antes de começar e, durante a carga, uma vigia (`VigiaMemoria`) lê a memória a cada `INTERVALO_VIGIA_MEMORIA_S`; abaixo do piso por mais de `TOLERANCIA_PISO_MEMORIA_S` segundos seguidos, cancela a consulta SQL, desfaz a transação (o dw fica como estava), marca a carga como erro com o motivo e sai com o código 3.
+- **Medição antes de cada comando:** medir a memória livre imediatamente antes de cada comando; abaixo de 0,40 GB, esperar e medir de novo (até 3 tentativas com 60 s) e, se continuar abaixo, parar e avisar o usuário. Não decidir sozinho que a regra não se aplica a um comando.
+- **Exceção à medição de RAM:** comandos de git que só leem ou movem arquivos, sem Python e sem banco (`git status`, `git diff`, `git log`, `git mv`, `git add`, `git switch`, `git fetch`), ficam isentos da medição prévia de memória. Valem a medição e o piso de 0,40 GB, sem isenção, para qualquer comando que rode Python, pytest, o ETL, a previsão, o gerador ou o banco, e para o `git commit` e o `git push`, por causa dos hooks e do tráfego de rede. Em caso de dúvida se um comando se enquadra, medir.
+- **Piso excepcional de 0,25 GB:** só com autorização explícita do usuário, comando a comando, um por vez, e válida só para aquele comando ou tarefa. Abaixo de 0,20 GB durante a execução, interromper e avisar. Nunca adotar esse piso por conta própria nem registrá-lo como padrão.
 - Volumes moderados; processar em partes (o gerador escreve um mês por vez), nunca carregar tudo na memória.
 
 ## Plano de fases
