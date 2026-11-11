@@ -613,15 +613,22 @@ def consolidar_cancelamentos(alertas: pd.DataFrame) -> pd.DataFrame:
     return alertas.drop(index=antigas)
 
 
-def previsao_mensal(conexao: psycopg.Connection) -> pd.DataFrame:
-    """Previsão mensal por loja da execução mais recente, com faixa e erro do backtest da loja."""
-    sql = """
-    WITH ultima AS (
+ULTIMO_CORTE_VIGENTE = """
+    ultima AS (
         SELECT versao_modelo, treino_ate
-        FROM dw.previsao_vendas
+        FROM dw.vw_previsao_vigente
         WHERE nivel = 'loja_setor' AND granularidade = 'mes'
-        ORDER BY gerado_em DESC, treino_ate DESC LIMIT 1
-    ),
+          AND (%(dia)s::DATE IS NULL OR treino_ate <= %(dia)s::DATE)
+        ORDER BY treino_ate DESC LIMIT 1
+    )"""
+
+
+def previsao_mensal(conexao: psycopg.Connection, dia: date | None = None) -> pd.DataFrame:
+    """Previsão mensal por loja do corte vigente com o maior `treino_ate` menor ou igual a `dia` (a
+    data de referência do relatório; sem `dia`, o maior corte), com faixa e erro do backtest da
+    loja. Vazia quando não há corte até essa data."""
+    sql = f"""
+    WITH {ULTIMO_CORTE_VIGENTE},
     wape AS (
         SELECT b.sk_loja, b.wape
         FROM dw.previsao_backtest b
@@ -635,41 +642,37 @@ def previsao_mensal(conexao: psycopg.Connection) -> pd.DataFrame:
            COALESCE(MAX(t.valor_baixo), SUM(f.valor_baixo)) AS faixa_baixa,
            COALESCE(MAX(t.valor_alto), SUM(f.valor_alto)) AS faixa_alta,
            w.wape AS wape_backtest_loja, f.versao_modelo, f.treino_ate
-    FROM dw.previsao_vendas f
+    FROM dw.vw_previsao_vigente f
     JOIN ultima u ON u.versao_modelo = f.versao_modelo AND u.treino_ate = f.treino_ate
     JOIN dw.dim_loja l ON l.sk_loja = f.sk_loja
     LEFT JOIN wape w ON w.sk_loja = f.sk_loja
-    LEFT JOIN dw.previsao_vendas t ON t.nivel = 'loja' AND t.granularidade = 'mes'
+    LEFT JOIN dw.vw_previsao_vigente t ON t.nivel = 'loja' AND t.granularidade = 'mes'
          AND t.data = f.data AND t.sk_loja = f.sk_loja AND t.versao_modelo = f.versao_modelo
          AND t.treino_ate = f.treino_ate
     WHERE f.nivel = 'loja_setor' AND f.granularidade = 'mes'
     GROUP BY f.data, l.cod_loja, l.nome_loja, w.wape, f.versao_modelo, f.treino_ate
     ORDER BY f.data, l.cod_loja
     """
-    return _df(conexao, sql, {})
+    return _df(conexao, sql, {"dia": dia})
 
 
-def previsao_diaria_da_rede(conexao: psycopg.Connection) -> pd.DataFrame:
-    """Previsão diária da rede (execução mais recente), com a faixa baixa e alta calibrada no total
-    da rede (nível `rede`); sem essas linhas, cai na soma das faixas de cada loja e setor."""
-    sql = """
-    WITH ultima AS (
-        SELECT versao_modelo, treino_ate
-        FROM dw.previsao_vendas
-        WHERE nivel = 'loja_setor' AND granularidade = 'mes'
-        ORDER BY gerado_em DESC, treino_ate DESC LIMIT 1
-    ),
+def previsao_diaria_da_rede(conexao: psycopg.Connection, dia: date | None = None) -> pd.DataFrame:
+    """Previsão diária da rede do mesmo corte vigente de `previsao_mensal`, com a faixa baixa e alta
+    calibrada no total da rede (nível `rede`); sem essas linhas, cai na soma das faixas de cada loja
+    e setor."""
+    sql = f"""
+    WITH {ULTIMO_CORTE_VIGENTE},
     soma AS (
         SELECT f.data, SUM(f.valor_previsto) AS previsto, SUM(f.valor_baixo) AS baixo,
                SUM(f.valor_alto) AS alto
-        FROM dw.previsao_vendas f
+        FROM dw.vw_previsao_vigente f
         JOIN ultima u ON u.versao_modelo = f.versao_modelo AND u.treino_ate = f.treino_ate
         WHERE f.nivel = 'loja_setor' AND f.granularidade = 'dia'
         GROUP BY f.data
     ),
     rede AS (
         SELECT f.data, f.valor_previsto, f.valor_baixo, f.valor_alto
-        FROM dw.previsao_vendas f
+        FROM dw.vw_previsao_vigente f
         JOIN ultima u ON u.versao_modelo = f.versao_modelo AND u.treino_ate = f.treino_ate
         WHERE f.nivel = 'rede' AND f.granularidade = 'dia'
     )
@@ -680,4 +683,4 @@ def previsao_diaria_da_rede(conexao: psycopg.Connection) -> pd.DataFrame:
     LEFT JOIN rede r ON r.data = s.data
     ORDER BY s.data
     """
-    return _df(conexao, sql, {})
+    return _df(conexao, sql, {"dia": dia})

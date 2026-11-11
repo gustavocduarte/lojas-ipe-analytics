@@ -99,3 +99,21 @@ pós-Natal não tem fator, o 25/12 usa o fator de feriado comum e o pré-Natal t
 alimenta o viés conservador remanescente da probabilidade (`docs/metodologia_probabilidade.md`,
 seção 6). Qualquer correção futura precisa de mais de um ano de histórico de Natal ou de um critério de
 encolhimento escolhido **antes** da medição.
+
+## 4. Versões do modelo, previsão vigente e gravação
+
+- **Versão do modelo** (`PREVISAO_VERSAO_MODELO`, rótulo `decomposicao@N`): sobe quando o modelo muda
+  (a 2 incluiu a Black Friday). As linhas de versões antigas **ficam** em `dw.previsao_vendas`, como
+  histórico; nada é apagado.
+- **Previsão vigente** (`dw.vw_previsao_vigente`): para cada corte (`treino_ate`) vale a versão gerada
+  por último **naquele corte**, não a mais recente do banco inteiro. É a regra de
+  `dw.fn_projecao_fechamento_mes`, do simulador, da tabela `Previsão` do Power BI e das views da
+  probabilidade. O relatório Excel usa o corte vigente de maior `treino_ate` menor ou igual ao dia de
+  posição do relatório (sem corte até lá, as abas de previsão saem vazias, com aviso no log).
+- **`python -m src.previsao gerar --gravar` substitui o backtest do mesmo `treino_ate` de qualquer
+  versão** (`dw.gravar_backtest` apaga por `treino_ate`), embora preserve as linhas de previsão de
+  versões anteriores (`dw.gravar_previsao` apaga só por versão e corte). Quem precisar do backtest da
+  versão antiga deve guardá-lo antes de regravar.
+- **Consistência:** `python -m src.previsao verificar` (só leitura) refaz em memória cada corte vigente
+  com o modelo atual, arredondando cada série-dia como a gravação, e compara por loja, mês e rede
+  (R$ 0,01 por loja). Um corte gravado com outra versão ou desatualizado falha.

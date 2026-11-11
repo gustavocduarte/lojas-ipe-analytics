@@ -21,6 +21,11 @@ def coletar(conexao: psycopg.Connection, mes: date, dia: date) -> DadosFechament
     dia_da_semana, faixa = consultas.quando_a_loja_vende(conexao, dia)
     vendedores = consultas.vendedores(conexao, mes, dia)
     alertas = consultas.alertas_abertos(conexao, dia)
+    previsao_mensal = consultas.previsao_mensal(conexao, dia)
+    if previsao_mensal.empty:
+        log.warning(
+            "nenhum corte de previsão até %s: as abas de previsão saem vazias", f"{dia:%d/%m/%Y}"
+        )
     return DadosFechamento(
         mes=mes,
         dia=dia,
@@ -29,8 +34,8 @@ def coletar(conexao: psycopg.Connection, mes: date, dia: date) -> DadosFechament
         vendas_por_dia=consultas.vendas_por_dia(conexao, mes, dia),
         vendedores=vendedores,
         alertas=alertas,
-        previsao_mensal=consultas.previsao_mensal(conexao),
-        previsao_diaria=consultas.previsao_diaria_da_rede(conexao),
+        previsao_mensal=previsao_mensal,
+        previsao_diaria=consultas.previsao_diaria_da_rede(conexao, dia),
         projecao_por_dia=consultas.projecao_por_dia(conexao, mes, dia),
         produtos=consultas.produtos(conexao, mes, dia).head(config.RELATORIO_TOP_PRODUTOS),
         setores=consultas.setores(conexao, mes, dia),

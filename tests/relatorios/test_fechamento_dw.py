@@ -8,7 +8,7 @@ import pytest
 from openpyxl import load_workbook
 
 from src import config
-from src.relatorios import fechamento
+from src.relatorios import consultas, fechamento
 from src.relatorios.__main__ import principal
 from src.relatorios.planilha import (
     ABA_ALERTAS,
@@ -85,19 +85,19 @@ def dw(banco_com_ddl):
         "UPDATE dw.alertas SET status = 'falso_positivo' WHERE sk_alerta ="
         " (SELECT min(sk_alerta) FROM dw.alertas WHERE tipo_alerta = 'desconto_acima_limite')"
     )
-    # previsão (como se tivesse sido gerada em 31/12/2025)
+    # previsão (como se tivesse sido gerada em 15/03/2025, o dia de posição do relatório)
     con.execute(
         "INSERT INTO dw.previsao_vendas (granularidade, data, sk_loja, setor, valor_previsto,"
         " valor_baixo, valor_alto, versao_modelo, treino_ate)"
         " SELECT 'mes', '2026-01-01', sk_loja, 'Alimentos', 20000, 17000, 23000, 'x@1',"
-        " '2025-12-31'"
+        " '2025-03-15'"
         " FROM dw.dim_loja"
     )
     con.execute(
         "INSERT INTO dw.previsao_vendas (granularidade, data, sk_loja, setor, valor_previsto,"
         " valor_baixo, valor_alto, versao_modelo, treino_ate)"
         " SELECT 'dia', make_date(2026, 1, d), sk_loja, 'Alimentos', 600, 500, 700, 'x@1',"
-        " '2025-12-31' FROM dw.dim_loja, generate_series(1, 31) d"
+        " '2025-03-15' FROM dw.dim_loja, generate_series(1, 31) d"
     )
     con.execute(
         "INSERT INTO dw.previsao_backtest (versao_modelo, nivel, granularidade, sk_loja,"
@@ -648,7 +648,7 @@ class TestVendedoresAlertasPrevisao:
             "INSERT INTO dw.previsao_vendas (nivel, granularidade, data, sk_loja, setor,"
             " valor_previsto, valor_baixo, valor_alto, versao_modelo, treino_ate)"
             " SELECT 'rede', 'dia', make_date(2026, 1, d), NULL, NULL, 1200, 1100, 1350, 'x@1',"
-            " '2025-12-31' FROM generate_series(1, 31) d"
+            " '2025-03-15' FROM generate_series(1, 31) d"
         )
         dw.commit()
         com_rede = _tabela(
@@ -659,6 +659,42 @@ class TestVendedoresAlertasPrevisao:
         assert len(com_rede) == 31  # as linhas de rede não duplicam os dias
         assert (com_rede[0]["Faixa baixa"], com_rede[0]["Faixa alta"]) == (1100.0, 1350.0)
         assert com_rede[0]["Previsto da rede"] == 1200.0
+
+    def test_corte_depois_da_data_do_relatorio_e_ignorado(self, dw, tmp_path):
+        # um corte gerado DEPOIS do dia do relatório (e mais recente no banco) não pode aparecer
+        dw.execute(
+            "INSERT INTO dw.previsao_vendas (granularidade, data, sk_loja, setor, valor_previsto,"
+            " valor_baixo, valor_alto, versao_modelo, treino_ate)"
+            " SELECT 'mes', '2025-05-01', sk_loja, 'Alimentos', 99999, 90000, 109999, 'z@1',"
+            " '2025-04-30' FROM dw.dim_loja"
+        )
+        dw.commit()
+        mensal = consultas.previsao_mensal(dw, DIA)
+        assert set(mensal["treino_ate"]) == {date(2025, 3, 15)} and set(
+            mensal["versao_modelo"]
+        ) == {"x@1"}
+        assert consultas.previsao_mensal(dw, date(2025, 4, 30))["treino_ate"].unique().tolist() == [
+            date(2025, 4, 30)
+        ]
+        assert consultas.previsao_mensal(dw)["treino_ate"].unique().tolist() == [date(2025, 4, 30)]
+        aba = load_workbook(fechamento.gerar(dw, MES, DIA, tmp_path / "c.xlsx", modelo=None)[0])
+        linhas = [x for x in _tabela(aba[ABA_PREVISAO]) if x["Loja"]]
+        assert {x["Previsto"] for x in linhas} == {20000}
+
+    def test_sem_corte_ate_a_data_do_relatorio_as_abas_de_previsao_saem_vazias_com_aviso(
+        self, dw, tmp_path, caplog
+    ):
+        antes_de_tudo = date(2025, 3, 14)  # o único corte é 15/03/2025
+        assert consultas.previsao_mensal(dw, antes_de_tudo).empty
+        assert consultas.previsao_diaria_da_rede(dw, antes_de_tudo).empty
+        with caplog.at_level("WARNING", logger="src.relatorios.fechamento"):
+            caminho, _ = fechamento.gerar(dw, MES, antes_de_tudo, tmp_path / "v.xlsx", modelo=None)
+        assert "nenhum corte de previsão até 14/03/2025" in caplog.text
+        pasta = load_workbook(caminho)
+        assert [x for x in _tabela(pasta[ABA_PREVISAO]) if x["Loja"]] == []
+        assert (
+            pasta[ABA_PREVISAO_DIARIA].max_row == 1 and len(pasta[ABA_PREVISAO_DIARIA]._charts) == 0
+        )
 
 
 class TestComando:
