@@ -1,3 +1,4 @@
+-- (Fica em sql/procedures, e não em sql/ddl, porque é uma view que as funções de 81_projecoes.sql precisam ao serem criadas; é reaplicável.)
 -- Previsão vigente: uma linha por (corte, grão), com a versão do modelo gerada mais recentemente
 -- PARA CADA CORTE (treino_ate). Versões diferentes convivem no histórico (nada é apagado) e cortes
 -- diferentes podem ter versões diferentes; quem lê a previsão usa esta view em vez de repetir a regra
