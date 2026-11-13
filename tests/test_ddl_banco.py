@@ -71,6 +71,7 @@ TABELAS_ETL = {
     "carga_alertas",
     "excecoes_centro_descricao",
     "pesos_calendario",
+    "parametros_cores",
 }
 
 

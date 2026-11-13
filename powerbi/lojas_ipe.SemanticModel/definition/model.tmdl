@@ -9,7 +9,7 @@ model Model
 
 annotation __PBI_TimeIntelligenceEnabled = 0
 
-annotation PBI_QueryOrder = ["Vendas","Calendário","Lojas","Produtos","Vendedores","Metas lojas","Metas vendedores","Metas lojas diária","Metas vendedores diária","Previsão","Parâmetros do diagnóstico","Referência da rede"]
+annotation PBI_QueryOrder = ["Vendas","Calendário","Lojas","Produtos","Vendedores","Metas lojas","Metas vendedores","Metas lojas diária","Metas vendedores diária","Previsão","Parâmetros do diagnóstico","Parâmetros de cores","Referência da rede"]
 
 annotation PBI_ProTooling = ["MCP-PBIModeling","DevMode"]
 
@@ -28,6 +28,7 @@ ref table Previsão
 ref table 'Eixo do mês'
 ref table 'Modo do ranking'
 ref table 'Parâmetros do diagnóstico'
+ref table 'Parâmetros de cores'
 ref table 'Referência da rede'
 ref table 'Indicadores do diagnóstico'
 ref table 'Itens de atenção'

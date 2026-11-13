@@ -170,17 +170,17 @@ table Medidas
 		lineageTag: 93f71a4c-242e-4ea6-ac6b-d3ffae6aa747
 
 	/// Verde se a cobertura da meta até o dia for ≥ 100%, vermelho se não. Usar em Formatação condicional → Valor do campo.
-	measure 'Cor da cobertura' = IF(ISBLANK([Cobertura da meta até o dia]), BLANK(), IF([Cobertura da meta até o dia] >= 1, "#2E7D32", "#C62828"))
+	measure 'Cor da cobertura' = IF(ISBLANK([Cobertura da meta até o dia]), BLANK(), IF([Cobertura da meta até o dia] >= 1, [Cor: verde], [Cor: vermelho]))
 		displayFolder: 4. Formatação
 		lineageTag: 03fb31e2-bd95-4ec2-95e3-052a63b76229
 
 	/// Verde se a evolução vs ano anterior for positiva, vermelho se negativa.
-	measure 'Cor da evolução' = IF(ISBLANK([Evolução vs ano anterior]), BLANK(), IF([Evolução vs ano anterior] >= 0, "#2E7D32", "#C62828"))
+	measure 'Cor da evolução' = IF(ISBLANK([Evolução vs ano anterior]), BLANK(), IF([Evolução vs ano anterior] >= 0, [Cor: verde], [Cor: vermelho]))
 		displayFolder: 4. Formatação
 		lineageTag: d3268c68-9374-4d85-9ad4-633d82ff0b1b
 
 	/// Verde/vermelho para a cobertura do período (ex.: colunas do gráfico diário).
-	measure 'Cor da cobertura do período' = IF(ISBLANK([Cobertura do período]), BLANK(), IF([Cobertura do período] >= 1, "#2E7D32", "#C62828"))
+	measure 'Cor da cobertura do período' = IF(ISBLANK([Cobertura do período]), BLANK(), IF([Cobertura do período] >= 1, [Cor: verde], [Cor: vermelho]))
 		displayFolder: 4. Formatação
 		lineageTag: 84f83e3f-a687-4f41-a95d-60a1ffe0131b
 
@@ -191,7 +191,7 @@ table Medidas
 		lineageTag: 89bdfec0-620e-43bf-91ac-37dbf47a839e
 
 	/// Verde se a diferença para a meta do dia é ≥ 0, vermelho se < 0 (barras divergentes).
-	measure 'Cor da diferença' = IF(ISBLANK([Diferença para a meta do dia %]), BLANK(), IF([Diferença para a meta do dia %] >= 0, "#2E7D32", "#C62828"))
+	measure 'Cor da diferença' = IF(ISBLANK([Diferença para a meta do dia %]), BLANK(), IF([Diferença para a meta do dia %] >= 0, [Cor: verde], [Cor: vermelho]))
 		displayFolder: 4. Formatação
 		lineageTag: d5cf881e-495f-4f13-8fd5-4b8cd156d291
 
@@ -382,7 +382,7 @@ table Medidas
 		lineageTag: c712983a-0cc0-440d-9516-2bc1b6e086b2
 
 	/// Verde/vermelho para a cobertura do vendedor.
-	measure 'Cor da cobertura (vendedor)' = IF(ISBLANK([Cobertura da meta até o dia (vendedor)]), BLANK(), IF([Cobertura da meta até o dia (vendedor)] >= 1, "#2E7D32", "#C62828"))
+	measure 'Cor da cobertura (vendedor)' = IF(ISBLANK([Cobertura da meta até o dia (vendedor)]), BLANK(), IF([Cobertura da meta até o dia (vendedor)] >= 1, [Cor: verde], [Cor: vermelho]))
 		displayFolder: 4. Formatação
 		lineageTag: 3dfef1c5-b58f-4f6a-9b69-e6ebdd181fb7
 
@@ -472,7 +472,7 @@ table Medidas
 		lineageTag: 4a9f6d23-b1e8-4075-9c2a-68d3e7f10b95
 
 	/// Vermelho forte se a cobertura da meta até o dia está abaixo de 80%; vermelho claro de 80% a 100%. Vazio quando não falta nada.
-	measure 'Cor da falta' = IF([Falta para a meta até o dia] <= 0, BLANK(), IF([Cobertura da meta até o dia] < 0.8, "#C62828", "#E57373"))
+	measure 'Cor da falta' = IF([Falta para a meta até o dia] <= 0, BLANK(), IF([Cobertura da meta até o dia] < 0.8, [Cor: vermelho], [Cor: vermelho claro]))
 		displayFolder: 4. Formatação
 		lineageTag: 7d03c5e9-6f2a-4b18-a4d7-91e0b3a85c46
 
@@ -712,10 +712,10 @@ table Medidas
 	measure 'Cor do quadrante' =
 			SWITCH(
 			    [Quadrante],
-			    "Cresce receita e margem", "#2E7D32",
-			    "Cresce receita, perde margem", "#EF8A17",
-			    "Perde receita, ganha margem", "#1F6FB5",
-			    "Perde receita e margem", "#C62828",
+			    "Cresce receita e margem", [Cor: verde],
+			    "Cresce receita, perde margem", [Cor: laranja do quadrante],
+			    "Perde receita, ganha margem", [Cor: azul do quadrante],
+			    "Perde receita e margem", [Cor: vermelho],
 			    BLANK()
 			)
 		displayFolder: 4. Formatação
@@ -728,7 +728,7 @@ table Medidas
 		lineageTag: 3b7e9d24-6a15-4c80-b2f7-8e41d0a95c63
 
 	/// Vermelho se alguma loja está abaixo da meta (falta > 0); verde quando falta = 0.
-	measure 'Cor da falta nas lojas' = IF(ISBLANK([Meta acumulada até o dia]), BLANK(), IF([Falta nas lojas abaixo da meta (até o dia)] > 0, "#C62828", "#2E7D32"))
+	measure 'Cor da falta nas lojas' = IF(ISBLANK([Meta acumulada até o dia]), BLANK(), IF([Falta nas lojas abaixo da meta (até o dia)] > 0, [Cor: vermelho], [Cor: verde]))
 		displayFolder: 4. Formatação
 		lineageTag: c58a1f93-d207-4be6-9a34-70f2b6e8d1a5
 
@@ -744,7 +744,7 @@ table Medidas
 		lineageTag: 6cdf5117-37a8-4ae7-8d40-cffb408cec97
 
 	/// Verde se a margem da loja estiver acima da rede, vermelho se abaixo.
-	measure 'Cor da margem vs rede' = IF(ISBLANK([Margem vs rede (p.p.)]), BLANK(), IF([Margem vs rede (p.p.)] >= 0, "#2E7D32", "#C62828"))
+	measure 'Cor da margem vs rede' = IF(ISBLANK([Margem vs rede (p.p.)]), BLANK(), IF([Margem vs rede (p.p.)] >= 0, [Cor: verde], [Cor: vermelho]))
 		displayFolder: 4. Formatação
 		lineageTag: 8f9025f9-8263-4534-84ff-bb953d3a197d
 
@@ -754,7 +754,7 @@ table Medidas
 		lineageTag: 98c72015-0f0a-407c-93af-11535ac5272e
 
 	/// Verde se a evolução das mesmas lojas for ≥ 0, vermelho se negativa.
-	measure 'Cor da evolução mesmas lojas' = IF(ISBLANK([Evolução mesmas lojas]), BLANK(), IF([Evolução mesmas lojas] >= 0, "#2E7D32", "#C62828"))
+	measure 'Cor da evolução mesmas lojas' = IF(ISBLANK([Evolução mesmas lojas]), BLANK(), IF([Evolução mesmas lojas] >= 0, [Cor: verde], [Cor: vermelho]))
 		displayFolder: 4. Formatação
 		lineageTag: 573d44cf-92d6-479f-ace8-73c22f7aa36b
 
@@ -1146,7 +1146,7 @@ table Medidas
 		lineageTag: c50f7b65-9c7b-490f-9e7d-ace3249ca9e8
 
 	/// Verde (ponto forte), vermelho (atenção) ou cinza (neutro/sem base) para o cartão de fluxo de cupons.
-	measure 'Cor do sinal: fluxo' = VAR s = [Sinal: fluxo] RETURN IF(ISBLANK(s), "#6B7280", IF(s > 0, "#2E7D32", IF(s < 0, "#C62828", "#374151")))
+	measure 'Cor do sinal: fluxo' = VAR s = [Sinal: fluxo] RETURN IF(ISBLANK(s), [Cor: cinza], IF(s > 0, [Cor: verde], IF(s < 0, [Cor: vermelho], [Cor: cinza do texto])))
 		displayFolder: 4. Formatação
 		lineageTag: ec240369-4b8e-42b8-b540-94cfd77adb79
 
@@ -1224,7 +1224,7 @@ table Medidas
 		lineageTag: 2eefd268-f330-4d8a-86bd-eac8150dd746
 
 	/// Cor do texto da situação: verde (ponto forte), vermelho (atenção), cinza (sem base ou neutro).
-	measure 'Cor da situação' = VAR s = [Indicador: sinal] VAR meta = SELECTEDVALUE('Indicadores do diagnóstico'[Ordem]) = 6 RETURN IF(ISBLANK(s), "#6B7280", IF(meta, IF(s = 0, "#6B7280", "#B26A00"), IF(s > 0, "#2E7D32", IF(s < 0, "#C62828", "#6B7280"))))
+	measure 'Cor da situação' = VAR s = [Indicador: sinal] VAR meta = SELECTEDVALUE('Indicadores do diagnóstico'[Ordem]) = 6 RETURN IF(ISBLANK(s), [Cor: cinza], IF(meta, IF(s = 0, [Cor: cinza], [Cor: âmbar]), IF(s > 0, [Cor: verde], IF(s < 0, [Cor: vermelho], [Cor: cinza]))))
 		displayFolder: 4. Formatação
 		lineageTag: 92524b71-6d4c-4fa3-b4db-cb729503c6ec
 
@@ -1297,3 +1297,43 @@ table Medidas
 	measure 'Loja escolhida (cabeçalho)' = IF(HASONEVALUE(Lojas[nome_loja]), "Loja: " & SELECTEDVALUE(Lojas[nome_loja]), "Escolha uma loja: botão direito numa loja na página Lojas")
 		displayFolder: 6. Textos
 		lineageTag: 1aa01d3b-dd6e-41ff-82d9-520f1c0f4f81
+
+	/// Cor do banco (Parâmetros de cores, chave verde): meta batida, evolução positiva, ponto forte. As medidas de cor leem daqui; nada de #RRGGBB no DAX.
+	measure 'Cor: verde' = LOOKUPVALUE('Parâmetros de cores'[cor], 'Parâmetros de cores'[chave], "verde")
+		displayFolder: 4. Formatação
+		lineageTag: bf60b187-61ae-4ba9-8f01-bc5b9ca7368a
+
+	/// Cor do banco (Parâmetros de cores, chave vermelho): abaixo da meta, queda, atenção. As medidas de cor leem daqui; nada de #RRGGBB no DAX.
+	measure 'Cor: vermelho' = LOOKUPVALUE('Parâmetros de cores'[cor], 'Parâmetros de cores'[chave], "vermelho")
+		displayFolder: 4. Formatação
+		lineageTag: 29a8fa7f-03a5-4df3-9e3e-ce0bad3e6608
+
+	/// Cor do banco (Parâmetros de cores, chave vermelho_claro): falta para a meta entre 80% e 100% de cobertura. As medidas de cor leem daqui; nada de #RRGGBB no DAX.
+	measure 'Cor: vermelho claro' = LOOKUPVALUE('Parâmetros de cores'[cor], 'Parâmetros de cores'[chave], "vermelho_claro")
+		displayFolder: 4. Formatação
+		lineageTag: f1b2e658-b0f7-4b33-bb70-275452e9c4d0
+
+	/// Cor do banco (Parâmetros de cores, chave ambar): contexto ou alerta intermediário (nem mérito nem falha). As medidas de cor leem daqui; nada de #RRGGBB no DAX.
+	measure 'Cor: âmbar' = LOOKUPVALUE('Parâmetros de cores'[cor], 'Parâmetros de cores'[chave], "ambar")
+		displayFolder: 4. Formatação
+		lineageTag: d11d998b-ffd5-4d4d-ad6e-ce21ec27e01b
+
+	/// Cor do banco (Parâmetros de cores, chave laranja_quadrante): quadrante: cresce receita e perde margem. As medidas de cor leem daqui; nada de #RRGGBB no DAX.
+	measure 'Cor: laranja do quadrante' = LOOKUPVALUE('Parâmetros de cores'[cor], 'Parâmetros de cores'[chave], "laranja_quadrante")
+		displayFolder: 4. Formatação
+		lineageTag: 6565d725-92da-4f72-abe2-b9f40554665b
+
+	/// Cor do banco (Parâmetros de cores, chave azul_quadrante): quadrante: perde receita e ganha margem. As medidas de cor leem daqui; nada de #RRGGBB no DAX.
+	measure 'Cor: azul do quadrante' = LOOKUPVALUE('Parâmetros de cores'[cor], 'Parâmetros de cores'[chave], "azul_quadrante")
+		displayFolder: 4. Formatação
+		lineageTag: ec038dcf-d3c5-48d0-ac1e-015e456e871e
+
+	/// Cor do banco (Parâmetros de cores, chave cinza): neutro ou sem base. As medidas de cor leem daqui; nada de #RRGGBB no DAX.
+	measure 'Cor: cinza' = LOOKUPVALUE('Parâmetros de cores'[cor], 'Parâmetros de cores'[chave], "cinza")
+		displayFolder: 4. Formatação
+		lineageTag: eb82b481-5214-4806-95e5-c0c91c4a51e8
+
+	/// Cor do banco (Parâmetros de cores, chave cinza_texto): neutro em texto. As medidas de cor leem daqui; nada de #RRGGBB no DAX.
+	measure 'Cor: cinza do texto' = LOOKUPVALUE('Parâmetros de cores'[cor], 'Parâmetros de cores'[chave], "cinza_texto")
+		displayFolder: 4. Formatação
+		lineageTag: c5e98aab-623f-4627-be29-4bece9bbde73
