@@ -70,7 +70,7 @@
                     }
                   },
                   {
-                    "value": " = contexto da meta, cinza = neutro ou sem base.",
+                    "value": " = contexto da meta ou setor abaixo de 100%, cinza = neutro ou sem base.",
                     "textStyle": {
                       "fontFamily": "Segoe UI",
                       "fontSize": "12pt",
