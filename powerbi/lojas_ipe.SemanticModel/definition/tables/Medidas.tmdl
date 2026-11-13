@@ -1351,3 +1351,21 @@ table Medidas
 		isHidden
 		displayFolder: 2. Tempo
 		lineageTag: ae7760ba-2689-46c4-8024-cdf3149d1312
+
+	/// Cor da barra do gráfico de setores do Diagnóstico, em 4 faixas pela cobertura da meta até o dia: vermelho abaixo de Limite: setor fraco; âmbar até 100%; cinza até Limite: setor forte; verde a partir dele. O 100% é fixo (1) nesta medida: não existe parâmetro para ele. Em branco sem dado.
+	measure 'Cor do setor (diagnóstico)' =
+			VAR c = [Cobertura da meta até o dia]
+			RETURN
+			    IF(
+			        ISBLANK(c), BLANK(),
+			        IF(c < [Limite: setor fraco], [Cor: vermelho],
+			        IF(c < 1, [Cor: âmbar],
+			        IF(c < [Limite: setor forte], [Cor: cinza], [Cor: verde])))
+			    )
+		displayFolder: 4. Formatação
+		lineageTag: b31e8506-69cf-491d-b96b-3ef203986837
+
+	/// Legenda das faixas de cor do gráfico de setores (subtítulo); 70% e 130% vêm dos parâmetros do banco, o 100% é fixo.
+	measure 'Legenda dos setores' = "Vermelho < " & FORMAT([Limite: setor fraco], "0%", "pt-BR") & " · Âmbar < 100% · Cinza < " & FORMAT([Limite: setor forte], "0%", "pt-BR") & " · Verde ≥ " & FORMAT([Limite: setor forte], "0%", "pt-BR")
+		displayFolder: 6. Textos
+		lineageTag: 591e87a2-2695-4a70-ba50-5c1e67cb966a

@@ -3,9 +3,9 @@
   "name": "f88082e0ce917ea9610e",
   "position": {
     "x": 1188,
-    "y": 432,
+    "y": 362,
     "z": 13,
-    "height": 320,
+    "height": 448,
     "width": 708,
     "tabOrder": 13
   },
@@ -135,7 +135,7 @@
                           "Entity": "Medidas"
                         }
                       },
-                      "Property": "Cor da cobertura"
+                      "Property": "Cor do setor (diagnóstico)"
                     }
                   }
                 }
@@ -268,8 +268,13 @@
             },
             "text": {
               "expr": {
-                "Literal": {
-                  "Value": "'limites de setor fraco e forte na tabela ao lado'"
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Legenda dos setores"
                 }
               }
             }
