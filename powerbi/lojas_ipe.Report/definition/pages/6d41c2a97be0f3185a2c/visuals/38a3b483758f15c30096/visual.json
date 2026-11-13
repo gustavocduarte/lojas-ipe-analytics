@@ -179,6 +179,13 @@
             }
           },
           "selector": {
+            "data": [
+              {
+                "dataViewWildcard": {
+                  "matchingOption": 1
+                }
+              }
+            ],
             "metadata": "Medidas.Cobertura do período"
           }
         },
@@ -202,6 +209,13 @@
             }
           },
           "selector": {
+            "data": [
+              {
+                "dataViewWildcard": {
+                  "matchingOption": 1
+                }
+              }
+            ],
             "metadata": "Medidas.Evolução vs ano anterior"
           }
         }

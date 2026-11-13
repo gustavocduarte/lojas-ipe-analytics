@@ -250,6 +250,13 @@
             }
           },
           "selector": {
+            "data": [
+              {
+                "dataViewWildcard": {
+                  "matchingOption": 1
+                }
+              }
+            ],
             "metadata": "Medidas.Cobertura da meta até o dia"
           }
         },
@@ -273,6 +280,13 @@
             }
           },
           "selector": {
+            "data": [
+              {
+                "dataViewWildcard": {
+                  "matchingOption": 1
+                }
+              }
+            ],
             "metadata": "Medidas.Evolução vs ano anterior"
           }
         }

@@ -21,6 +21,7 @@ Em barras e colunas, o Power BI grava em `visual.objects.dataPoint` uma entrada 
 
 - A medida devolve o texto `#RRGGBB`.
 - Cartão: a cor do valor usa o mesmo `solid.color.expr.Measure` em `objects.value[].properties.fontColor`, com `selector: {"id": "default"}`.
+- **Tabela e matriz:** a cor do texto por medida (`objects.values[].properties.fontColor`) exige no seletor a parte `data` com `dataViewWildcard` **e** a `metadata` da coluna: `"selector": {"data": [{"dataViewWildcard": {"matchingOption": 1}}], "metadata": "Medidas.<medida da coluna>"}`. Só com `metadata` a cor não aparece (o texto sai preto). `matchingOption: 1` pinta só as células de valor; a linha de total fica na cor padrão.
 - Cor fixa de uma série (linhas, colunas sem status): `fill` com `{"solid":{"color":{"expr":{"Literal":{"Value":"'#2F6DB5'"}}}}}` e `selector: {"metadata": "Medidas.<medida>"}` — a confirmar.
 
 ## Propriedades
@@ -96,7 +97,7 @@ O que o Power BI gravou no ranking das lojas (15 categorias), depois do ajuste m
 | Hierarquia com drill-down | mesmo visual: trocar o eixo `nome_loja` pela hierarquia `Lojas[Geografia]` (Região → UF → Loja) e ligar o drill | `HierarchyLevel` nas projeções de `Category` (com `active`) | manual |
 | Drill-through | páginas Detalhe da loja e Diagnóstico da loja: Campos de drill-through = `Lojas[nome_loja]`, manter todos os filtros ligado, botão de voltar | `page.json`: `filterConfig.filters[]` com `howCreated: "Drillthrough"` + `pageBinding` (ver seção abaixo); botão `actionButton` com `visualLink.type = 'Back'` | gravado pelo Power BI (Diagnóstico) e replicado no Detalhe |
 | Linha em 100% e eixo 0–120% no ranking | `xAxisReferenceLine` (`linha_100`) + `valueAxis.start/end` | — | a confirmar na tela |
-| Cor de Cobertura e Evolução na matriz `Comparativo de lojas` (página Lojas) | `fontColor` por medida (`Cor da cobertura`, `Cor da evolução`) com `selector.metadata` | o texto sai preto: a formatação condicional não aparece (já era assim no `main`; as barras do ranking, na mesma página, saem verde/vermelho). Suspeita: seletor sem `dataViewWildcard`. Branch própria, depois de `quadrante-comparacao`; copiar o JSON gravado pelo Power BI | pendente (não corrigido) |
+| Cor de Cobertura e Evolução na matriz `Comparativo de lojas` (página Lojas) | `fontColor` por medida (`Cor da cobertura`, `Cor da evolução`) com `selector.data` (`dataViewWildcard`, `matchingOption` 1) + `selector.metadata` | o texto saía preto porque o seletor tinha só `metadata`, sem a parte `data` (mesmo defeito na tabela `Desempenho por setor` de Vendas vs Meta, corrigida junto); padrão igual ao da tabela de Indicadores do Diagnóstico, cuja cor aparece na tela | corrigido, a conferir na tela |
 
 ## Filtro N inferior (Top N) gravado pelo Power BI — confirmado
 
