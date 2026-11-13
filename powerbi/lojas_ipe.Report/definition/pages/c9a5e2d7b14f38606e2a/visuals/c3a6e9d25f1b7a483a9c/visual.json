@@ -23,11 +23,11 @@
                       "Entity": "Lojas"
                     }
                   },
-                  "Property": "nome_loja"
+                  "Property": "Loja (curta)"
                 }
               },
-              "queryRef": "Lojas.nome_loja",
-              "nativeQueryRef": "nome_loja",
+              "queryRef": "Lojas.Loja (curta)",
+              "nativeQueryRef": "Loja (curta)",
               "active": true,
               "displayName": "Loja"
             }
@@ -72,42 +72,12 @@
                       "Entity": "Medidas"
                     }
                   },
-                  "Property": "Evolução vs ano anterior"
-                }
-              },
-              "queryRef": "Medidas.Evolução vs ano anterior",
-              "nativeQueryRef": "Evolução vs ano anterior",
-              "displayName": "Evolução da receita vs ano anterior"
-            },
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Medidas"
-                    }
-                  },
                   "Property": "Variação da margem vs ano anterior (R$)"
                 }
               },
               "queryRef": "Medidas.Variação da margem vs ano anterior (R$)",
               "nativeQueryRef": "Variação da margem vs ano anterior (R$)",
               "displayName": "Variação da margem (R$)"
-            },
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Medidas"
-                    }
-                  },
-                  "Property": "Variação da margem vs ano anterior %"
-                }
-              },
-              "queryRef": "Medidas.Variação da margem vs ano anterior %",
-              "nativeQueryRef": "Variação da margem vs ano anterior %",
-              "displayName": "Variação da margem (R$) vs ano anterior, em %"
             },
             {
               "field": {
@@ -151,11 +121,11 @@
                       "Entity": "Medidas"
                     }
                   },
-                  "Property": "Evolução vs ano anterior"
+                  "Property": "Evolução vs ano anterior (eixo)"
                 }
               },
-              "queryRef": "Medidas.Evolução vs ano anterior",
-              "nativeQueryRef": "Evolução vs ano anterior",
+              "queryRef": "Medidas.Evolução vs ano anterior (eixo)",
+              "nativeQueryRef": "Evolução vs ano anterior (eixo)",
               "active": true,
               "displayName": "Evolução da receita vs ano anterior"
             }
@@ -171,11 +141,11 @@
                       "Entity": "Medidas"
                     }
                   },
-                  "Property": "Variação da margem vs ano anterior %"
+                  "Property": "Variação da margem % (eixo)"
                 }
               },
-              "queryRef": "Medidas.Variação da margem vs ano anterior %",
-              "nativeQueryRef": "Variação da margem vs ano anterior %",
+              "queryRef": "Medidas.Variação da margem % (eixo)",
+              "nativeQueryRef": "Variação da margem % (eixo)",
               "displayName": "Variação da margem (R$) vs ano anterior, em %"
             }
           ]
@@ -376,7 +346,7 @@
             "bubbleSize": {
               "expr": {
                 "Literal": {
-                  "Value": "10D"
+                  "Value": "8D"
                 }
               }
             }

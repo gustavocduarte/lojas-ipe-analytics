@@ -79,6 +79,14 @@ table Lojas
 
 		annotation SummarizationSetBy = Automatic
 
+	/// Nome da loja sem o prefixo "Ipê ", para os rótulos do gráfico de quadrantes (Comparação de lojas).
+	column 'Loja (curta)' = SUBSTITUTE(Lojas[nome_loja], "Ipê ", "")
+		dataType: string
+		lineageTag: 32c2e2f5-2a74-41cb-a8a1-48a7d87a7e04
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
 	/// Região → UF → Loja, para o drill-down do ranking da página Lojas.
 	hierarchy Geografia
 		lineageTag: 81bc4357-333d-4ba0-bba4-6db372788154
