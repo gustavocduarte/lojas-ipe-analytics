@@ -96,6 +96,7 @@ O que o Power BI gravou no ranking das lojas (15 categorias), depois do ajuste m
 | Hierarquia com drill-down | mesmo visual: trocar o eixo `nome_loja` pela hierarquia `Lojas[Geografia]` (Região → UF → Loja) e ligar o drill | `HierarchyLevel` nas projeções de `Category` (com `active`) | manual |
 | Drill-through | páginas Detalhe da loja e Diagnóstico da loja: Campos de drill-through = `Lojas[nome_loja]`, manter todos os filtros ligado, botão de voltar | `page.json`: `filterConfig.filters[]` com `howCreated: "Drillthrough"` + `pageBinding` (ver seção abaixo); botão `actionButton` com `visualLink.type = 'Back'` | gravado pelo Power BI (Diagnóstico) e replicado no Detalhe |
 | Linha em 100% e eixo 0–120% no ranking | `xAxisReferenceLine` (`linha_100`) + `valueAxis.start/end` | — | a confirmar na tela |
+| Cor de Cobertura e Evolução na matriz `Comparativo de lojas` (página Lojas) | `fontColor` por medida (`Cor da cobertura`, `Cor da evolução`) com `selector.metadata` | o texto sai preto: a formatação condicional não aparece (já era assim no `main`; as barras do ranking, na mesma página, saem verde/vermelho). Suspeita: seletor sem `dataViewWildcard`. Branch própria, depois de `quadrante-comparacao`; copiar o JSON gravado pelo Power BI | pendente (não corrigido) |
 
 ## Filtro N inferior (Top N) gravado pelo Power BI — confirmado
 
