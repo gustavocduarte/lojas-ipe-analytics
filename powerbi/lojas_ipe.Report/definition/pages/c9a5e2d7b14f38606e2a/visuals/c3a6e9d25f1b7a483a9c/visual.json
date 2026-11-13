@@ -387,6 +387,26 @@
           }
         }
       ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Verde: cresce receita e margem · Laranja: cresce receita, perde margem · Azul: perde receita, ganha margem · Vermelho: perde receita e margem'"
+                }
+              }
+            }
+          }
+        }
+      ],
       "background": [
         {
           "properties": {
