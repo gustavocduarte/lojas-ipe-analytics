@@ -9,7 +9,7 @@ model Model
 
 annotation __PBI_TimeIntelligenceEnabled = 0
 
-annotation PBI_QueryOrder = ["Vendas","Calendário","Lojas","Produtos","Vendedores","Metas lojas","Metas vendedores","Metas lojas diária","Metas vendedores diária","Previsão","Parâmetros do diagnóstico","Parâmetros de cores","Referência da rede"]
+annotation PBI_QueryOrder = ["Vendas","Calendário","Lojas","Produtos","Vendedores","Metas lojas","Metas vendedores","Metas lojas diária","Metas vendedores diária","Previsão","Parâmetros do diagnóstico","Parâmetros de cores","Referência da rede","Probabilidade da loja","Probabilidade da rede","Calibração da probabilidade","Parâmetros da probabilidade"]
 
 annotation PBI_ProTooling = ["MCP-PBIModeling","DevMode"]
 
@@ -33,6 +33,10 @@ ref table 'Referência da rede'
 ref table 'Indicadores do diagnóstico'
 ref table 'Itens de atenção'
 ref table 'Itens fortes'
+ref table 'Probabilidade da loja'
+ref table 'Probabilidade da rede'
+ref table 'Calibração da probabilidade'
+ref table 'Parâmetros da probabilidade'
 
 ref cultureInfo pt-BR
 

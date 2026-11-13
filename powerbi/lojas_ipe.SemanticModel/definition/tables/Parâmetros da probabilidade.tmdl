@@ -1,0 +1,43 @@
+/// Limites de cor da probabilidade de bater a meta, vindos do banco (dw.vw_parametros_probabilidade <- etl.parametros_negocio, chaves prob_*). Nada fixo no DAX.
+table 'Parâmetros da probabilidade'
+	lineageTag: 7e3a0c58-4d9b-4f21-b6e8-2c5f9a1d3b67
+
+	column chave
+		dataType: string
+		isHidden
+		lineageTag: 0b5d8e2f-3a7c-4e96-9d14-6c2a8f0e5b31
+		summarizeBy: none
+		sourceColumn: chave
+
+		annotation SummarizationSetBy = Automatic
+
+	column valor
+		dataType: double
+		isHidden
+		formatString: 0.000
+		lineageTag: 6f1c4a9d-8e2b-4d73-a5f0-1b7e3c9d2a48
+		summarizeBy: none
+		sourceColumn: valor
+
+		annotation SummarizationSetBy = Automatic
+
+	column descricao
+		dataType: string
+		isHidden
+		lineageTag: 9a2e7d4b-1c6f-4b85-8e39-5d0a2f6c8b13
+		summarizeBy: none
+		sourceColumn: descricao
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'dw vw_parametros_probabilidade' = m
+		mode: import
+		source =
+				let
+				    Fonte = PostgreSQL.Database("localhost", "lojas_ipe_dw"),
+				    dw_vw_parametros_probabilidade = Fonte{[Schema="dw",Item="vw_parametros_probabilidade"]}[Data]
+				in
+				    dw_vw_parametros_probabilidade
+
+	annotation PBI_ResultType = Table
+

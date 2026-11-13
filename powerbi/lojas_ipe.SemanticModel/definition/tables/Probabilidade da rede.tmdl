@@ -1,0 +1,138 @@
+/// Probabilidade ESTIMADA de bater a meta do mês da rede, por dia de referência (dw.vw_probabilidade_meta_rede, versão vigente). SEM loja: ligada só a Calendário, para a rede não virar a loja do gerente quando o RLS limitar Lojas. Nunca calcular a rede com ALL(Lojas).
+table 'Probabilidade da rede'
+	lineageTag: 6b8d1e47-2f5a-4c39-a7e2-9d0c4b6f8e15
+
+	column sk_tempo
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: e3a5c8f2-1d7b-4e60-9b48-0f2d6a9c3e71
+		summarizeBy: none
+		sourceColumn: sk_tempo
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_referencia
+		dataType: dateTime
+		isHidden
+		formatString: Long Date
+		lineageTag: 0c7e2b94-5a3f-4d18-a6c1-8e9b4d2f7a56
+		summarizeBy: none
+		sourceColumn: data_referencia
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column mes
+		dataType: dateTime
+		isHidden
+		formatString: Long Date
+		lineageTag: 94f3d6a8-7b2e-4c51-8d09-1a5e7c3b6f2d
+		summarizeBy: none
+		sourceColumn: mes
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column dias_restantes
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 2a6b9e3d-8c1f-4f74-b0e5-7d3a1c8f4e92
+		summarizeBy: none
+		sourceColumn: dias_restantes
+
+		annotation SummarizationSetBy = Automatic
+
+	column realizado_ate
+		dataType: double
+		isHidden
+		formatString: "R$" #,0.00
+		lineageTag: b1d4f7a2-3e6c-4a95-8f20-5c9e2a7d1b63
+		summarizeBy: none
+		sourceColumn: realizado_ate
+
+		annotation SummarizationSetBy = Automatic
+
+	column previsto_resto
+		dataType: double
+		isHidden
+		formatString: "R$" #,0.00
+		lineageTag: 7f2e5a91-6c4d-4b38-9e17-0d8b3f6a2c45
+		summarizeBy: none
+		sourceColumn: previsto_resto
+
+		annotation SummarizationSetBy = Automatic
+
+	column projecao
+		dataType: double
+		isHidden
+		formatString: "R$" #,0.00
+		lineageTag: 4c9a3d6e-1b8f-4e27-a5d3-6f0e9b2c7a14
+		summarizeBy: none
+		sourceColumn: projecao
+
+		annotation SummarizationSetBy = Automatic
+
+	column meta_mes
+		dataType: double
+		isHidden
+		formatString: "R$" #,0.00
+		lineageTag: e8b2f5c1-9d4a-4f63-b7e8-2a1c6d9f3b07
+		summarizeBy: none
+		sourceColumn: meta_mes
+
+		annotation SummarizationSetBy = Automatic
+
+	column probabilidade
+		dataType: double
+		isHidden
+		formatString: 0.0%
+		lineageTag: 3d7c1a59-4e8b-4b06-9f31-c5a2e8d7b4f9
+		summarizeBy: none
+		sourceColumn: probabilidade
+
+		annotation SummarizationSetBy = Automatic
+
+	column motivo_sem_base
+		dataType: string
+		isHidden
+		lineageTag: 5a1e8c3f-7d2b-4a49-8c64-9b0f3e6d2a18
+		summarizeBy: none
+		sourceColumn: motivo_sem_base
+
+		annotation SummarizationSetBy = Automatic
+
+	column lojas_incluidas
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: c2f6a9d4-0b3e-4d87-a1c5-8e7b2f4d9a60
+		summarizeBy: none
+		sourceColumn: lojas_incluidas
+
+		annotation SummarizationSetBy = Automatic
+
+	column lojas_total
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 8d4b2e7a-6f1c-4e93-b2d8-3a9c5f0e1b76
+		summarizeBy: none
+		sourceColumn: lojas_total
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'dw vw_probabilidade_meta_rede' = m
+		mode: import
+		source =
+				let
+				    Fonte = PostgreSQL.Database("localhost", "lojas_ipe_dw"),
+				    dw_vw_probabilidade_meta_rede = Fonte{[Schema="dw",Item="vw_probabilidade_meta_rede"]}[Data]
+				in
+				    dw_vw_probabilidade_meta_rede
+
+	annotation PBI_ResultType = Table
+
