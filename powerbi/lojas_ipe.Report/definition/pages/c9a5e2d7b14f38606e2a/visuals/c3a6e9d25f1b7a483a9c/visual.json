@@ -400,7 +400,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Verde: cresce receita e margem · Laranja: cresce receita, perde margem · Azul: perde receita, ganha margem · Vermelho: perde receita e margem'"
+                  "Value": "'Verde: receita e margem crescem · Laranja: só a receita cresce · Azul: só a margem cresce · Vermelho: as duas caem'"
                 }
               }
             }
