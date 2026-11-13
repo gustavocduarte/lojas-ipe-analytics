@@ -1337,3 +1337,17 @@ table Medidas
 	measure 'Cor: cinza do texto' = LOOKUPVALUE('Parâmetros de cores'[cor], 'Parâmetros de cores'[chave], "cinza_texto")
 		displayFolder: 4. Formatação
 		lineageTag: c5e98aab-623f-4627-be29-4bece9bbde73
+
+	/// Só para o eixo X do gráfico de quadrantes: mesmo valor de Evolução vs ano anterior, em 0.0% para o eixo mostrar o sinal de menos. Também é o valor que o tooltip mostra (as originais saíram do bucket Tooltips).
+	measure 'Evolução vs ano anterior (eixo)' = [Evolução vs ano anterior]
+		formatString: 0.0%
+		isHidden
+		displayFolder: 2. Tempo
+		lineageTag: 1a5e4d2b-acc9-490a-93f6-d56466927ad8
+
+	/// Só para o eixo Y do gráfico de quadrantes: mesmo valor de Variação da margem vs ano anterior %, em 0.0% para o eixo mostrar o sinal de menos. Também é o valor que o tooltip mostra (as originais saíram do bucket Tooltips).
+	measure 'Variação da margem % (eixo)' = [Variação da margem vs ano anterior %]
+		formatString: 0.0%
+		isHidden
+		displayFolder: 2. Tempo
+		lineageTag: ae7760ba-2689-46c4-8024-cdf3149d1312
