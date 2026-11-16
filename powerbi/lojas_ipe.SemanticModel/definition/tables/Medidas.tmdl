@@ -1160,6 +1160,7 @@ table Medidas
 			    4, [Setores fracos (qtde)] & " fraco(s) · " & [Setores fortes (qtde)] & " forte(s)",
 			    5, [Vendedores abaixo da meta (qtde)] & " de " & [Vendedores com meta (qtde)] & " abaixo da meta",
 			    6, FORMAT([Meta acumulada até o dia], "R$ #,0", "pt-BR") & IF(ISBLANK([Meta vs venda do ano anterior %]), " (sem base)", " (" & FORMAT([Meta vs venda do ano anterior %], "+0.0%;-0.0%;0.0%", "pt-BR") & ")"),
+			    7, [Chance da loja (texto)],
 			    BLANK()
 			))
 		displayFolder: 7. Diagnóstico
@@ -1175,6 +1176,7 @@ table Medidas
 			    4, IF([Setores fracos (qtde)] > 0, "fracos: " & [Setores fracos (lista)], "nenhum setor fraco"),
 			    5, FORMAT([Vendedores abaixo da meta %], "0%", "pt-BR") & " da equipe abaixo",
 			    6, IF(ISBLANK([Receita acumulada ano anterior]), "sem ano anterior", "venda ano anterior: " & FORMAT([Receita acumulada ano anterior], "R$ #,0", "pt-BR")),
+			    7, "rede: " & [Chance da rede (texto)],
 			    BLANK()
 			))
 		displayFolder: 7. Diagnóstico
@@ -1190,6 +1192,7 @@ table Medidas
 			    4, "< " & FORMAT([Limite: setor fraco], "0%", "pt-BR") & " fraco · ≥ " & FORMAT([Limite: setor forte], "0%", "pt-BR") & " forte",
 			    5, "≥ " & FORMAT([Limite: equipe abaixo], "0%", "pt-BR") & " abaixo",
 			    6, "± " & FORMAT([Limite: meta folgada ou apertada], "0%", "pt-BR"),
+			    7, "≥ " & FORMAT([Limite: chance verde], "0%", "pt-BR") & " alta · < " & FORMAT([Limite: chance âmbar], "0%", "pt-BR") & " baixa",
 			    BLANK()
 			)
 		displayFolder: 7. Diagnóstico
@@ -1205,26 +1208,35 @@ table Medidas
 			    4, IF([Sinal: setor fraco] < 0, -1, [Sinal: setor forte]),
 			    5, [Sinal: equipe],
 			    6, [Sinal: meta],
+			    7, VAR p = [Chance de bater a meta (loja)] RETURN IF(NOT ISBLANK(p), IF(p >= [Limite: chance verde], 1, IF(p >= [Limite: chance âmbar], 0, -1))),
 			    BLANK()
 			)
 		formatString: 0
 		displayFolder: 7. Diagnóstico
 		lineageTag: a576cf6c-366d-4e04-b93c-7240e7590a28
 
-	/// Atenção, Ponto forte, Neutro ou Sem base (na meta: Meta folgada, Meta apertada).
+	/// Atenção, Ponto forte, Neutro ou Sem base (na meta: Meta folgada, Meta apertada; na chance: Chance alta, Chance média, Chance baixa).
 	measure 'Indicador: situação' =
 			VAR s = [Indicador: sinal]
-			VAR meta = SELECTEDVALUE('Indicadores do diagnóstico'[Ordem]) = 6
+			VAR ordem = SELECTEDVALUE('Indicadores do diagnóstico'[Ordem])
 			RETURN
 			    IF(
 			        [Uma loja escolhida] = 0, BLANK(),
-			        IF(ISBLANK(s), "Sem base", IF(meta, IF(s > 0, "Meta folgada", IF(s < 0, "Meta apertada", "Neutro")), IF(s > 0, "Ponto forte", IF(s < 0, "Atenção", "Neutro"))))
+			        IF(
+			            ISBLANK(s), "Sem base",
+			            SWITCH(
+			                ordem,
+			                6, IF(s > 0, "Meta folgada", IF(s < 0, "Meta apertada", "Neutro")),
+			                7, IF(s > 0, "Chance alta", IF(s < 0, "Chance baixa", "Chance média")),
+			                IF(s > 0, "Ponto forte", IF(s < 0, "Atenção", "Neutro"))
+			            )
+			        )
 			    )
 		displayFolder: 7. Diagnóstico
 		lineageTag: 2eefd268-f330-4d8a-86bd-eac8150dd746
 
-	/// Cor do texto da situação: verde (ponto forte), vermelho (atenção), cinza (sem base ou neutro).
-	measure 'Cor da situação' = VAR s = [Indicador: sinal] VAR meta = SELECTEDVALUE('Indicadores do diagnóstico'[Ordem]) = 6 RETURN IF(ISBLANK(s), [Cor: cinza], IF(meta, IF(s = 0, [Cor: cinza], [Cor: âmbar]), IF(s > 0, [Cor: verde], IF(s < 0, [Cor: vermelho], [Cor: cinza]))))
+	/// Cor do texto da situação: verde (ponto forte), vermelho (atenção), cinza (sem base ou neutro). Na linha 7 (chance), a cor da chance da loja: verde, âmbar, vermelho ou cinza sem base.
+	measure 'Cor da situação' = VAR s = [Indicador: sinal] VAR ordem = SELECTEDVALUE('Indicadores do diagnóstico'[Ordem]) RETURN IF(ordem = 7, [Cor da chance (loja)], IF(ISBLANK(s), [Cor: cinza], IF(ordem = 6, IF(s = 0, [Cor: cinza], [Cor: âmbar]), IF(s > 0, [Cor: verde], IF(s < 0, [Cor: vermelho], [Cor: cinza])))))
 		displayFolder: 4. Formatação
 		lineageTag: 92524b71-6d4c-4fa3-b4db-cb729503c6ec
 
@@ -1439,7 +1451,7 @@ table Medidas
 		displayFolder: 8. Probabilidade
 		lineageTag: 9b5e3d1a-7c6f-4a28-b4d0-1e8a2c6f9d37
 
-	/// "10,1% (estimativa)" ou "sem base (motivo)"; em branco sem loja única. Usada no veredito, nos Indicadores e no tooltip do acumulado.
+	/// "10,1% (estimativa)" ou "sem base (motivo)"; em branco sem loja única. Usada na linha 7 dos Indicadores do Diagnóstico, no tooltip da matriz Comparativo de lojas e na frase do tooltip do acumulado (não vai no Veredito).
 	measure 'Chance da loja (texto)' =
 			VAR p = [Chance de bater a meta (loja)]
 			RETURN
