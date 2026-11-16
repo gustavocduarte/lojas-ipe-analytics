@@ -169,6 +169,40 @@
               "queryRef": "Medidas.Venda por m² no mês (projetada)",
               "nativeQueryRef": "Venda por m² no mês (projetada)",
               "displayName": "Venda por m² no mês (projetada)"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Chance de bater a meta (loja)"
+                }
+              },
+              "queryRef": "Medidas.Chance de bater a meta (loja)",
+              "nativeQueryRef": "Chance de bater a meta (loja)",
+              "displayName": "Chance (estimativa)"
+            }
+          ]
+        },
+        "Tooltips": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Chance da loja (texto)"
+                }
+              },
+              "queryRef": "Medidas.Chance da loja (texto)",
+              "nativeQueryRef": "Chance da loja (texto)",
+              "displayName": "Chance (estimativa)"
             }
           ]
         }
@@ -289,6 +323,36 @@
             ],
             "metadata": "Medidas.Evolução vs ano anterior"
           }
+        },
+        {
+          "properties": {
+            "fontColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Medidas"
+                        }
+                      },
+                      "Property": "Cor da chance (loja)"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "selector": {
+            "data": [
+              {
+                "dataViewWildcard": {
+                  "matchingOption": 1
+                }
+              }
+            ],
+            "metadata": "Medidas.Chance de bater a meta (loja)"
+          }
         }
       ],
       "grid": [
@@ -310,7 +374,7 @@
             "value": {
               "expr": {
                 "Literal": {
-                  "Value": "240D"
+                  "Value": "200D"
                 }
               }
             }
@@ -324,7 +388,7 @@
             "value": {
               "expr": {
                 "Literal": {
-                  "Value": "178D"
+                  "Value": "160D"
                 }
               }
             }
@@ -338,7 +402,7 @@
             "value": {
               "expr": {
                 "Literal": {
-                  "Value": "178D"
+                  "Value": "160D"
                 }
               }
             }
@@ -352,7 +416,7 @@
             "value": {
               "expr": {
                 "Literal": {
-                  "Value": "158D"
+                  "Value": "140D"
                 }
               }
             }
@@ -366,7 +430,7 @@
             "value": {
               "expr": {
                 "Literal": {
-                  "Value": "188D"
+                  "Value": "170D"
                 }
               }
             }
@@ -380,7 +444,7 @@
             "value": {
               "expr": {
                 "Literal": {
-                  "Value": "158D"
+                  "Value": "140D"
                 }
               }
             }
@@ -394,7 +458,7 @@
             "value": {
               "expr": {
                 "Literal": {
-                  "Value": "158D"
+                  "Value": "140D"
                 }
               }
             }
@@ -408,7 +472,7 @@
             "value": {
               "expr": {
                 "Literal": {
-                  "Value": "138D"
+                  "Value": "130D"
                 }
               }
             }
@@ -422,7 +486,7 @@
             "value": {
               "expr": {
                 "Literal": {
-                  "Value": "148D"
+                  "Value": "134D"
                 }
               }
             }
@@ -443,6 +507,20 @@
           },
           "selector": {
             "metadata": "Medidas.Venda por m² no mês (projetada)"
+          }
+        },
+        {
+          "properties": {
+            "value": {
+              "expr": {
+                "Literal": {
+                  "Value": "170D"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "Medidas.Chance de bater a meta (loja)"
           }
         }
       ],
