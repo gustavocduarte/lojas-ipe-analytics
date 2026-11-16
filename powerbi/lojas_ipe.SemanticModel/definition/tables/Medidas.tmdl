@@ -1491,13 +1491,15 @@ table Medidas
 		displayFolder: 8. Probabilidade
 		lineageTag: a3f9d2c7-6b4e-4d51-9c83-0e7a5f1b2d46
 
-	/// Frase do tooltip do gráfico Acumulado do mês (Detalhe da loja): a chance da loja escolhida, ou a da rede rotulada "da rede" quando não há uma loja só.
+	/// Valor do tooltip do gráfico Acumulado do mês (Detalhe da loja), no campo "Chance de bater a meta": "10,1% (estimativa)" com uma loja só; sem uma loja só, a da rede com o rótulo "da rede" ("50,4% da rede (estimativa)", ou "sem base da rede (motivo)").
 	measure 'Chance (frase do acumulado)' =
-			IF(
-			    HASONEVALUE(Lojas[nome_loja]),
-			    "Chance de bater a meta: " & [Chance da loja (texto)],
-			    "Chance de bater a meta da rede: " & [Chance da rede (texto)]
-			)
+			VAR p = [Chance de bater a meta (rede)]
+			RETURN
+			    IF(
+			        HASONEVALUE(Lojas[nome_loja]),
+			        [Chance da loja (texto)],
+			        IF(ISBLANK(p), "sem base da rede (" & [Motivo sem base (rede)] & ")", FORMAT(p, "0.0%", "pt-BR") & " da rede (estimativa)")
+			    )
 		displayFolder: 8. Probabilidade
 		lineageTag: 7b0e4a9d-2c5f-4f38-a1d6-9e3c8b5f0a27
 
