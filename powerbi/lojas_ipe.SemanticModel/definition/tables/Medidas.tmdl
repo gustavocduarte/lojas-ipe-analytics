@@ -1463,7 +1463,7 @@ table Medidas
 		displayFolder: 8. Probabilidade
 		lineageTag: 5d2b8f6e-3a1c-4e79-b6f2-8c4e1a7d3b90
 
-	/// Rótulo de referência do cartão da rede: "estimativa · 15 de 15 lojas · faltam 16 dias", ou "estimativa · sem base (motivo)".
+	/// Rótulo de referência do cartão da rede: "15 de 15 lojas · faltam 16 dias", ou só o motivo quando o valor é "sem base". A palavra "estimativa" fica no rótulo do cartão ("Chance da rede (estimativa)"): com ela aqui o texto passava de 297 px a 12pt.
 	measure 'Contexto da chance da rede' =
 			VAR pos = [Posição]
 			VAR sk = IF(NOT ISBLANK(pos), YEAR(pos) * 10000 + MONTH(pos) * 100 + DAY(pos))
@@ -1473,8 +1473,8 @@ table Medidas
 			RETURN
 			    IF(
 			        ISBLANK([Chance de bater a meta (rede)]),
-			        "estimativa · sem base (" & [Motivo sem base (rede)] & ")",
-			        "estimativa · " & incl & " de " & total & " lojas · faltam " & dias & IF(dias = 1, " dia", " dias")
+			        [Motivo sem base (rede)],
+			        incl & " de " & total & " lojas · faltam " & dias & IF(dias = 1, " dia", " dias")
 			    )
 		displayFolder: 8. Probabilidade
 		lineageTag: a3f9d2c7-6b4e-4d51-9c83-0e7a5f1b2d46
