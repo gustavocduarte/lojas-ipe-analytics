@@ -75,6 +75,21 @@
               },
               "queryRef": "Medidas.Falta para a meta do mês",
               "nativeQueryRef": "Falta para a meta do mês"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Chance (frase do acumulado)"
+                }
+              },
+              "queryRef": "Medidas.Chance (frase do acumulado)",
+              "nativeQueryRef": "Chance (frase do acumulado)",
+              "displayName": "Chance de bater a meta"
             }
           ]
         },

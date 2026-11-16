@@ -82,3 +82,15 @@ relationship 'Referência da rede_sk_tempo_Calendário_sk_tempo'
 	fromColumn: 'Referência da rede'.sk_tempo
 	toColumn: Calendário.sk_tempo
 
+relationship 'Probabilidade da loja_sk_tempo_Calendário_sk_tempo'
+	fromColumn: 'Probabilidade da loja'.sk_tempo
+	toColumn: Calendário.sk_tempo
+
+relationship 'Probabilidade da loja_sk_loja_Lojas_sk_loja'
+	fromColumn: 'Probabilidade da loja'.sk_loja
+	toColumn: Lojas.sk_loja
+
+relationship 'Probabilidade da rede_sk_tempo_Calendário_sk_tempo'
+	fromColumn: 'Probabilidade da rede'.sk_tempo
+	toColumn: Calendário.sk_tempo
+

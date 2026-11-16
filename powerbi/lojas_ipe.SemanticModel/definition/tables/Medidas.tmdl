@@ -1160,6 +1160,7 @@ table Medidas
 			    4, [Setores fracos (qtde)] & " fraco(s) · " & [Setores fortes (qtde)] & " forte(s)",
 			    5, [Vendedores abaixo da meta (qtde)] & " de " & [Vendedores com meta (qtde)] & " abaixo da meta",
 			    6, FORMAT([Meta acumulada até o dia], "R$ #,0", "pt-BR") & IF(ISBLANK([Meta vs venda do ano anterior %]), " (sem base)", " (" & FORMAT([Meta vs venda do ano anterior %], "+0.0%;-0.0%;0.0%", "pt-BR") & ")"),
+			    7, [Chance da loja (texto)],
 			    BLANK()
 			))
 		displayFolder: 7. Diagnóstico
@@ -1175,6 +1176,7 @@ table Medidas
 			    4, IF([Setores fracos (qtde)] > 0, "fracos: " & [Setores fracos (lista)], "nenhum setor fraco"),
 			    5, FORMAT([Vendedores abaixo da meta %], "0%", "pt-BR") & " da equipe abaixo",
 			    6, IF(ISBLANK([Receita acumulada ano anterior]), "sem ano anterior", "venda ano anterior: " & FORMAT([Receita acumulada ano anterior], "R$ #,0", "pt-BR")),
+			    7, "rede: " & [Chance da rede (texto)],
 			    BLANK()
 			))
 		displayFolder: 7. Diagnóstico
@@ -1190,6 +1192,7 @@ table Medidas
 			    4, "< " & FORMAT([Limite: setor fraco], "0%", "pt-BR") & " fraco · ≥ " & FORMAT([Limite: setor forte], "0%", "pt-BR") & " forte",
 			    5, "≥ " & FORMAT([Limite: equipe abaixo], "0%", "pt-BR") & " abaixo",
 			    6, "± " & FORMAT([Limite: meta folgada ou apertada], "0%", "pt-BR"),
+			    7, "≥ " & FORMAT([Limite: chance verde], "0%", "pt-BR") & " alta · < " & FORMAT([Limite: chance âmbar], "0%", "pt-BR") & " baixa",
 			    BLANK()
 			)
 		displayFolder: 7. Diagnóstico
@@ -1205,26 +1208,35 @@ table Medidas
 			    4, IF([Sinal: setor fraco] < 0, -1, [Sinal: setor forte]),
 			    5, [Sinal: equipe],
 			    6, [Sinal: meta],
+			    7, VAR p = [Chance de bater a meta (loja)] RETURN IF(NOT ISBLANK(p), IF(p >= [Limite: chance verde], 1, IF(p >= [Limite: chance âmbar], 0, -1))),
 			    BLANK()
 			)
 		formatString: 0
 		displayFolder: 7. Diagnóstico
 		lineageTag: a576cf6c-366d-4e04-b93c-7240e7590a28
 
-	/// Atenção, Ponto forte, Neutro ou Sem base (na meta: Meta folgada, Meta apertada).
+	/// Atenção, Ponto forte, Neutro ou Sem base (na meta: Meta folgada, Meta apertada; na chance: Chance alta, Chance média, Chance baixa).
 	measure 'Indicador: situação' =
 			VAR s = [Indicador: sinal]
-			VAR meta = SELECTEDVALUE('Indicadores do diagnóstico'[Ordem]) = 6
+			VAR ordem = SELECTEDVALUE('Indicadores do diagnóstico'[Ordem])
 			RETURN
 			    IF(
 			        [Uma loja escolhida] = 0, BLANK(),
-			        IF(ISBLANK(s), "Sem base", IF(meta, IF(s > 0, "Meta folgada", IF(s < 0, "Meta apertada", "Neutro")), IF(s > 0, "Ponto forte", IF(s < 0, "Atenção", "Neutro"))))
+			        IF(
+			            ISBLANK(s), "Sem base",
+			            SWITCH(
+			                ordem,
+			                6, IF(s > 0, "Meta folgada", IF(s < 0, "Meta apertada", "Neutro")),
+			                7, IF(s > 0, "Chance alta", IF(s < 0, "Chance baixa", "Chance média")),
+			                IF(s > 0, "Ponto forte", IF(s < 0, "Atenção", "Neutro"))
+			            )
+			        )
 			    )
 		displayFolder: 7. Diagnóstico
 		lineageTag: 2eefd268-f330-4d8a-86bd-eac8150dd746
 
-	/// Cor do texto da situação: verde (ponto forte), vermelho (atenção), cinza (sem base ou neutro).
-	measure 'Cor da situação' = VAR s = [Indicador: sinal] VAR meta = SELECTEDVALUE('Indicadores do diagnóstico'[Ordem]) = 6 RETURN IF(ISBLANK(s), [Cor: cinza], IF(meta, IF(s = 0, [Cor: cinza], [Cor: âmbar]), IF(s > 0, [Cor: verde], IF(s < 0, [Cor: vermelho], [Cor: cinza]))))
+	/// Cor do texto da situação: verde (ponto forte), vermelho (atenção), cinza (sem base ou neutro). Na linha 7 (chance), a cor da chance da loja: verde, âmbar, vermelho ou cinza sem base.
+	measure 'Cor da situação' = VAR s = [Indicador: sinal] VAR ordem = SELECTEDVALUE('Indicadores do diagnóstico'[Ordem]) RETURN IF(ordem = 7, [Cor da chance (loja)], IF(ISBLANK(s), [Cor: cinza], IF(ordem = 6, IF(s = 0, [Cor: cinza], [Cor: âmbar]), IF(s > 0, [Cor: verde], IF(s < 0, [Cor: vermelho], [Cor: cinza])))))
 		displayFolder: 4. Formatação
 		lineageTag: 92524b71-6d4c-4fa3-b4db-cb729503c6ec
 
@@ -1369,3 +1381,165 @@ table Medidas
 	measure 'Legenda dos setores' = "Vermelho < " & FORMAT([Limite: setor fraco], "0%", "pt-BR") & " · Âmbar < 100% · Cinza < " & FORMAT([Limite: setor forte], "0%", "pt-BR") & " · Verde ≥ " & FORMAT([Limite: setor forte], "0%", "pt-BR")
 		displayFolder: 6. Textos
 		lineageTag: 591e87a2-2695-4a70-ba50-5c1e67cb966a
+
+	/// Parâmetro do banco (Parâmetros da probabilidade, prob_verde_min): chance a partir deste valor (maior ou igual) é verde.
+	measure 'Limite: chance verde' = LOOKUPVALUE('Parâmetros da probabilidade'[valor], 'Parâmetros da probabilidade'[chave], "prob_verde_min")
+		formatString: 0%
+		displayFolder: 8. Probabilidade
+		lineageTag: 3e8b1f6a-9c2d-4a57-b0e4-7d5f2a9c1e83
+
+	/// Parâmetro do banco (Parâmetros da probabilidade, prob_ambar_min): chance a partir deste valor (maior ou igual) e abaixo do verde é âmbar; abaixo dele, vermelho.
+	measure 'Limite: chance âmbar' = LOOKUPVALUE('Parâmetros da probabilidade'[valor], 'Parâmetros da probabilidade'[chave], "prob_ambar_min")
+		formatString: 0%
+		displayFolder: 8. Probabilidade
+		lineageTag: 8c4f2a7e-1b9d-4e36-a5c8-0f3e6d1b9a52
+
+	/// Chance ESTIMADA de a loja bater a meta do mês, lida na posição (linha de Probabilidade da loja com sk_tempo = Posição; o filtro de datas da segmentação é ignorado). Só com exatamente uma loja no contexto (HASONEVALUE); em branco sem loja única e quando não há base (o NULL do banco fica BLANK, nunca 50%). Teste futuro DAX contra Python: esta chance e a Cor da chance (loja) devem entrar na comparação com o dw (não há espelho em src/diagnostico.py).
+	measure 'Chance de bater a meta (loja)' =
+			VAR pos = [Posição]
+			VAR sk = IF(NOT ISBLANK(pos), YEAR(pos) * 10000 + MONTH(pos) * 100 + DAY(pos))
+			RETURN
+			    IF(
+			        HASONEVALUE(Lojas[nome_loja]) && NOT ISBLANK(sk),
+			        CALCULATE(MAX('Probabilidade da loja'[probabilidade]), REMOVEFILTERS('Calendário'), 'Probabilidade da loja'[sk_tempo] = sk)
+			    )
+		formatString: 0.0%
+		displayFolder: 8. Probabilidade
+		lineageTag: 6a1d9e4c-2f7b-4c83-9e05-b3a8d6f1c274
+
+	/// Chance ESTIMADA de a rede bater a meta do mês, lida na posição. Vem só de Probabilidade da rede (sem loja), nunca de ALL(Lojas): com RLS por loja a rede continua sendo a rede. Em branco sem base. Teste futuro DAX contra Python: entra junto com a Cor da chance (rede).
+	measure 'Chance de bater a meta (rede)' =
+			VAR pos = [Posição]
+			VAR sk = IF(NOT ISBLANK(pos), YEAR(pos) * 10000 + MONTH(pos) * 100 + DAY(pos))
+			RETURN
+			    IF(NOT ISBLANK(sk), CALCULATE(MAX('Probabilidade da rede'[probabilidade]), REMOVEFILTERS('Calendário'), 'Probabilidade da rede'[sk_tempo] = sk))
+		formatString: 0.0%
+		displayFolder: 8. Probabilidade
+		lineageTag: d7b3f8a2-5e1c-4d69-8a40-2c9f6e3b7d15
+
+	/// Motivo de a loja estar sem base, em português (loja nova, sem meta, poucos meses de histórico, sem previsão); "não calculada para a data" quando não há linha para a posição. Em branco quando há chance ou sem loja única.
+	measure 'Motivo sem base (loja)' =
+			VAR pos = [Posição]
+			VAR sk = IF(NOT ISBLANK(pos), YEAR(pos) * 10000 + MONTH(pos) * 100 + DAY(pos))
+			VAR linhas = CALCULATE(COUNTROWS('Probabilidade da loja'), REMOVEFILTERS('Calendário'), 'Probabilidade da loja'[sk_tempo] = sk)
+			VAR m = CALCULATE(MAX('Probabilidade da loja'[motivo_sem_base]), REMOVEFILTERS('Calendário'), 'Probabilidade da loja'[sk_tempo] = sk)
+			RETURN
+			    IF(
+			        HASONEVALUE(Lojas[nome_loja]) && ISBLANK([Chance de bater a meta (loja)]),
+			        IF(
+			            ISBLANK(linhas), "não calculada para a data",
+			            SWITCH(m, "loja_nova", "loja nova", "sem_meta", "sem meta", "sem_amostra_erro", "poucos meses de histórico", "sem_previsao", "sem previsão", "motivo não informado")
+			        )
+			    )
+		displayFolder: 8. Probabilidade
+		lineageTag: 2f6c0a9e-8d4b-4b17-a3e9-5c1d7f2b8e64
+
+	/// Motivo de a rede estar sem base, em português; "não calculada para a data" quando não há linha para a posição. Em branco quando há chance.
+	measure 'Motivo sem base (rede)' =
+			VAR pos = [Posição]
+			VAR sk = IF(NOT ISBLANK(pos), YEAR(pos) * 10000 + MONTH(pos) * 100 + DAY(pos))
+			VAR linhas = CALCULATE(COUNTROWS('Probabilidade da rede'), REMOVEFILTERS('Calendário'), 'Probabilidade da rede'[sk_tempo] = sk)
+			VAR m = CALCULATE(MAX('Probabilidade da rede'[motivo_sem_base]), REMOVEFILTERS('Calendário'), 'Probabilidade da rede'[sk_tempo] = sk)
+			RETURN
+			    IF(
+			        ISBLANK([Chance de bater a meta (rede)]),
+			        IF(
+			            ISBLANK(linhas), "não calculada para a data",
+			            SWITCH(m, "loja_nova", "loja nova", "sem_meta", "sem meta", "sem_amostra_erro", "poucos meses de histórico", "sem_previsao", "sem previsão", "motivo não informado")
+			        )
+			    )
+		displayFolder: 8. Probabilidade
+		lineageTag: 9b5e3d1a-7c6f-4a28-b4d0-1e8a2c6f9d37
+
+	/// "10,1% (estimativa)" ou "sem base (motivo)"; em branco sem loja única. Usada na linha 7 dos Indicadores do Diagnóstico, no tooltip da matriz Comparativo de lojas e na frase do tooltip do acumulado (não vai no Veredito).
+	measure 'Chance da loja (texto)' =
+			VAR p = [Chance de bater a meta (loja)]
+			RETURN
+			    IF(HASONEVALUE(Lojas[nome_loja]), IF(ISBLANK(p), "sem base (" & [Motivo sem base (loja)] & ")", FORMAT(p, "0.0%", "pt-BR") & " (estimativa)"))
+		displayFolder: 8. Probabilidade
+		lineageTag: 4c8a2e7f-0d3b-4f95-9a61-6e2b9d4c1f08
+
+	/// "50,4% (estimativa)" ou "sem base (motivo)" para a rede.
+	measure 'Chance da rede (texto)' =
+			VAR p = [Chance de bater a meta (rede)]
+			RETURN
+			    IF(ISBLANK(p), "sem base (" & [Motivo sem base (rede)] & ")", FORMAT(p, "0.0%", "pt-BR") & " (estimativa)")
+		displayFolder: 8. Probabilidade
+		lineageTag: e1a7c5d3-9f2e-4b46-8d18-3b6f0a9e2c71
+
+	/// Valor do cartão da rede: "50,4%" ou "sem base" (o motivo vai no rótulo de referência).
+	measure 'Chance da rede (cartão)' =
+			VAR p = [Chance de bater a meta (rede)]
+			RETURN
+			    IF(ISBLANK(p), "sem base", FORMAT(p, "0.0%", "pt-BR"))
+		displayFolder: 8. Probabilidade
+		lineageTag: 5d2b8f6e-3a1c-4e79-b6f2-8c4e1a7d3b90
+
+	/// Rótulo de referência do cartão da rede: "15 de 15 lojas · faltam 16 dias", ou só o motivo quando o valor é "sem base". A palavra "estimativa" fica no rótulo do cartão ("Chance da rede (estimativa)"): com ela aqui o texto passava de 297 px a 12pt.
+	measure 'Contexto da chance da rede' =
+			VAR pos = [Posição]
+			VAR sk = IF(NOT ISBLANK(pos), YEAR(pos) * 10000 + MONTH(pos) * 100 + DAY(pos))
+			VAR incl = CALCULATE(MAX('Probabilidade da rede'[lojas_incluidas]), REMOVEFILTERS('Calendário'), 'Probabilidade da rede'[sk_tempo] = sk)
+			VAR total = CALCULATE(MAX('Probabilidade da rede'[lojas_total]), REMOVEFILTERS('Calendário'), 'Probabilidade da rede'[sk_tempo] = sk)
+			VAR dias = CALCULATE(MAX('Probabilidade da rede'[dias_restantes]), REMOVEFILTERS('Calendário'), 'Probabilidade da rede'[sk_tempo] = sk)
+			RETURN
+			    IF(
+			        ISBLANK([Chance de bater a meta (rede)]),
+			        [Motivo sem base (rede)],
+			        incl & " de " & total & " lojas · faltam " & dias & IF(dias = 1, " dia", " dias")
+			    )
+		displayFolder: 8. Probabilidade
+		lineageTag: a3f9d2c7-6b4e-4d51-9c83-0e7a5f1b2d46
+
+	/// Valor do tooltip do gráfico Acumulado do mês (Detalhe da loja), no campo "Chance de bater a meta": "10,1% (estimativa)" com uma loja só; sem uma loja só, a da rede com o rótulo "da rede" ("50,4% da rede (estimativa)", ou "sem base da rede (motivo)").
+	measure 'Chance (frase do acumulado)' =
+			VAR p = [Chance de bater a meta (rede)]
+			RETURN
+			    IF(
+			        HASONEVALUE(Lojas[nome_loja]),
+			        [Chance da loja (texto)],
+			        IF(ISBLANK(p), "sem base da rede (" & [Motivo sem base (rede)] & ")", FORMAT(p, "0.0%", "pt-BR") & " da rede (estimativa)")
+			    )
+		displayFolder: 8. Probabilidade
+		lineageTag: 7b0e4a9d-2c5f-4f38-a1d6-9e3c8b5f0a27
+
+	/// Cor da chance da loja: verde a partir de Limite: chance verde, âmbar a partir de Limite: chance âmbar (maior ou igual; 0,30 exato é âmbar), vermelho abaixo, cinza sem base; em branco sem loja única. Teste futuro DAX contra Python: entra junto com a chance.
+	measure 'Cor da chance (loja)' =
+			VAR p = [Chance de bater a meta (loja)]
+			RETURN
+			    IF(
+			        HASONEVALUE(Lojas[nome_loja]),
+			        IF(ISBLANK(p), [Cor: cinza], IF(p >= [Limite: chance verde], [Cor: verde], IF(p >= [Limite: chance âmbar], [Cor: âmbar], [Cor: vermelho])))
+			    )
+		displayFolder: 8. Probabilidade
+		lineageTag: 0f5c7e2b-8a3d-4c64-9b17-4d1f6a8e3c59
+
+	/// Cor da chance da rede, com os mesmos limites (maior ou igual) e cinza sem base. Teste futuro DAX contra Python: entra junto com a chance.
+	measure 'Cor da chance (rede)' =
+			VAR p = [Chance de bater a meta (rede)]
+			RETURN
+			    IF(ISBLANK(p), [Cor: cinza], IF(p >= [Limite: chance verde], [Cor: verde], IF(p >= [Limite: chance âmbar], [Cor: âmbar], [Cor: vermelho])))
+		displayFolder: 8. Probabilidade
+		lineageTag: 6e2a9c4f-1d8b-4a73-b5e0-2f7c3d9a6b18
+
+	/// Ressalva da probabilidade em linguagem simples, com Brier e ECE lidos de Calibração da probabilidade (esquema so_passado, resumo, todas as faixas de dias). Tooltip do cartão da rede.
+	measure 'Ressalva da probabilidade' =
+			VAR resumo = FILTER('Calibração da probabilidade', 'Calibração da probabilidade'[esquema] = "so_passado" && 'Calibração da probabilidade'[tipo] = "resumo" && 'Calibração da probabilidade'[faixa_dias] = 0)
+			VAR resumo_lojas = FILTER(resumo, 'Calibração da probabilidade'[nivel] = "loja")
+			VAR resumo_rede = FILTER(resumo, 'Calibração da probabilidade'[nivel] = "rede")
+			VAR ece_lojas = MAXX(resumo_lojas, 'Calibração da probabilidade'[ece])
+			VAR brier_lojas = MAXX(resumo_lojas, 'Calibração da probabilidade'[brier])
+			VAR brier_50 = MAXX(resumo_lojas, 'Calibração da probabilidade'[brier_50])
+			VAR ece_rede = MAXX(resumo_rede, 'Calibração da probabilidade'[ece])
+			VAR meses_rede = MAXX(resumo_rede, 'Calibração da probabilidade'[n_unidades])
+			RETURN
+			    IF(
+			        ISBLANK(ece_lojas) || ISBLANK(ece_rede),
+			        "Estimativa: a calibração não está disponível.",
+			        "Estimativa medida nos meses de 2025. Nas lojas, a chance indicada ficou em média a " & FORMAT(ece_lojas * 100, "0", "pt-BR")
+			            & " pontos da frequência real e acertou bem mais que um palpite de 50% (Brier " & FORMAT(brier_lojas, "0.00", "pt-BR")
+			            & " contra " & FORMAT(brier_50, "0.00", "pt-BR") & "). Na rede, a diferença média foi de " & FORMAT(ece_rede * 100, "0", "pt-BR")
+			            & " pontos, com só " & meses_rede & " meses de histórico. Tende a ser conservadora: as lojas bateram a meta mais vezes do que a chance indicava."
+			    )
+		displayFolder: 8. Probabilidade
+		lineageTag: c4d1b8e6-5f9a-4e02-8c37-1a6d3f9b2e85

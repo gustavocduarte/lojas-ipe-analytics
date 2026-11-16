@@ -1,0 +1,172 @@
+/// Calibração da probabilidade de bater a meta (dw.vw_probabilidade_calibracao, versão mais recente): curva (tipo faixa) e Brier/ECE (tipo resumo) por esquema, nível e faixa de dias que faltam (0 = todas). O painel usa só o esquema so_passado. Sem relação com o resto.
+table 'Calibração da probabilidade'
+	lineageTag: 1e9f4b62-8a3d-4c75-9d2e-6b0a3f8c5e41
+
+	column esquema
+		dataType: string
+		isHidden
+		lineageTag: a7c3e1f8-2d5b-4e96-8a04-1f6d9b3c7e25
+		summarizeBy: none
+		sourceColumn: esquema
+
+		annotation SummarizationSetBy = Automatic
+
+	column nivel
+		dataType: string
+		isHidden
+		lineageTag: 6d0b8f2e-9c4a-4b13-a7f6-2e5c8a1d4b90
+		summarizeBy: none
+		sourceColumn: nivel
+
+		annotation SummarizationSetBy = Automatic
+
+	column faixa_dias
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: f4a2d7c9-3b6e-4f58-8c21-0e9a5d3b7f16
+		summarizeBy: none
+		sourceColumn: faixa_dias
+
+		annotation SummarizationSetBy = Automatic
+
+	column tipo
+		dataType: string
+		isHidden
+		lineageTag: 2b8e6c1d-5f3a-4d79-9e40-7a2c4f8d1e63
+		summarizeBy: none
+		sourceColumn: tipo
+
+		annotation SummarizationSetBy = Automatic
+
+	column prob_inicio
+		dataType: double
+		isHidden
+		formatString: 0%
+		lineageTag: 9c5f3a8e-1d7b-4a26-b8e3-4f0d6c2a9b57
+		summarizeBy: none
+		sourceColumn: prob_inicio
+
+		annotation SummarizationSetBy = Automatic
+
+	column prob_fim
+		dataType: double
+		isHidden
+		formatString: 0%
+		lineageTag: 0e7d4b2a-6c9f-4e31-a5d8-3b1f7e9c2a84
+		summarizeBy: none
+		sourceColumn: prob_fim
+
+		annotation SummarizationSetBy = Automatic
+
+	column previsto_medio
+		dataType: double
+		isHidden
+		formatString: 0.0%
+		lineageTag: 5b3a9f1e-8d2c-4b67-9f05-6e4a2c8d1b39
+		summarizeBy: none
+		sourceColumn: previsto_medio
+
+		annotation SummarizationSetBy = Automatic
+
+	column observado
+		dataType: double
+		isHidden
+		formatString: 0.0%
+		lineageTag: d1e6c4a7-3f8b-4c92-8a16-9b5d2e7f0c43
+		summarizeBy: none
+		sourceColumn: observado
+
+		annotation SummarizationSetBy = Automatic
+
+	column n
+		dataType: int64
+		isHidden
+		formatString: #,0
+		lineageTag: 7c2b5e9f-4a1d-4f80-b3e7-0d6c8a2f5e19
+		summarizeBy: none
+		sourceColumn: n
+
+		annotation SummarizationSetBy = Automatic
+
+	column n_unidades
+		dataType: int64
+		isHidden
+		formatString: #,0
+		lineageTag: 3f8a1d6c-9e2b-4d54-a7c0-5b3e9f1d8a62
+		summarizeBy: none
+		sourceColumn: n_unidades
+
+		annotation SummarizationSetBy = Automatic
+
+	column ic_baixo
+		dataType: double
+		isHidden
+		formatString: 0.0%
+		lineageTag: b6e9c2f4-0a5d-4e38-9c71-2f8b4d6a3e05
+		summarizeBy: none
+		sourceColumn: ic_baixo
+
+		annotation SummarizationSetBy = Automatic
+
+	column ic_alto
+		dataType: double
+		isHidden
+		formatString: 0.0%
+		lineageTag: 4a0d7e3b-2c9f-4b61-8e54-7d1a9c5f2b86
+		summarizeBy: none
+		sourceColumn: ic_alto
+
+		annotation SummarizationSetBy = Automatic
+
+	column brier
+		dataType: double
+		isHidden
+		formatString: 0.0000
+		lineageTag: e2c8f6a1-7b4d-4c39-a0e2-8f5d3b1c9a74
+		summarizeBy: none
+		sourceColumn: brier
+
+		annotation SummarizationSetBy = Automatic
+
+	column brier_50
+		dataType: double
+		isHidden
+		formatString: 0.0000
+		lineageTag: 8f5b2d9c-1e6a-4d07-b4f3-0c9e7a2d6b51
+		summarizeBy: none
+		sourceColumn: brier_50
+
+		annotation SummarizationSetBy = Automatic
+
+	column brier_frequencia
+		dataType: double
+		isHidden
+		formatString: 0.0000
+		lineageTag: 1d6f9a3e-5c2b-4e84-9a17-6b3d0f8e4c25
+		summarizeBy: none
+		sourceColumn: brier_frequencia
+
+		annotation SummarizationSetBy = Automatic
+
+	column ece
+		dataType: double
+		isHidden
+		formatString: 0.0000
+		lineageTag: c9a4e7b2-6f0d-4a53-8b28-3e1c5d9f7a40
+		summarizeBy: none
+		sourceColumn: ece
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'dw vw_probabilidade_calibracao' = m
+		mode: import
+		source =
+				let
+				    Fonte = PostgreSQL.Database("localhost", "lojas_ipe_dw"),
+				    dw_vw_probabilidade_calibracao = Fonte{[Schema="dw",Item="vw_probabilidade_calibracao"]}[Data]
+				in
+				    dw_vw_probabilidade_calibracao
+
+	annotation PBI_ResultType = Table
+
