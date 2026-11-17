@@ -26,7 +26,7 @@ da loja). Só meses **anteriores** ao da meta entram nas taxas.
 | Primeiros 12 meses do período (2024) | **Orçamento inicial**: esperado estrutural do gerador × (1 + esforço) × ruído normal(1; 3%). Como se o orçamento tivesse sido feito no fim do ano anterior. |
 | A partir do 13º mês (2025), com o mesmo mês do ano anterior e uma tendência medida | **Regra A**: taxa do mesmo mês do ano anterior × tendência × peso do calendário × (1 + esforço). |
 | Falta o ano anterior ou a tendência (jan/2025, ou loja que ainda não tinha o ano anterior) | **Regra B**: média das taxas dos até 3 meses anteriores × peso do calendário × (1 + esforço). |
-| Loja nova, sem nenhum histórico (Brasília, 1º mês) | **Regra C**: taxa por m² das lojas do mesmo formato no mês anterior × `area_m2` × peso do calendário × (1 + esforço). |
+| Loja nova, sem nenhum histórico (Brasília, 1º mês) | **Regra C**: taxa por m² das lojas do mesmo formato no mês anterior × `area_m2` × peso do calendário × (1 + esforço). Como a regra usa taxa por m² × área, mudar as áreas do mesmo formato pelo mesmo fator não muda a meta (em 17/11/2026 as duas lojas Express dobraram de área, 450 → 900 e 400 → 800 m²; a meta da Brasília em 03/2025 continua igual). |
 
 * **Esforço** (`ESFORCO_META` em `src/config.py`): **0%**. O orçamento estrutural de 2024 já fica cerca de
   0,7% acima do realizado; um esforço extra (testamos +1%) empurrava o batimento para baixo do alvo
