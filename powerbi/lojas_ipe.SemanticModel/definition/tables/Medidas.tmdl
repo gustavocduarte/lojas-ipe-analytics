@@ -1543,3 +1543,57 @@ table Medidas
 			    )
 		displayFolder: 8. Probabilidade
 		lineageTag: c4d1b8e6-5f9a-4e02-8c37-1a6d3f9b2e85
+
+	/// Lojas com cobertura da meta até o dia abaixo de 100% (loja sem meta não conta).
+	measure 'Lojas abaixo da meta' = COUNTROWS(FILTER(VALUES(Lojas[nome_loja]), VAR c = [Cobertura da meta até o dia] RETURN NOT ISBLANK(c) && c < 1)) + 0
+		formatString: 0
+		displayFolder: 3. Metas
+		lineageTag: 6df0dcfa-28ed-4648-82bc-7b42f7ca358c
+
+	/// Valor do cartão do resumo executivo, ex.: 6 de 15.
+	measure 'Lojas abaixo da meta (X de N)' = [Lojas abaixo da meta] & " de " & [Lojas ativas]
+		displayFolder: 6. Textos
+		lineageTag: 2121ddd4-6ef2-46fe-8f4f-690ccf09be22
+
+	/// Subtítulo do cartão Lojas abaixo da meta: quanto falta nelas até o dia.
+	measure 'Contexto das lojas abaixo da meta' =
+			VAR n = [Lojas abaixo da meta]
+			VAR falta = FORMAT([Falta nas lojas abaixo da meta (até o dia)], "#,0", "pt-BR")
+			RETURN
+			    IF(n > 1, "faltam R$ " & falta & " nelas até o dia", IF(n = 1, "falta R$ " & falta & " nela até o dia", "nenhuma loja abaixo da meta até o dia"))
+		displayFolder: 6. Textos
+		lineageTag: cc9bfade-7c33-44b9-b072-a5e1facf1211
+
+	/// Setor com a maior diferença negativa entre receita e meta até o dia, no conjunto das lojas do contexto ("Setor que mais derruba" só vale com uma loja). Em branco se nenhum setor ficou abaixo.
+	measure 'Setor que mais derruba (rede)' =
+			VAR t = ADDCOLUMNS(VALUES(Setores[setor]), "@c", [Contribuição do setor (R$)])
+			VAR minimo = MINX(t, [@c])
+			RETURN
+			    IF(minimo < 0, MAXX(TOPN(1, t, [@c], ASC), Setores[setor]) & " (-R$ " & FORMAT(-minimo, "#,0", "pt-BR") & ")")
+		displayFolder: 7. Diagnóstico
+		lineageTag: 0607d257-d4d1-4f56-a85e-87763fc67f81
+
+	/// Veredito da rede (resumo executivo): situação até o dia, projeção, chance (estimativa), lojas abaixo da meta com a de maior falta e o setor que mais pesa contra. Segue o filtro de Lojas (com RLS por loja, dirá a situação da loja do gerente; a chance continua sendo a da rede).
+	measure 'Veredito da rede' =
+			VAR cob = [Cobertura da meta até o dia]
+			VAR proj = [Projeção de fechamento]
+			VAR nab = [Lojas abaixo da meta]
+			VAR n = [Lojas ativas]
+			VAR falta = FORMAT([Falta nas lojas abaixo da meta (até o dia)], "#,0", "pt-BR")
+			VAR t = ADDCOLUMNS(VALUES(Lojas[nome_loja]), "@f", [Falta para a meta até o dia])
+			VAR fmax = MAXX(t, [@f])
+			VAR lmax = MAXX(TOPN(1, t, [@f], DESC), Lojas[nome_loja])
+			VAR setor = [Setor que mais derruba (rede)]
+			VAR p1 = "Rede " & IF(cob >= 1, "acima", "abaixo") & " da meta até o dia (" & FORMAT(cob, "0.0%", "pt-BR") & ")."
+			VAR p2 = IF(NOT ISBLANK(proj), " Projeção de fechamento: R$ " & FORMAT(proj, "#,0", "pt-BR") & " (" & FORMAT([Cobertura projetada], "0.0%", "pt-BR") & " da meta do mês).")
+			VAR p3 = " Chance de bater a meta: " & [Chance da rede (texto)] & "."
+			VAR p4 =
+			    IF(
+			        nab > 1, " " & nab & " de " & n & " lojas abaixo da meta; faltam R$ " & falta & " nelas até o dia, a maior em " & lmax & " (R$ " & FORMAT(fmax, "#,0", "pt-BR") & ").",
+			        IF(nab = 1, " 1 de " & n & " lojas abaixo da meta (" & lmax & "); falta R$ " & falta & " nela até o dia.", " Todas as " & n & " lojas na meta ou acima até o dia.")
+			    )
+			VAR p5 = IF(NOT ISBLANK(setor), " Setor que mais pesa contra a meta: " & setor & ".")
+			RETURN
+			    IF(ISBLANK(cob), "Sem meta no período.", p1 & p2 & p3 & p4 & p5)
+		displayFolder: 7. Diagnóstico
+		lineageTag: 6e29660d-21e7-485a-90ca-bda0c1977b29

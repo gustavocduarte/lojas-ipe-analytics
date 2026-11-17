@@ -16,18 +16,17 @@ se comparam ao orçado e à previsão por centro de custo, e quais lançamentos 
 | 2 | ETL com validações de qualidade e carga via procedures | concluída |
 | 3 | Regras de anomalia em SQL e tabela de alertas | concluída |
 | 4 | Previsão de vendas, relatório Excel e macro VBA | concluída |
-| 5 | Dashboard Power BI (projeto `.pbip`) | em andamento: prontas Vendas vs Meta, Lojas, Comparação de lojas, Detalhe da loja e Diagnóstico da loja (as duas últimas por drill-through); Resumo Executivo em primeira versão |
+| 5 | Dashboard Power BI (projeto `.pbip`) | em andamento: prontas Resumo executivo (capa), Vendas vs Meta, Lojas, Comparação de lojas, Detalhe da loja e Diagnóstico da loja (as duas últimas por drill-through) |
 | 6 | Documentação final | a fazer |
 
 ## Roadmap
 
 Tudo abaixo está **planejado e ainda não implementado** (ordem aproximada):
 
-1. **Visuais da probabilidade de bater a meta** no Power BI (a probabilidade já está no banco): cartão em Vendas vs Meta, coluna na matriz de lojas, linha no diagnóstico da loja e tooltip no detalhe da loja.
-2. **Páginas que faltam no Power BI:** Comportamento de Compra, Vendedores (com detalhe por drill-through), Orçado vs Realizado vs Previsão (despesas), Alertas, Acompanhamento Diário em tempo quase real e Simulador de troca de setor. O Resumo Executivo existe como primeira versão (5 visuais) e será refeito no padrão das demais páginas.
-3. **Segurança por loja (RLS):** gerente vê só a sua loja e a matriz vê tudo (tabela de usuários × loja e filtro por `USERPRINCIPALNAME()`).
-4. **Pipeline de dados na nuvem:** ideia, ainda sem desenho.
-5. **App de registro de vendas (Fase 7):** PWA para vendedor e gerente, com API própria, e o app como mais uma fonte do ETL.
+1. **Páginas que faltam no Power BI:** Comportamento de Compra, Vendedores (com detalhe por drill-through), Orçado vs Realizado vs Previsão (despesas), Alertas, Acompanhamento Diário em tempo quase real e Simulador de troca de setor.
+2. **Dois relatórios sobre o mesmo modelo:** Matriz (Resumo executivo, Vendas vs Meta, Lojas e Comparação de lojas, com Detalhe e Diagnóstico por drill-through) e Loja (Detalhe e Diagnóstico, com RLS: o gerente vê só a sua loja; demonstração com Ipê São Paulo).
+3. **Pipeline de dados na nuvem:** ideia, ainda sem desenho.
+4. **App de registro de vendas (Fase 7):** PWA para vendedor e gerente, com API própria, e o app como mais uma fonte do ETL.
 
 ## Como rodar
 ```
