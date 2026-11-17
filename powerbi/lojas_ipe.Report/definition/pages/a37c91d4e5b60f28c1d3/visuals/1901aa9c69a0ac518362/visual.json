@@ -163,12 +163,12 @@
                       "Entity": "Medidas"
                     }
                   },
-                  "Property": "Venda por m² no mês (projetada)"
+                  "Property": "Índice de venda por m² (rede = 100)"
                 }
               },
-              "queryRef": "Medidas.Venda por m² no mês (projetada)",
-              "nativeQueryRef": "Venda por m² no mês (projetada)",
-              "displayName": "Venda por m² no mês (projetada)"
+              "queryRef": "Medidas.Índice de venda por m² (rede = 100)",
+              "nativeQueryRef": "Índice de venda por m² (rede = 100)",
+              "displayName": "Índice de venda por m² (rede = 100)"
             },
             {
               "field": {
@@ -506,7 +506,7 @@
             }
           },
           "selector": {
-            "metadata": "Medidas.Venda por m² no mês (projetada)"
+            "metadata": "Medidas.Índice de venda por m² (rede = 100)"
           }
         },
         {
@@ -711,7 +711,7 @@
             }
           },
           "selector": {
-            "metadata": "Medidas.Venda por m² no mês (projetada)"
+            "metadata": "Medidas.Índice de venda por m² (rede = 100)"
           }
         }
       ]

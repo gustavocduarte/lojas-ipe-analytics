@@ -43,32 +43,17 @@
                       "Entity": "Medidas"
                     }
                   },
-                  "Property": "Venda por m² no mês (projetada)"
+                  "Property": "Índice de venda por m² (rede = 100)"
                 }
               },
-              "queryRef": "Medidas.Venda por m² no mês (projetada)",
-              "nativeQueryRef": "Venda por m² no mês (projetada)",
-              "displayName": "Venda por m² no mês (projetada)"
+              "queryRef": "Medidas.Índice de venda por m² (rede = 100)",
+              "nativeQueryRef": "Índice de venda por m² (rede = 100)",
+              "displayName": "Índice de venda por m² (rede = 100)"
             }
           ]
         },
         "Tooltips": {
           "projections": [
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Medidas"
-                    }
-                  },
-                  "Property": "Venda por m²"
-                }
-              },
-              "queryRef": "Medidas.Venda por m²",
-              "nativeQueryRef": "Venda por m²",
-              "displayName": "Venda por m² do período (só para comparar lojas)"
-            },
             {
               "field": {
                 "Measure": {
@@ -97,7 +82,7 @@
                     "Entity": "Medidas"
                   }
                 },
-                "Property": "Venda por m² no mês (projetada)"
+                "Property": "Índice de venda por m² (rede = 100)"
               }
             },
             "direction": "Descending"
@@ -169,6 +154,61 @@
             }
           }
         }
+      ],
+      "xAxisReferenceLine": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "value": {
+              "expr": {
+                "Literal": {
+                  "Value": "100D"
+                }
+              }
+            },
+            "lineColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#5B6B7C'"
+                    }
+                  }
+                }
+              }
+            },
+            "style": {
+              "expr": {
+                "Literal": {
+                  "Value": "'solid'"
+                }
+              }
+            },
+            "width": {
+              "expr": {
+                "Literal": {
+                  "Value": "2D"
+                }
+              }
+            },
+            "position": {
+              "expr": {
+                "Literal": {
+                  "Value": "'front'"
+                }
+              }
+            }
+          },
+          "selector": {
+            "id": "linha_100"
+          }
+        }
       ]
     },
     "visualContainerObjects": {
@@ -185,7 +225,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Venda por m² no mês (projetada), por loja'"
+                  "Value": "'Índice de venda por m² (rede = 100), por loja'"
                 }
               }
             },
@@ -193,6 +233,26 @@
               "expr": {
                 "Literal": {
                   "Value": "14D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'100 = venda por m² da rede'"
                 }
               }
             }
