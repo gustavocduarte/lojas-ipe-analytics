@@ -24,7 +24,7 @@ se comparam ao orçado e à previsão por centro de custo, e quais lançamentos 
 Tudo abaixo está **planejado e ainda não implementado** (ordem aproximada):
 
 1. **Páginas que faltam no Power BI:** Comportamento de Compra, Vendedores (com detalhe por drill-through), Orçado vs Realizado vs Previsão (despesas), Alertas, Acompanhamento Diário em tempo quase real e Simulador de troca de setor.
-2. **Dois relatórios sobre o mesmo modelo:** Matriz (Resumo executivo, Vendas vs Meta, Lojas e Comparação de lojas, com Detalhe e Diagnóstico por drill-through) e Loja (Detalhe e Diagnóstico, com RLS: o gerente vê só a sua loja; demonstração com Ipê São Paulo).
+2. **Dois relatórios sobre o mesmo modelo:** Matriz (Resumo executivo, Vendas vs Meta, Lojas e Comparação de lojas, com Detalhe e Diagnóstico por drill-through) e Loja (Detalhe e Diagnóstico, com RLS: o gerente vê só a sua loja; demonstração com Ipê São Paulo). O `Índice de venda por m² (rede = 100)` (Lojas e Comparação de lojas) não deve ir para o relatório da Loja: com RLS, o índice viraria 100 para a própria loja.
 3. **Pipeline de dados na nuvem:** ideia, ainda sem desenho.
 4. **App de registro de vendas (Fase 7):** PWA para vendedor e gerente, com API própria, e o app como mais uma fonte do ETL.
 

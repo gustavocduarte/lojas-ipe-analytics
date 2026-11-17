@@ -56,8 +56,8 @@ Detalhes do contrato de entrada em [`docs/contrato_de_entrada.md`](docs/contrato
 - **Dados sintéticos.** Nomes, valores e comportamentos vêm de um gerador; as conclusões de negócio não valem para nenhuma empresa real.
 - **A previsão subestima o fim de dezembro (Natal).** Na validação de várias origens, o total de 25 a 31/12 sai com viés de −14,4% e o de dezembro, −7,0%. Uma tentativa de modelar o Natal dia a dia piorou o resultado e foi revertida ([`docs/metodologia_previsao_eventos.md`](docs/metodologia_previsao_eventos.md)): há só um ano de histórico de Natal.
 - **A probabilidade tende a ser conservadora.** Nas lojas, o previsto médio é 44,3% contra 47,9% observado; na rede, 44,8% contra 55,7%, mas sobre apenas 9 meses, então não permite conclusão fina.
-- **A área em m² das lojas ainda não é realista:** é um cadastro fixo e fictício, e a venda por m² que sai dele não deve ser lida como diagnóstico.
-- **Ainda em andamento:** o Power BI está em construção (ver os próximos passos), e a probabilidade de bater a meta já está no banco, mas **ainda não tem visual** no dashboard.
+- **A venda por m² aparece como índice (rede = 100), não em R$.** A ABRAS registra faturamento bruto de R$ 37,3 mil por m² em 2024, cerca de R$ 3.100 por mês. Com as áreas das lojas (46.600 m² na rede), isso daria cerca de R$ 145 milhões por mês, e a receita líquida projetada da rede em dezembro de 2025 é de R$ 0,79 milhão: cerca de 180 vezes menor. A comparação é aproximada (o número da ABRAS é faturamento bruto; o nosso é receita líquida), mas basta para mostrar que o valor em R$ por m² não tem leitura de mercado; o índice só compara as lojas entre si. As áreas seguem as faixas por formato da ABRAS (2019); a diferença de venda por m² entre formatos é hipótese, sem fonte.
+- **Ainda em andamento:** o Power BI está em construção (ver os próximos passos). A probabilidade de bater a meta (sempre como estimativa) aparece no cartão da rede (Vendas vs Meta e Resumo executivo), na matriz da página Lojas, na linha 7 do Diagnóstico e no tooltip do Acumulado.
 
 ## Como rodar
 

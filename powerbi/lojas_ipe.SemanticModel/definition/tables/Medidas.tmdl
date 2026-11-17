@@ -690,6 +690,14 @@ table Medidas
 		displayFolder: 1. Vendas
 		lineageTag: 84617b35-5ed1-47e6-9853-0e780fba8054
 
+	/// Venda por m² no mês (projetada) da loja ÷ a da rede × 100 (rede = 100). Compara as lojas entre si sem depender da escala da receita sintética. Rede = todas as lojas (REMOVEFILTERS(Lojas)), exceção aprovada porque as páginas que o usam (Lojas e Comparação de lojas) ficam só no relatório da Matriz. Não usar no relatório da Loja: com RLS, o índice viraria 100 para a própria loja.
+	measure 'Índice de venda por m² (rede = 100)' =
+			VAR rede = CALCULATE([Venda por m² no mês (projetada)], REMOVEFILTERS(Lojas))
+			RETURN DIVIDE([Venda por m² no mês (projetada)], rede) * 100
+		formatString: 0
+		displayFolder: 1. Vendas
+		lineageTag: 05a5331b-1513-40ff-a00b-f76db777f5ee
+
 	/// Quadrante da loja: sinal da evolução da receita × sinal da variação da margem (R$) contra o mesmo período do ano anterior. Em branco para loja sem histórico.
 	measure Quadrante =
 			VAR x = [Evolução vs ano anterior]
